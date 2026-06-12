@@ -79,6 +79,9 @@
     // ── Liability disclaimer (shown sitewide in the footer) ──────────────
     disclaimer: 'Please understand that anyone who chooses to attend any Small Town Select Baseball Tournaments is assuming liability for themselves. Small Town Select Baseball Tournaments and its host locations are not responsible or liable for anyone who may become sick or ill from attending an event. Everyone is fully aware of the risks that come with attending an event or gathering with large numbers of people. By attending a Small Town Select Baseball Tournament you assume full self-responsibility for these risks and in no way can hold Small Town Select Baseball Tournaments or its host locations liable for any illnesses or viruses spread.',
 
+    // ── Default registration waiver (pre-fills new forms; editable per form) ──
+    defaultWaiver: 'By registering, I acknowledge that participation in Small Town Select Tournaments is at my own and my team\'s risk. Small Town Select Tournaments and its host locations are not responsible or liable for any injury, illness, loss, or damage arising from participation in or attendance at any event. All teams must complete the season Team Registration and must carry team insurance purchased through Small Town Select, or add Small Town Select as additionally insured on their own team policy. I have read, understand, and agree to these terms on behalf of my team.',
+
     // ── Products / add-ons (sold via registration forms) ─────────────────
     products: [
       { name: '2026 Team Insurance', note: 'Baseball & softball — valid Aug 1, 2025 to Jul 31, 2026', form: 'team-insurance' },

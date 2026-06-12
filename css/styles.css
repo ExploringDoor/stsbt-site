@@ -174,6 +174,12 @@ button.champ-card:hover { transform: translateY(-3px); box-shadow: 0 10px 26px r
 .ch-drop img { max-width: 100%; max-height: 220px; border-radius: 8px; }
 .an-empty { text-align: center; padding: var(--space-5); border: 1px dashed var(--line); border-radius: 12px; }
 
+/* ── Admin: divisions chip picker (form editor) ── */
+.dv-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.dv-chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border: 1px solid var(--line); border-radius: 999px; background: #fff; cursor: pointer; font-family: var(--font-display); font-weight: 600; font-size: var(--text-sm); color: var(--sts-navy); }
+.dv-chip.on { border-color: var(--sts-navy); background: rgba(0,45,114,.06); }
+.dv-chip .dv-ck { accent-color: var(--sts-navy); cursor: pointer; }
+
 /* ── Admin: age-division pricing grid (form editor) ── */
 .ap-bulk { display: flex; align-items: center; gap: 8px; margin: 2px 0 12px; flex-wrap: wrap; }
 .ap-bulk #f_bulk { width: 90px; }

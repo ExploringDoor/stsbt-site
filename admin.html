@@ -669,29 +669,67 @@
     });
     return po;
   }
+  // event-date display string from start/end ISO dates (for public pages)
+  var MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtEventDates(start, end){
+    if(!start) return '';
+    var s=new Date(start+'T12:00:00'); if(isNaN(s)) return '';
+    var sStr=MON3[s.getMonth()]+' '+s.getDate();
+    if(!end || end===start) return sStr+', '+s.getFullYear();
+    var e=new Date(end+'T12:00:00'); if(isNaN(e)) return sStr+', '+s.getFullYear();
+    if(s.getFullYear()===e.getFullYear() && s.getMonth()===e.getMonth()) return MON3[s.getMonth()]+' '+s.getDate()+'–'+e.getDate()+', '+s.getFullYear();
+    if(s.getFullYear()===e.getFullYear()) return sStr+' – '+MON3[e.getMonth()]+' '+e.getDate()+', '+s.getFullYear();
+    return sStr+', '+s.getFullYear()+' – '+MON3[e.getMonth()]+' '+e.getDate()+', '+e.getFullYear();
+  }
+  // divisions for a sport, from config.divisions
+  function divsForSport(sport){
+    var D=(window.LEAGUE_CONFIG&&LEAGUE_CONFIG.divisions)||{}, out=[];
+    if(sport==='baseball'||sport==='both') (D.baseball||[]).forEach(function(d){ out.push(d.name); });
+    if(sport==='softball'||sport==='both') (D.softball||[]).forEach(function(d){ out.push(d.name); });
+    return out;
+  }
+  function divChipsHTML(sport, selected){
+    selected = selected||[];
+    var all = divsForSport(sport).slice();
+    selected.forEach(function(s){ if(all.indexOf(s)<0) all.push(s); });   // preserve any custom divisions
+    if(!all.length) return '<span class="muted" style="font-size:var(--text-sm)">Pick a sport to see its divisions.</span>';
+    return all.map(function(name){
+      var on=selected.indexOf(name)>=0;
+      return '<label class="dv-chip'+(on?' on':'')+'"><input type="checkbox" class="dv-ck" value="'+esc(name)+'"'+(on?' checked':'')+'>'+esc(name)+'</label>';
+    }).join('');
+  }
+  function selectedDivs(){ return Array.from(document.querySelectorAll('#f_divs .dv-ck:checked')).map(function(c){ return c.value; }); }
   function openFormModal(f){
     var isNew = !f; f = f || { type:'tournament', sport:'baseball', active:true, order:(FORMS.length+1), convenience_fee_cents:300, price_options:[], divisions:[] };
     document.getElementById('fmTitle').textContent = isNew ? 'New Form' : 'Edit Form';
+    var waiverDefault = (window.LEAGUE_CONFIG&&LEAGUE_CONFIG.defaultWaiver)||'';
+    var waiverVal = (f.waiver_text!=null && f.waiver_text!=='') ? f.waiver_text : (isNew ? waiverDefault : '');
     document.getElementById('fmBody').innerHTML =
       '<div class="field"><label>Title</label><input class="input" id="f_title" value="'+esc(f.title||'')+'"></div>'+
       '<div class="field-row"><div class="field"><label>Type</label><select class="input" id="f_type">'+['tournament','season','product'].map(function(t){return '<option'+(f.type===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select></div>'+
       '<div class="field"><label>Sport</label><select class="input" id="f_sport">'+['baseball','softball','both'].map(function(s){return '<option'+(f.sport===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div></div>'+
-      '<div class="field-row"><div class="field"><label>Event Dates</label><input class="input" id="f_dates" value="'+esc(f.event_dates||'')+'"></div>'+
-      '<div class="field"><label>Location</label><input class="input" id="f_loc" value="'+esc(f.location||'')+'"></div></div>'+
-      '<div class="field"><label>Divisions <span class="muted">(comma-separated, optional)</span></label><input class="input" id="f_divs" value="'+esc((f.divisions||[]).join(', '))+'"></div>'+
+      '<div class="field-row"><div class="field"><label>Start Date</label><input class="input" type="date" id="f_start" value="'+esc(f.start_date||'')+'"></div>'+
+      '<div class="field"><label>End Date <span class="muted">(optional)</span></label><input class="input" type="date" id="f_end" value="'+esc(f.end_date||'')+'"></div></div>'+
+      '<div class="field"><label>Location</label><input class="input" id="f_loc" value="'+esc(f.location||'')+'"></div>'+
+      '<div class="field"><label>Divisions <span class="muted">(check the classifications this event offers)</span></label><div class="dv-grid" id="f_divs">'+divChipsHTML(f.sport||'baseball', f.divisions||[])+'</div></div>'+
       '<div class="field"><label>Convenience Fee (USD)</label><input class="input" id="f_conv" value="'+((f.convenience_fee_cents||0)/100).toFixed(2)+'"></div>'+
       '<div class="field"><label>Age Divisions &amp; Pricing <span class="muted">(check the ages this form accepts; set each team entry fee)</span></label>'+
         '<div class="ap-bulk"><span class="muted" style="font-size:var(--text-sm)">Same fee for all?</span> $<input class="input ap-amt" id="f_bulk" inputmode="decimal" placeholder="125.00"> <button type="button" class="btn btn-outline" id="f_bulkApply" style="padding:6px 12px;font-size:var(--text-sm)">Apply to checked</button></div>'+
         apGridHTML(f.price_options)+
         '<button type="button" class="btn btn-outline" id="f_addCustom" style="padding:6px 12px;font-size:var(--text-sm);margin-top:10px">+ Add custom division</button></div>'+
-      '<div class="field"><label>Waiver Text</label><textarea class="input" id="f_waiver">'+esc(f.waiver_text||'')+'</textarea></div>';
+      '<div class="field"><label>Waiver Text <span class="muted">(coaches agree to this at registration)</span></label><textarea class="input" id="f_waiver" style="min-height:130px">'+esc(waiverVal)+'</textarea></div>';
     apWireGrid();
+    // divisions: toggle chip styling + re-render the list when the sport changes
+    document.getElementById('f_divs').addEventListener('change', function(e){ if(e.target.classList.contains('dv-ck')) e.target.closest('.dv-chip').classList.toggle('on', e.target.checked); });
+    document.getElementById('f_sport').addEventListener('change', function(e){ document.getElementById('f_divs').innerHTML = divChipsHTML(e.target.value, selectedDivs()); });
     document.getElementById('fmArchive').textContent = f.archived ? 'Restore' : 'Archive';
     document.getElementById('fmArchive').onclick = async function(){ f.archived=!f.archived; await STS.saveForm(f); FORMS = await STS.loadFormsScoped(ME, {includeInactive:true}); renderForms(); closeModal('formModal'); };
     document.getElementById('fmSave').onclick = async function(){
       f.title = val('f_title'); f.type = val('f_type'); f.sport = val('f_sport');
-      f.event_dates = val('f_dates'); f.location = val('f_loc');
-      f.divisions = val('f_divs').split(',').map(function(s){return s.trim();}).filter(Boolean);
+      f.start_date = val('f_start'); f.end_date = val('f_end');
+      f.event_dates = fmtEventDates(f.start_date, f.end_date) || f.event_dates || '';
+      f.location = val('f_loc');
+      f.divisions = selectedDivs();
       f.convenience_fee_cents = Math.round(parseFloat(val('f_conv')||'0')*100);
       f.price_options = apCollect();
       f.waiver_text = val('f_waiver');
