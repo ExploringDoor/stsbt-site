@@ -450,9 +450,14 @@ export async function saveBracket(formId, meta, gen) {
 }
 
 // Pure: derive standings rows from a games array (only finished games count).
+// Standings + Keith's exact tie-breaker ladder (from his QuickScores config):
+//   rank by Winning % → then break ties in order:
+//   Head-to-Head (2-team ties only) → Total Runs Against (fewer) →
+//   Avg Run Differential (higher) → Total Runs For (more) → Forfeits (fewer) → coin flip.
 export function computeStandings(games) {
-  var t = {};
-  function row(name) { if (!t[name]) t[name] = { team: name, w: 0, l: 0, ties: 0, rs: 0, ra: 0, gp: 0 }; return t[name]; }
+  var t = {}, h2h = {};
+  function row(name) { if (!t[name]) t[name] = { team: name, w: 0, l: 0, ties: 0, rs: 0, ra: 0, gp: 0, ff: 0 }; return t[name]; }
+  function hh(a, b) { h2h[a] = h2h[a] || {}; if (!h2h[a][b]) h2h[a][b] = { w: 0, l: 0 }; return h2h[a][b]; }
   (games || []).forEach(function (g) {
     if (!g.done || g.away_score == null || g.home_score == null) return;
     if (!g.away || !g.home) return;
@@ -460,11 +465,33 @@ export function computeStandings(games) {
     if (!isFinite(as) || !isFinite(hs)) return;   // a hand-edited non-numeric score can't poison standings
     var a = row(g.away), h = row(g.home);
     a.gp++; h.gp++; a.rs += as; a.ra += hs; h.rs += hs; h.ra += as;
-    if (as > hs) { a.w++; h.l++; } else if (hs > as) { h.w++; a.l++; } else { a.ties++; h.ties++; }
+    if (as > hs) { a.w++; h.l++; hh(g.away, g.home).w++; hh(g.home, g.away).l++; if (g.forfeit) h.ff++; }
+    else if (hs > as) { h.w++; a.l++; hh(g.home, g.away).w++; hh(g.away, g.home).l++; if (g.forfeit) a.ff++; }
+    else { a.ties++; h.ties++; }
   });
-  return Object.keys(t).map(function (k) {
-    var r = t[k]; r.pct = (r.w + r.l + r.ties) ? (r.w + r.ties * 0.5) / (r.w + r.l + r.ties) : 0; r.diff = r.rs - r.ra; return r;
-  }).sort(function (a, b) { return b.pct - a.pct || b.diff - a.diff || b.w - a.w; });
+  var rows = Object.keys(t).map(function (k) {
+    var r = t[k];
+    r.pct = (r.w + r.l + r.ties) ? (r.w + r.ties * 0.5) / (r.w + r.l + r.ties) : 0;
+    r.diff = r.rs - r.ra;
+    r.ardiff = r.gp ? (r.diff / r.gp) : 0;
+    return r;
+  });
+  function h2hResult(a, b) { var x = (h2h[a.team] && h2h[a.team][b.team]) || { w: 0, l: 0 }; return x.w > x.l ? 1 : (x.l > x.w ? -1 : 0); }
+  function tieSort(grp) {
+    grp.sort(function (a, b) {
+      if (grp.length === 2) { var hr = h2hResult(a, b); if (hr !== 0) return -hr; }   // 2-team head-to-head
+      if (a.ra !== b.ra) return a.ra - b.ra;                 // fewer runs against
+      if (b.ardiff !== a.ardiff) return b.ardiff - a.ardiff; // higher avg run differential
+      if (b.rs !== a.rs) return b.rs - a.rs;                 // more runs for
+      if (a.ff !== b.ff) return a.ff - b.ff;                 // fewer forfeits
+      return 0;                                              // coin flip → stable order
+    });
+  }
+  rows.sort(function (a, b) { return b.pct - a.pct; });
+  var out = [], i = 0;
+  while (i < rows.length) { var j = i; while (j < rows.length && rows[j].pct === rows[i].pct) j++; var grp = rows.slice(i, j); tieSort(grp); out = out.concat(grp); i = j; }
+  out.forEach(function (s, idx) { s.rank = idx + 1; });
+  return out;
 }
 
 // ── Site content / settings (homepage text, default prices) ──────────
