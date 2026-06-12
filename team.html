@@ -19,6 +19,8 @@
   .ts-stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 10px; text-align: center; }
   .ts-stat .n { font-family: var(--font-display); font-size: 26px; font-weight: 700; color: var(--sts-navy); line-height: 1; letter-spacing: .01em; }
   .ts-stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-top: 7px; }
+  .pl-namelink { color: var(--sts-navy); font-weight: 600; text-decoration: none; }
+  .pl-namelink:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -105,7 +107,10 @@
     var roster = (t.roster||[]);
     var rosterHTML = roster.length
       ? '<div class="table-wrap"><table class="tbl roster-table"><thead><tr><th>#</th><th>Player</th><th>Grade</th></tr></thead><tbody>'+
-        roster.map(function(p){ return '<tr><td class="jersey">'+esc(p.num||'')+'</td><td>'+esc(p.name||'')+'</td><td>'+esc(p.grade||'')+'</td></tr>'; }).join('')+
+        roster.map(function(p,i){
+          var nm=(p.name||'').trim();
+          var nameCell = nm ? '<a class="pl-namelink" href="player.html?t='+esc(t.slug||t.id)+'&i='+i+'">'+esc(nm)+'</a>' : '';
+          return '<tr><td class="jersey">'+esc(p.num||'')+'</td><td>'+nameCell+'</td><td>'+esc(p.grade||'')+'</td></tr>'; }).join('')+
         '</tbody></table></div>'
       : '<div class="empty">No roster posted yet. The coach can add players with their team code.</div>';
     var tourneys = (t.tournaments||[]);
