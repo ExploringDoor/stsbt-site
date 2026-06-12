@@ -107,6 +107,7 @@ service cloud.firestore {
     match /teams/{id}        { allow read: if true; allow write: if isSuper(); }
     match /standings/{id}    { allow read: if true; allow write: if isSuper(); }
     match /site_content/{id} { allow read: if true; allow write: if isSuper(); }
+    match /champions/{id}    { allow read: if true; allow write: if isSuper(); }   // winner photos
 
     // Everything else: locked.
     match /{document=**} { allow read, write: if false; }
