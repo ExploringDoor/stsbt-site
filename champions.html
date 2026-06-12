@@ -90,9 +90,11 @@
     // live champions, derived from each event's completed bracket
     var live = [];
     if (window.STSbracket) {
-      // group by event AND division — a form can run a separate bracket per division
+      // group by event AND division — a form can run a separate bracket per division.
+      // skip events whose schedule isn't released to the public yet.
+      function pub(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return !f || f.schedule_published !== false; }
       var byKey = {};
-      GAMES.forEach(function(g){ if (g.g!=null){ var k=g.form_id+'||'+(g.division||''); (byKey[k]=byKey[k]||[]).push(g); } });
+      GAMES.forEach(function(g){ if (g.g!=null && pub(g.form_id)){ var k=g.form_id+'||'+(g.division||''); (byKey[k]=byKey[k]||[]).push(g); } });
       Object.keys(byKey).forEach(function(k){
         var t = { games: byKey[k] }, champ = null;
         try { champ = STSbracket.championOutcome(t, STSbracket.classify(t)).champion; } catch(e){}

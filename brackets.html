@@ -79,7 +79,7 @@
     try {
       FORMS = await STS.loadForms(); GAMES = await STS.loadGames();
       var withB={}; GAMES.forEach(function(g){ if(g.g!=null) withB[g.form_id]=1; });
-      var opts = FORMS.filter(function(f){ return withB[f.id]; });
+      var opts = FORMS.filter(function(f){ return withB[f.id] && f.schedule_published !== false; });
       if(!opts.length){ document.getElementById('bracketOut').innerHTML='<div class="bk-empty"><h2 style="color:var(--sts-navy);margin:0 0 8px">No brackets yet</h2><p class="muted" style="text-transform:none;letter-spacing:0">Brackets post here once tournament play begins. See <a href="bracket-preview.html">example brackets</a> for every team count.</p></div>'; document.getElementById('eventSel').style.display='none'; return; }
       document.getElementById('eventSel').innerHTML = opts.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
       var deep = location.hash.replace('#','');

@@ -119,6 +119,7 @@
         <div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" id="bracketBtn">🏆 Bracket / Pool</button><button class="btn btn-red btn-sm" id="newGameBtn">+ Add Game</button></div>
       </div>
       <p class="muted" style="font-size:var(--text-sm)">Create games and post scores for your events. Standings on the public site update automatically from finished games.</p>
+      <div id="schedPublish" style="margin-bottom:var(--space-3)"></div>
       <div id="scheduleWrap"></div>
       <datalist id="teamNames"></datalist>
     </section>
@@ -700,7 +701,7 @@
   }
   function selectedDivs(){ return Array.from(document.querySelectorAll('#f_divs .dv-ck:checked')).map(function(c){ return c.value; }); }
   function openFormModal(f){
-    var isNew = !f; f = f || { type:'tournament', sport:'baseball', active:true, order:(FORMS.length+1), convenience_fee_cents:300, price_options:[], divisions:[] };
+    var isNew = !f; f = f || { type:'tournament', sport:'baseball', active:true, order:(FORMS.length+1), convenience_fee_cents:300, price_options:[], divisions:[], schedule_published:false };
     document.getElementById('fmTitle').textContent = isNew ? 'New Form' : 'Edit Form';
     var waiverDefault = (window.LEAGUE_CONFIG&&LEAGUE_CONFIG.defaultWaiver)||'';
     var waiverVal = (f.waiver_text!=null && f.waiver_text!=='') ? f.waiver_text : (isNew ? waiverDefault : '');
@@ -853,6 +854,16 @@
   }
   function renderSchedule(){
     refreshSchedControls();
+    // per-event publish status (gate the public schedule until Keith releases it)
+    var pubBar = document.getElementById('schedPublish');
+    if (schedFilt) {
+      var pf = FORMS.find(function(x){ return x.id===schedFilt; }) || {};
+      var pub = pf.schedule_published !== false;
+      pubBar.style.display = '';
+      pubBar.innerHTML = '<div class="notice" style="display:flex;align-items:center;justify-content:space-between;gap:12px;'+(pub?'background:rgba(4,120,87,.08);border:1px solid #047857;color:#065f46':'background:rgba(180,83,9,.08);border:1px solid #b45309;color:#7c4a03')+'">'+
+        '<span>'+(pub?'🌐 This schedule is <b>LIVE</b> on the public site.':'🔒 This schedule is <b>hidden</b> from the public until you release it.')+'</span>'+
+        '<button class="btn btn-sm '+(pub?'btn-outline':'btn-navy')+'" id="schedPubToggle">'+(pub?'Hide from public':'Release to public')+'</button></div>';
+    } else { pubBar.style.display='none'; pubBar.innerHTML=''; }
     var wrap = document.getElementById('scheduleWrap');
     var rows = GAMES.filter(function(g){ return !schedFilt || g.form_id===schedFilt; });
     if (!rows.length){ wrap.innerHTML = '<div class="empty">No games yet. Click <b>+ Add Game</b> to build your schedule.</div>'; return; }
@@ -870,6 +881,14 @@
     }).join('');
   }
   document.getElementById('schedEvent').addEventListener('change', function(e){ schedFilt=e.target.value; renderSchedule(); });
+  document.getElementById('schedPublish').addEventListener('click', async function(e){
+    if(!e.target.closest('#schedPubToggle')) return;
+    var f = FORMS.find(function(x){ return x.id===schedFilt; }); if(!f) return;
+    f.schedule_published = (f.schedule_published === false);   // hidden→release(true), public→hide(false)
+    await STS.saveForm(f);
+    FORMS = await STS.loadFormsScoped(ME, { includeInactive:true });
+    renderSchedule();
+  });
   document.getElementById('scheduleWrap').addEventListener('click', function(e){ var b=e.target.closest('button[data-gedit]'); if(!b) return; var g=GAMES.find(function(x){return x.id===b.dataset.gedit;}); if(g) openGameModal(g); });
   document.getElementById('newGameBtn').addEventListener('click', function(){
     if (!TOURNEY_FORMS().length){ alert('Create a tournament form first (Forms tab) — games attach to an event.'); return; }

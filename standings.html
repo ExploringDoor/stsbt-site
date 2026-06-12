@@ -58,9 +58,10 @@
       rows.map(function(r,i){ return '<tr><td class="rank">'+(i+1)+'</td><td class="team-cell">'+esc(r.team)+'</td><td>'+r.w+'</td><td>'+r.l+'</td><td>'+r.ties+'</td><td class="num">'+r.pct.toFixed(3).replace(/^0/,'')+'</td><td>'+r.rs+'</td><td>'+r.ra+'</td><td>'+(r.diff>0?'+':'')+r.diff+'</td></tr>'; }).join('')+
       '</tbody></table></div>';
   }
+  function schedPublic(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return !f || f.schedule_published !== false; }
   function render(){
     var out=document.getElementById('standingsOut');
-    var rows=GAMES.filter(function(g){ if(g.g!=null) return false; if(filt.sport&&g.sport!==filt.sport) return false; if(filt.event&&g.form_id!==filt.event) return false; return true; });
+    var rows=GAMES.filter(function(g){ if(g.g!=null) return false; if(!schedPublic(g.form_id)) return false; if(filt.sport&&g.sport!==filt.sport) return false; if(filt.event&&g.form_id!==filt.event) return false; return true; });
     var played=rows.filter(function(g){ return g.done && g.away_score!=null && g.home_score!=null; });
     if(!played.length){ out.innerHTML='<div class="empty">No finished games yet — standings appear once scores are posted.</div>'; return; }
     var byEvent={}; rows.forEach(function(g){ (byEvent[g.form_id]=byEvent[g.form_id]||[]).push(g); });
@@ -86,7 +87,7 @@
       FORMS = await STS.loadForms();
       GAMES = await STS.loadGames();
       GAMES.forEach(function(g){ if(!g.sport) g.sport=sportFor(g.form_id); });
-      var tf = FORMS.filter(function(f){ return f.type==='tournament'; });
+      var tf = FORMS.filter(function(f){ return f.type==='tournament' && f.schedule_published !== false; });
       document.getElementById('eventSel').innerHTML='<option value="">All events</option>'+tf.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
       render();
     } catch(e){ document.getElementById('standingsOut').innerHTML='<div class="empty">Could not load standings.</div>'; }

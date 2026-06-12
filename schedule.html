@@ -68,9 +68,10 @@
     return STSbracket.sideDisplay(bt, raw).name;
   }
 
+  function schedPublic(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return !f || f.schedule_published !== false; }
   function render(){
     var out=document.getElementById('scheduleOut');
-    var rows=GAMES.filter(function(g){ if(filt.sport&&g.sport!==filt.sport) return false; if(filt.event&&g.form_id!==filt.event) return false; return true; });
+    var rows=GAMES.filter(function(g){ if(!schedPublic(g.form_id)) return false; if(filt.sport&&g.sport!==filt.sport) return false; if(filt.event&&g.form_id!==filt.event) return false; return true; });
     if(!rows.length){ out.innerHTML='<div class="empty">No games posted yet — check back soon.</div>'; return; }
     var byEvent={}; rows.forEach(function(g){ (byEvent[g.form_id]=byEvent[g.form_id]||[]).push(g); });
     out.innerHTML = Object.keys(byEvent).map(function(fid){
@@ -107,7 +108,7 @@
       FORMS = await STS.loadForms();
       GAMES = await STS.loadGames();
       GAMES.forEach(function(g){ if(!g.sport) g.sport=(FORMS.find(function(f){return f.id===g.form_id;})||{}).sport||''; });
-      var tf = FORMS.filter(function(f){ return f.type==='tournament'; });
+      var tf = FORMS.filter(function(f){ return f.type==='tournament' && f.schedule_published !== false; });
       document.getElementById('eventSel').innerHTML='<option value="">All events</option>'+tf.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
       render();
     } catch(e){ document.getElementById('scheduleOut').innerHTML='<div class="empty">Could not load the schedule.</div>'; }
