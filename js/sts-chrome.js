@@ -93,6 +93,17 @@
     '</div></div></footer>';
 
   function inject() {
+    // demo-mode banner (?demo=1) — example data, not real
+    try {
+      var du = null; try { du = new URLSearchParams(location.search).get('demo'); } catch (e) {}
+      var demoOn = du === '1' || (du !== '0' && (function(){ try { return localStorage.getItem('sts-demo') === '1'; } catch (e) { return false; } })());
+      if (demoOn && !document.querySelector('.demo-banner')) {
+        var bn = document.createElement('div');
+        bn.className = 'demo-banner';
+        bn.innerHTML = '🎭 Demo mode — example data, not real registrations · <a href="?demo=0">Exit demo</a>';
+        document.body.insertBefore(bn, document.body.firstChild);
+      }
+    } catch (e) {}
     var n = document.getElementById('sts-nav'); if (n) n.outerHTML = navHTML;
     var f = document.getElementById('sts-footer'); if (f) f.outerHTML = footHTML;
     var more = document.querySelector('.nav-more');

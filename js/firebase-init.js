@@ -20,7 +20,18 @@ const firebaseConfig = {
   appId: "1:879539750087:web:8515a0d8a74c47c7f02ae2"
 };
 
-export const isConfigured = !String(firebaseConfig.apiKey).startsWith('PASTE');
+// Demo mode — add ?demo=1 to any page URL to force the built-in SAMPLE data (so the
+// site can be shown fully populated without real Firebase). It persists per-browser
+// via localStorage; ?demo=0 exits. Real visitors never see it unless they opt in.
+function demoMode(){
+  var u = null;
+  try { u = new URLSearchParams(location.search).get('demo'); } catch (e) {}
+  if (u === '1') { try { localStorage.setItem('sts-demo', '1'); } catch (e) {} return true; }   // active this page even if storage is blocked
+  if (u === '0') { try { localStorage.removeItem('sts-demo'); } catch (e) {} return false; }
+  try { return localStorage.getItem('sts-demo') === '1'; } catch (e) { return false; }
+}
+export const DEMO = demoMode();
+export const isConfigured = !DEMO && !String(firebaseConfig.apiKey).startsWith('PASTE');
 
 let app = null, db = null, auth = null;
 if (isConfigured) {
