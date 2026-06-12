@@ -525,11 +525,19 @@
       '<div class="mini-stat"><div class="n">'+unpaid+'</div><div class="l">Unpaid / Pending</div></div>'+
       '<div class="mini-stat"><div class="n">'+STS.money(revenue)+'</div><div class="l">Collected</div></div>';
   }
+  // At Keith's real volume (1,100+ entries) rendering every row on each keystroke
+  // costs ~400ms — so the table renders the first ENTRY_CAP rows with an explicit
+  // "Show all" escape hatch, and the search box re-renders on a short debounce.
+  var ENTRY_CAP = 200, entriesShowAll = false;
   function renderEntries(){
     renderEntryStats();
-    var rows = filteredRegs();
+    var allRows = filteredRegs();
+    var rows = (!entriesShowAll && allRows.length > ENTRY_CAP) ? allRows.slice(0, ENTRY_CAP) : allRows;
     var body = document.getElementById('entriesBody');
-    document.getElementById('entriesEmpty').classList.toggle('hidden', rows.length>0);
+    document.getElementById('entriesEmpty').classList.toggle('hidden', allRows.length>0);
+    var moreRow = rows.length < allRows.length
+      ? '<tr><td colspan="15" style="text-align:center;padding:14px"><button class="btn btn-outline btn-sm" id="entriesShowAll">Show all '+allRows.length+' entries ('+(allRows.length-rows.length)+' more)</button></td></tr>'
+      : '';
     body.innerHTML = rows.map(function(r){
       var archived = (r.status==='archived');
       return '<tr>'+
@@ -554,10 +562,15 @@
             ? '<button class="icon-btn" data-restore="'+esc(r.id)+'" title="Restore">↩</button>'
             : '<button class="icon-btn danger" data-archive="'+esc(r.id)+'" title="Archive">🗄</button>')+
         '</div></td></tr>';
-    }).join('');
+    }).join('') + moreRow;
   }
-  // entry filters
-  document.getElementById('entrySearch').addEventListener('input', function(e){ filt.q = e.target.value; renderEntries(); });
+  // entry filters (search debounced — see ENTRY_CAP note above)
+  var entrySearchDeb = null;
+  document.getElementById('entrySearch').addEventListener('input', function(e){
+    var v = e.target.value;
+    clearTimeout(entrySearchDeb);
+    entrySearchDeb = setTimeout(function(){ filt.q = v; renderEntries(); }, 150);
+  });
   document.getElementById('entryForm').addEventListener('change', function(e){ filt.form = e.target.value; renderEntries(); });
   document.getElementById('payPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.pay=b.dataset.pay; document.querySelectorAll('#payPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); renderEntries(); });
   document.getElementById('statusPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.status=b.dataset.status; document.querySelectorAll('#statusPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); renderEntries(); });
@@ -565,6 +578,7 @@
   // entry actions
   document.getElementById('entriesBody').addEventListener('click', async function(e){
     var b = e.target.closest('button'); if(!b) return;
+    if (b.id === 'entriesShowAll'){ entriesShowAll = true; renderEntries(); return; }
     var id = b.dataset.edit || b.dataset.archive || b.dataset.restore || b.dataset.copy;
     var r = REGS.find(function(x){ return x.id===id; }); if(!r) return;
     if (b.dataset.archive){ await STS.updateRegistration(id, { status:'archived' }); r.status='archived'; renderEntries(); return; }

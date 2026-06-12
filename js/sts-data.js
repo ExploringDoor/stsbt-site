@@ -138,6 +138,70 @@ var SAMPLE_GAMES = [
 var _games = SAMPLE_GAMES.map(function (g) { return Object.assign({}, g); });
 var _gameSeq = 9000;   // unique sample-mode ids for batch-created games
 
+// ── SCALE MODE (?scale=N, sample/demo only) ──────────────────────────
+// Synthesizes N extra registrations (+ live teams for the paid season ones) so
+// the admin and public pages can be exercised at Keith's REAL volume (~1,150
+// entries / ~700 teams) without touching Firebase. Deterministic: same N →
+// same data. Try admin.html?scale=1163 or show Keith ?demo=1&scale=1163.
+(function () {
+  if (isConfigured) return;
+  var n = 0;
+  try { n = parseInt(new URLSearchParams(location.search).get('scale'), 10) || 0; } catch (e) {}
+  if (n < 1) return;
+  n = Math.min(n, 5000);
+  var TOWNS = ['Brownwood', 'Early', 'Clyde', 'Abilene', 'San Angelo', 'Georgetown', 'Iowa Park', 'Hillsboro', 'Comanche', 'Stephenville', 'Belton', 'Waco', 'Killeen', 'Temple', 'Burnet', 'Llano', 'Goldthwaite', 'Hamilton', 'Dublin', 'Cisco'];
+  var MASCOTS = ['Hawks', 'Mustangs', 'Raiders', 'Gators', 'Longhorns', 'Outlaws', 'Heat', 'Storm', 'Sluggers', 'Bandits', 'Bulldogs', 'Wranglers', 'Rattlers', 'Aces', 'Renegades', 'Scrappers', 'Vipers', 'Titans', 'Hounds', 'Stallions'];
+  var FIRST = ['Jake', 'Cody', 'Travis', 'Lance', 'Misty', 'Shawna', 'Colt', 'Tanner', 'Reese', 'Dusty', 'Sierra', 'Wade'];
+  var LAST = ['Henderson', 'McCoy', 'Whitfield', 'Drummond', 'Sparks', 'Holloway', 'Reyes', 'Tucker', 'Boyd', 'Lambert'];
+  // weighted roughly like Keith's QuickScores: mostly season-baseball entries
+  var FORM_MIX = ['season-baseball', 'season-baseball', 'season-baseball', 'season-baseball', 'season-baseball', 'season-baseball', 'season-baseball', 'season-softball', 'team-insurance', 'team-insurance', 'brownwood-summer-slam', 'iowa-park-heat-wave', 'hill-county-bash', 'georgetown-fathers-day'];
+  var BB_AGES = ['7U', '8U Coach Pitch', '9U', '10U', '11U', '12U', '13U', '14U'];
+  var SB_AGES = ['10U', '12U', '14U', '16U'];
+  var BB_DIVS = ['Minors', 'Triple-A', 'Majors'], SB_DIVS = ['Class C', 'Class B', 'Class A'];
+  var PAY_MIX = ['paid', 'paid', 'paid', 'paid', 'unpaid', 'pending', 'free'];
+  for (var i = 0; i < n; i++) {
+    var fid = FORM_MIX[i % FORM_MIX.length];
+    var form = _forms.find(function (f) { return f.id === fid; }) || _forms[0];
+    var sport = form.sport === 'softball' ? 'softball' : 'baseball';
+    var town = TOWNS[i % TOWNS.length], mascot = MASCOTS[Math.floor(i / TOWNS.length) % MASCOTS.length];
+    var cycle = Math.floor(i / (TOWNS.length * MASCOTS.length));
+    var teamName = town + ' ' + mascot + (cycle ? ' ' + (cycle + 1) : '');
+    var coach = FIRST[i % FIRST.length] + ' ' + LAST[(i * 3) % LAST.length];
+    var pay = PAY_MIX[i % PAY_MIX.length];
+    var fee = form.type === 'season' ? 0 : ((form.price_options && form.price_options[0] && form.price_options[0].cents) || 12800);
+    if (fee === 0 && pay !== 'free' && form.type === 'season') pay = 'free';
+    var mo = 8 + (i % 10); var yr2 = mo > 12 ? '2026' : '2025'; mo = mo > 12 ? mo - 12 : mo;
+    var created = yr2 + '-' + String(mo).padStart(2, '0') + '-' + String(1 + (i % 28)).padStart(2, '0') + 'T' + String(8 + (i % 12)).padStart(2, '0') + ':' + String((i * 13) % 60).padStart(2, '0') + ':00';
+    var slug = slugify(teamName);
+    var paidish = pay === 'paid' || pay === 'free';
+    _regs.push({
+      id: 'sc' + i, form_id: fid, entry_no: 567100 + i, status: (i % 23 === 0 ? 'archived' : 'completed'),
+      team_name: teamName, sport: sport,
+      division: sport === 'softball' ? SB_DIVS[i % 3] : BB_DIVS[i % 3],
+      age_class: sport === 'softball' ? SB_AGES[i % SB_AGES.length] : BB_AGES[i % BB_AGES.length],
+      town: town + ', TX', coach_name: coach,
+      coach_email: coach.toLowerCase().replace(/\s+/g, '.') + i + '@example.com',
+      coach_phone: '325-555-' + String(1000 + (i * 7) % 9000),
+      waiver_agreed: true, payment_status: pay, amount_cents: fee,
+      card_last4: pay === 'paid' ? String(1000 + (i * 37) % 9000) : '',
+      clover_order_id: pay === 'paid' ? 'ORD-' + (6000 + i) : '',
+      paid_at: paidish ? created : '', created_at: created,
+      team_id: paidish && form.type === 'season' ? slug : '', team_code: 'SC' + String(100 + (i % 900))
+    });
+    // a live public team for each paid/free SEASON registration (≈ Keith's team count)
+    if (paidish && form.type === 'season' && !_teams.some(function (t) { return (t.slug || t.id) === slug; })) {
+      _teams.push({
+        id: slug, slug: slug, name: teamName, sport: sport,
+        division: sport === 'softball' ? SB_DIVS[i % 3] : BB_DIVS[i % 3],
+        age_class: sport === 'softball' ? SB_AGES[i % SB_AGES.length] : BB_AGES[i % BB_AGES.length],
+        town: town + ', TX', coach_name: coach, live: true, status: 'active',
+        team_code: 'SC' + String(100 + (i % 900)), reg_id: 'sc' + i,
+        tournaments: [form.title], roster: [], w: 0, l: 0
+      });
+    }
+  }
+})();
+
 // ── Firestore plumbing ───────────────────────────────────────────────
 async function fsAll(col) {
   var snap = await getDocs(collection(db, col));
