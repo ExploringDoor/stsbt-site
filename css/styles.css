@@ -158,6 +158,12 @@ hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-6) 0; }
 /* ── Demo-mode banner (?demo=1) ── */
 .demo-banner { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; background: var(--gold); color: var(--sts-navy); font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; font-size: var(--text-xs); padding: 7px 16px; text-align: center; }
 .demo-banner a { color: var(--sts-navy); text-decoration: underline; }
+.spon-logo { max-height: 42px; max-width: 150px; display: block; object-fit: contain; }
+.spon-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.spon-row .spon-name, .spon-row .spon-url { flex: 1; min-width: 0; }
+.spon-pre { width: 48px; height: 36px; object-fit: contain; border: 1px solid var(--line); border-radius: 6px; background: #fff; flex-shrink: 0; }
+.spon-up { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 36px; border: 1px dashed var(--line); border-radius: 6px; cursor: pointer; font-size: 10px; color: var(--muted); flex-shrink: 0; text-align: center; }
+.spon-up:hover { border-color: var(--sts-navy); color: var(--sts-navy); }
 
 /* ── Champion cards (champions page + admin uploader) + photo drop zone ── */
 .champ-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-4); }

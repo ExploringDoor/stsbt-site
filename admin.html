@@ -149,6 +149,10 @@
         <div class="field"><label>Hero Headline</label><input class="input" id="c_hero_title" /></div>
         <div class="field"><label>Hero Subtitle</label><textarea class="input" id="c_hero_sub"></textarea></div>
         <div class="field"><label>Announcement Banner <span class="muted">(blank = hidden)</span></label><input class="input" id="c_announce" /></div>
+        <div class="field"><label>Sponsors <span class="muted">(name, link, optional logo — shown on the homepage)</span></label>
+          <div id="sponsorList"></div>
+          <button type="button" class="btn btn-outline btn-sm" id="addSponsorBtn" style="margin-top:8px;padding:6px 12px;font-size:var(--text-sm)">+ Add sponsor</button>
+        </div>
         <button class="btn btn-navy" id="saveContentBtn">Save Homepage</button>
         <div id="contentMsg" class="notice notice-ok hidden mt-5"></div>
       </div>
@@ -407,10 +411,10 @@
     document.getElementById('ch_formTitle').textContent='Add photo — '+c.team;
     document.getElementById('ch_drop').scrollIntoView({behavior:'smooth',block:'center'});
   }
-  function chProcessImage(file){
+  function chProcessImage(file, maxW){
     return new Promise(function(resolve,reject){
       var url=URL.createObjectURL(file), im=new Image();
-      im.onload=function(){ URL.revokeObjectURL(url); var w=im.naturalWidth,h=im.naturalHeight,MAXW=1100; if(w>MAXW){ h=Math.round(h*MAXW/w); w=MAXW; } var cv=document.createElement('canvas'); cv.width=w; cv.height=h; cv.getContext('2d').drawImage(im,0,0,w,h); var q=0.82,du=cv.toDataURL('image/jpeg',q); while(du.length>720000 && q>0.4){ q-=0.1; du=cv.toDataURL('image/jpeg',q); } resolve({dataUrl:du,w:w,h:h,bytes:du.length}); };
+      im.onload=function(){ URL.revokeObjectURL(url); var w=im.naturalWidth,h=im.naturalHeight,MAXW=maxW||1100; if(w>MAXW){ h=Math.round(h*MAXW/w); w=MAXW; } var cv=document.createElement('canvas'); cv.width=w; cv.height=h; cv.getContext('2d').drawImage(im,0,0,w,h); var q=0.82,du=cv.toDataURL('image/jpeg',q); while(du.length>720000 && q>0.4){ q-=0.1; du=cv.toDataURL('image/jpeg',q); } resolve({dataUrl:du,w:w,h:h,bytes:du.length}); };
       im.onerror=function(){ URL.revokeObjectURL(url); reject(new Error('Could not read that image')); };
       im.src=url;
     });
@@ -807,12 +811,34 @@
     await STS.saveSiteContent('prices', p);
     var m = document.getElementById('pricesMsg'); m.textContent = isConfigured ? 'Default prices saved (apply to new forms).' : 'Saved locally (demo — saves to Firebase once connected).'; m.classList.remove('hidden'); setTimeout(function(){ m.classList.add('hidden'); }, 2800);
   });
+  // ── Sponsors (saved to site_content/sponsors; logos base64, ≤400px) ──
+  var SPONSORS=[];
+  function renderSponsors(){
+    document.getElementById('sponsorList').innerHTML = SPONSORS.length ? SPONSORS.map(function(s,i){
+      var logoCell = s.logo ? '<img src="'+esc(s.logo)+'" class="spon-pre" alt="logo">' : '<label class="spon-up">+ logo<input type="file" accept="image/*" class="spon-file" data-i="'+i+'" hidden></label>';
+      return '<div class="spon-row" data-i="'+i+'">'+logoCell+
+        '<input class="input spon-name" data-i="'+i+'" placeholder="Sponsor name" value="'+esc(s.name||'')+'">'+
+        '<input class="input spon-url" data-i="'+i+'" placeholder="https:// (optional)" value="'+esc(s.url||'')+'">'+
+        '<button type="button" class="icon-btn spon-del" data-i="'+i+'" title="Remove">✕</button></div>';
+    }).join('') : '<p class="muted" style="font-size:var(--text-sm)">No sponsors yet.</p>';
+  }
+  document.getElementById('addSponsorBtn').addEventListener('click', function(){ SPONSORS.push({name:'',url:'',logo:''}); renderSponsors(); });
+  document.getElementById('sponsorList').addEventListener('input', function(e){ var t=e.target,i=+t.dataset.i; if(isNaN(i))return; if(t.classList.contains('spon-name'))SPONSORS[i].name=t.value; else if(t.classList.contains('spon-url'))SPONSORS[i].url=t.value; });
+  document.getElementById('sponsorList').addEventListener('change', function(e){ var t=e.target; if(!t.classList.contains('spon-file'))return; var i=+t.dataset.i, f=t.files[0]; if(!f)return; chProcessImage(f,400).then(function(r){ SPONSORS[i].logo=r.dataUrl; renderSponsors(); }).catch(function(){}); });
+  document.getElementById('sponsorList').addEventListener('click', function(e){ var b=e.target.closest('.spon-del'); if(!b)return; SPONSORS.splice(+b.dataset.i,1); renderSponsors(); });
+
   document.getElementById('saveContentBtn').addEventListener('click', async function(){
     var c = { hero_title: val('c_hero_title'), hero_sub: val('c_hero_sub'), announce: val('c_announce') };
     await STS.saveSiteContent('homepage', c);
+    await STS.saveSiteContent('sponsors', { list: SPONSORS.filter(function(s){ return (s.name||'').trim() || s.logo; }) });
     var m = document.getElementById('contentMsg'); m.textContent = isConfigured ? 'Homepage content saved.' : 'Saved locally (demo — saves to Firebase once connected).'; m.classList.remove('hidden'); setTimeout(function(){ m.classList.add('hidden'); }, 3000);
   });
-  (async function(){ var c = await STS.loadSiteContent('homepage'); if(c.hero_title) document.getElementById('c_hero_title').value=c.hero_title; if(c.hero_sub) document.getElementById('c_hero_sub').value=c.hero_sub; if(c.announce) document.getElementById('c_announce').value=c.announce; })();
+  (async function(){
+    var c = await STS.loadSiteContent('homepage'); if(c.hero_title) document.getElementById('c_hero_title').value=c.hero_title; if(c.hero_sub) document.getElementById('c_hero_sub').value=c.hero_sub; if(c.announce) document.getElementById('c_announce').value=c.announce;
+    var sp = await STS.loadSiteContent('sponsors');
+    SPONSORS = (sp && sp.list && sp.list.length) ? sp.list.slice() : (((window.LEAGUE_CONFIG&&LEAGUE_CONFIG.sponsors)||[]).map(function(s){ return (typeof s==='string')?{name:s,url:'',logo:''}:{name:s.name||'',url:s.url||'',logo:s.logo||''}; }));
+    renderSponsors();
+  })();
 
   // ── DIRECTORS (super only) ──────────────────────────────────────────
   var ADMINS = [];

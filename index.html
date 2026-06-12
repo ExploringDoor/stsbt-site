@@ -168,14 +168,20 @@
     try { var teams = await STS.loadTeams(); document.getElementById('statTeams').textContent = String(teams.length); if (window.STSfx) STSfx.arm(document); } catch(e){}
   })();
 
-  // Directors + sponsors from config
-  (function(){
+  // Directors (config) + sponsors (admin-managed via site_content, falls back to config)
+  (async function(){
     var cfg = window.LEAGUE_CONFIG || {};
     var dirs = (cfg.directors || []);
     document.getElementById('dirStrip').innerHTML = dirs.map(function(d){
       return '<div class="dir-chip"><b>' + esc(d.name) + '</b><span>' + esc([d.role, d.area].filter(Boolean).join(' · ')) + '</span></div>';
     }).join('') || '<div class="muted">Directors listed soon.</div>';
-    document.getElementById('sponRow').innerHTML = (cfg.sponsors || []).map(function(s){ var nm=(typeof s==='string')?s:s.name; var u=(typeof s==='object'&&s.url)?s.url:''; return u ? '<a class="spon" href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(nm)+'</a>' : '<div class="spon">'+esc(nm)+'</div>'; }).join('');
+    var sponsors = (cfg.sponsors || []);
+    try { var sp = await STS.loadSiteContent('sponsors'); if (sp && sp.list && sp.list.length) sponsors = sp.list; } catch(e){}
+    document.getElementById('sponRow').innerHTML = sponsors.map(function(s){
+      var nm=(typeof s==='string')?s:(s.name||''); var u=(typeof s==='object'&&s.url)?s.url:''; var logo=(typeof s==='object'&&s.logo)?s.logo:'';
+      var inner = logo ? '<img src="'+esc(logo)+'" alt="'+esc(nm)+'" class="spon-logo">' : esc(nm);
+      return u ? '<a class="spon" href="'+esc(u)+'" target="_blank" rel="noopener">'+inner+'</a>' : '<div class="spon">'+inner+'</div>';
+    }).join('');
   })();
 </script>
 
