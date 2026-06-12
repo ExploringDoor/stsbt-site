@@ -60,6 +60,13 @@
     if (!tslug || isNaN(idx)) { root.innerHTML = '<div class="container section"><div class="empty">No player specified.</div></div>'; return; }
 
     var team = await STS.getTeam(tslug);
+    // Same privacy gate as team.html — a player on a not-yet-public (unpaid/pending)
+    // team must not be exposed via the player page.
+    if (team && !team.live && team.status!=='active') {
+      root.innerHTML = '<div class="container section"><div class="empty"><h2>Player page pending</h2><p class="muted">This player\'s team goes live once their registration payment clears. Check back soon.</p><a class="btn btn-navy" href="teams.html">Browse teams</a></div></div>';
+      document.title = 'Player · Small Town Select';
+      return;
+    }
     var p = team && (team.roster||[])[idx];
     if (!team || !p || !(p.name||'').trim()) {
       root.innerHTML = '<div class="container section"><div class="empty"><h2>Player not found</h2><p class="muted">This roster spot may have changed. Head back to the team page.</p><a class="btn btn-navy" href="team.html?id='+esc(tslug)+'">Back to team</a></div></div>';
@@ -105,16 +112,20 @@
         var isAway=norm(aN)===TN, isHome=norm(hN)===TN;
         if(!isAway && !isHome) return;
         var my=isAway?g.away_score:g.home_score, op=isAway?g.home_score:g.away_score, opp=isAway?hN:aN;
-        out.push({ date:g.date||'', event:titleFor(g.form_id), opp:opp, my:my, op:op, res:(my>op?'W':(op>my?'L':'T')), champ:isChamp(g) });
+        out.push({ id:g.id, date:g.date||'', event:titleFor(g.form_id), opp:opp, my:my, op:op, res:(my>op?'W':(op>my?'L':'T')), champ:isChamp(g) });
       });
       return out;
     }
 
-    // player game log = union of every team's games (tagged with the team + guest)
+    // player game log = union of every team's games, deduped by PHYSICAL GAME id so
+    // one game is never listed twice (e.g. when the player is rostered on one team
+    // and a guest on the opposing team). Rostered teams are processed before guest
+    // teams so a shared game is attributed to the rostered side. Two distinct games
+    // (double-headers, rematches) keep their own id and both appear.
     var games = [], gseen = {};
-    appearances.forEach(function(a){
+    appearances.slice().sort(function(a,b){ return (a.guest?1:0)-(b.guest?1:0); }).forEach(function(a){
       resultsForTeam(a.team.name).forEach(function(r){
-        var k = a.team.name + '|' + r.date + '|' + r.opp + '|' + r.my + '-' + r.op;
+        var k = r.id != null ? ('id:'+r.id) : (a.team.name + '|' + r.date + '|' + r.opp + '|' + r.my + '-' + r.op);
         if (gseen[k]) return; gseen[k] = 1;
         games.push(Object.assign({}, r, { teamName:a.team.name, teamSlug:(a.team.slug||a.team.id), guest:a.guest }));
       });
@@ -142,10 +153,14 @@
       '</a>';
     }
 
+    // only link an opponent when its name slugifies to a real team page (avoids
+    // wrong-team / dead links for names that don't map to a team doc)
+    var teamSlugSet = {}; all.forEach(function(t){ teamSlugSet[(t.slug||t.id)] = 1; });
     var gamesHTML = games.length
       ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Team</th><th>Opponent</th><th>Result</th></tr></thead><tbody>'+
         games.map(function(r){ var rc=r.res==='W'?'gw':(r.res==='L'?'gl':'gt');
-          var oppCell = r.opp ? '<a href="team.html?id='+esc(slugify(r.opp))+'">'+esc(r.opp)+'</a>' : '<span class="muted">TBD</span>';
+          var oppSlug = slugify(r.opp);
+          var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
           var teamCell = '<a href="team.html?id='+esc(r.teamSlug)+'">'+esc(r.teamName)+'</a>'+(r.guest?' <span class="pl-guest">Guest</span>':'')+(r.champ?' <span title="Championship game">🏆</span>':'');
           return '<tr><td>'+esc(fmtDate(r.date))+'</td><td>'+teamCell+'</td><td>'+oppCell+'</td><td class="'+rc+'"><b>'+r.res+'</b> '+r.my+'–'+r.op+'</td></tr>'; }).join('')+
         '</tbody></table></div>'

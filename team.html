@@ -57,8 +57,10 @@
     document.title = t.name + ' · Small Town Select';
 
     // ── load this team's full game history (every event), compute record ──
-    var ALL=[], FORMS=[];
+    var ALL=[], FORMS=[], TEAMS=[];
     try { ALL = await STS.loadGames(); FORMS = await STS.loadForms(); } catch(e){}
+    try { TEAMS = await STS.loadTeams(); } catch(e){}
+    var teamSlugSet={}; TEAMS.forEach(function(x){ teamSlugSet[(x.slug||x.id)]=1; });
     function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
     function schedPub(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return !f || f.schedule_published!==false; }
     var brk={};
@@ -96,7 +98,8 @@
     var gamesHTML = results.length
       ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Event</th><th>Opponent</th><th>Result</th></tr></thead><tbody>'+
         results.map(function(r){ var rc=r.res==='W'?'gw':(r.res==='L'?'gl':'gt');
-          var oppCell = r.opp ? '<a href="team.html?id='+esc(slugify(r.opp))+'">'+esc(r.opp)+'</a>' : '<span class="muted">TBD</span>';
+          var oppSlug=slugify(r.opp);
+          var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
           return '<tr><td>'+esc(fmtDate(r.date))+'</td><td>'+esc(r.event)+(r.champ?' <span class="gh-trophy" title="Championship game">🏆</span>':'')+'</td>'+
             '<td>'+oppCell+'</td>'+
             '<td class="'+rc+'"><b>'+r.res+'</b> '+r.my+'–'+r.op+'</td></tr>'; }).join('')+
