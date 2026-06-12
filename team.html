@@ -15,6 +15,10 @@
   .tbl td.gl b { color: var(--sts-red); }
   .tbl td.gt b { color: var(--muted); }
   .gh-trophy { font-size: 13px; }
+  .ts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); gap: 12px; }
+  .ts-stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 10px; text-align: center; }
+  .ts-stat .n { font-family: var(--font-display); font-size: 26px; font-weight: 700; color: var(--sts-navy); line-height: 1; letter-spacing: .01em; }
+  .ts-stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-top: 7px; }
 </style>
 </head>
 <body>
@@ -73,6 +77,19 @@
     var rec={w:0,l:0,t:0,rs:0,ra:0};
     results.forEach(function(r){ rec.rs+=r.my; rec.ra+=r.op; if(r.res==='W')rec.w++; else if(r.res==='L')rec.l++; else rec.t++; });
     var gp=rec.w+rec.l+rec.t, ardiff=gp?((rec.rs-rec.ra)/gp):0;
+    var rpg=gp?rec.rs/gp:0, rapg=gp?rec.ra/gp:0, winPct=gp?(rec.w+0.5*rec.t)/gp:0;
+    var finalsApps=results.filter(function(r){ return r.champ; }).length;
+    var titles=results.filter(function(r){ return r.champ && r.res==='W'; }).length;
+    function tsStat(n,l){ return '<div class="ts-stat"><div class="n">'+n+'</div><div class="l">'+esc(l)+'</div></div>'; }
+    var statGrid = gp ? '<div class="ts-grid">'+
+      tsStat(rec.w+'–'+rec.l+(rec.t?'–'+rec.t:''),'Record')+
+      tsStat(winPct.toFixed(3).replace(/^0(?=\.)/,''),'Win %')+
+      tsStat(rpg.toFixed(1),'Runs / Game')+
+      tsStat(rapg.toFixed(1),'Allowed / Game')+
+      tsStat((ardiff>0?'+':'')+ardiff.toFixed(1),'Run Diff / Game')+
+      tsStat(String(finalsApps),finalsApps===1?'Finals Trip':'Finals Trips')+
+      tsStat(titles?titles+' 🏆':'0',titles===1?'Title':'Titles')+
+    '</div>' : '';
     var gamesHTML = results.length
       ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Event</th><th>Opponent</th><th>Result</th></tr></thead><tbody>'+
         results.map(function(r){ var rc=r.res==='W'?'gw':(r.res==='L'?'gl':'gt');
@@ -95,7 +112,7 @@
     var tourneyHTML = tourneys.length
       ? '<div class="card-grid">'+tourneys.map(function(name){ return '<div class="card"><div class="eyebrow">Registered</div><h3 style="margin:4px 0 0">'+esc(name)+'</h3></div>'; }).join('')+'</div>'
       : '<div class="empty">Not registered for any tournaments yet.</div>';
-    var record = gp ? ('<span>'+rec.w+'–'+rec.l+(rec.t?'–'+rec.t:'')+'</span><span>'+(ardiff>0?'+':'')+ardiff.toFixed(1)+' ARDiff</span>') : '';
+    var record = gp ? ('<span>'+rec.w+'–'+rec.l+(rec.t?'–'+rec.t:'')+' record</span>'+(titles?'<span>'+titles+'× 🏆 Champion</span>':'')) : '';
 
     root.innerHTML =
       '<div class="team-hero"><div class="container"><div class="th-inner">'+
@@ -104,7 +121,8 @@
         '<div style="margin-left:auto"><a class="btn btn-gold btn-sm" href="roster-edit.html?id='+esc(t.slug||t.id)+'">Edit Roster</a></div>'+
       '</div></div></div>'+
       '<main class="container section">'+
-        '<div class="sec-head"><h2>Games</h2><span class="muted" style="font-size:var(--text-sm)">'+(gp?(rec.rs+' RS · '+rec.ra+' RA · '+gp+' game'+(gp===1?'':'s')):'')+'</span></div>'+gamesHTML+
+        (statGrid ? '<div class="sec-head"><h2>Season Stats</h2><span class="muted" style="font-size:var(--text-sm)">'+gp+' game'+(gp===1?'':'s')+'</span></div>'+statGrid : '')+
+        '<div class="sec-head'+(statGrid?' mt-7':'')+'"><h2>Games</h2></div>'+gamesHTML+
         '<div class="sec-head mt-7"><h2>Roster</h2><span class="muted" style="font-size:var(--text-sm)">'+roster.length+' player'+(roster.length===1?'':'s')+'</span></div>'+rosterHTML+
         '<div class="sec-head mt-7"><h2>Tournaments</h2></div>'+tourneyHTML+
       '</main>';

@@ -12,6 +12,14 @@
   function clean(s){ if(s==null) return ''; var t=String(s).trim(); return /^(n\/?a|tbd|tba|-+)$/i.test(t)?'':t; }
   function fmtTime(t){ t=clean(t); if(!t) return ''; var p=String(t).split(':'); var h=+p[0],m=p[1]||'00'; if(isNaN(h)) return ''; var ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+m+' '+ap; }
   function fmtDate(d, opt){ d=clean(d); if(!d) return ''; var dt=new Date(d+'T12:00:00'); if(isNaN(dt)) return ''; return dt.toLocaleDateString('en-US', opt||{weekday:'short',month:'short',day:'numeric'}); }
+  function slug(s){ return String(s==null?'':s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+  // team name as a link to its page — unless it's a placeholder (TBD / BYE / Winner-of-Game)
+  function tnHTML(name, tbd){
+    var n=esc(name), raw=String(name==null?'':name).trim();
+    if(tbd || !clean(raw) || /^(tbd|bye)$/i.test(raw) || /^(winner|loser) of game/i.test(raw))
+      return '<span class="gm-tn">'+n+'</span>';
+    return '<a class="gm-tn gm-tlink" href="team.html?id='+esc(slug(raw))+'" onclick="event.stopPropagation()">'+n+'</a>';
+  }
 
   function parseRef(s){ return SB.parseRef(s); }
   function gByNum(t,n){ return (t.games||[]).find(function(g){ return g.g===n; }); }
@@ -95,7 +103,7 @@
   function previewHTML(t,g,cls){
     var A=sideDisplay(t,g.away), H=sideDisplay(t,g.home);
     var when=[fmtDate(g.date),fmtTime(g.time)].filter(Boolean).join(' · '), field=clean(g.field);
-    return '<div class="gm-matchup"><div class="gm-team '+(A.tbd?'tbd':'')+'"><span class="gm-tn">'+esc(A.name)+'</span></div><div class="gm-vs">vs</div><div class="gm-team '+(H.tbd?'tbd':'')+'"><span class="gm-tn">'+esc(H.name)+'</span></div></div>'+
+    return '<div class="gm-matchup"><div class="gm-team '+(A.tbd?'tbd':'')+'">'+tnHTML(A.name,A.tbd)+'</div><div class="gm-vs">vs</div><div class="gm-team '+(H.tbd?'tbd':'')+'">'+tnHTML(H.name,H.tbd)+'</div></div>'+
       '<div class="gm-meta">'+(when||'Date &amp; time TBD')+(field?' &nbsp;·&nbsp; '+esc(field):'')+'</div>'+
       '<div class="gm-sec"><h4>Preview</h4><p class="gm-recap">'+esc(previewBlurb(t,g,cls))+'</p></div>';
   }
@@ -118,21 +126,21 @@
   function poolPreviewHTML(g){
     var A=clean(g.away)||'TBD', H=clean(g.home)||'TBD';
     var when=[fmtDate(g.date),fmtTime(g.time)].filter(Boolean).join(' · '), field=clean(g.field);
-    return '<div class="gm-matchup"><div class="gm-team"><span class="gm-tn">'+esc(A)+'</span></div><div class="gm-vs">vs</div><div class="gm-team"><span class="gm-tn">'+esc(H)+'</span></div></div>'+
+    return '<div class="gm-matchup"><div class="gm-team">'+tnHTML(A)+'</div><div class="gm-vs">vs</div><div class="gm-team">'+tnHTML(H)+'</div></div>'+
       '<div class="gm-meta">'+(when||'Date &amp; time TBD')+(field?' &nbsp;·&nbsp; '+esc(field):'')+'</div>'+
       '<div class="gm-sec"><h4>Preview</h4><p class="gm-recap">'+esc(poolText(g,false))+'</p></div>';
   }
   function poolRecapHTML(g){
     var A=clean(g.away)||'TBD', H=clean(g.home)||'TBD', aWin=g.away_score>g.home_score, hWin=g.home_score>g.away_score;
-    return '<div class="gm-score"><div class="gm-srow '+(aWin?'win':'')+'"><span class="t"><span class="gm-tn">'+esc(A)+'</span></span><span class="s">'+g.away_score+'</span></div><div class="gm-srow '+(hWin?'win':'')+'"><span class="t"><span class="gm-tn">'+esc(H)+'</span></span><span class="s">'+g.home_score+'</span></div></div>'+
+    return '<div class="gm-score"><div class="gm-srow '+(aWin?'win':'')+'"><span class="t">'+tnHTML(A)+'</span><span class="s">'+g.away_score+'</span></div><div class="gm-srow '+(hWin?'win':'')+'"><span class="t">'+tnHTML(H)+'</span><span class="s">'+g.home_score+'</span></div></div>'+
       '<div class="gm-sec"><h4>Recap</h4><p class="gm-recap">'+esc(poolText(g,true))+'</p></div>';
   }
 
   function recapHTML(t,g,cls){
     var text=recapTemplate(t,g,cls);
-    if(isByeSlot(g.away)||isByeSlot(g.home)){ var nm=sideDisplay(t,isByeSlot(g.away)?g.home:g.away).name; return '<div class="gm-byewrap"><div class="gm-team">'+esc(nm)+'</div><div class="gm-meta">'+(nextGameOf(t,g.g)?'Advanced on a bye':'Champion')+'</div></div><div class="gm-sec"><h4>Recap</h4><p class="gm-recap">'+esc(text)+'</p></div>'; }
+    if(isByeSlot(g.away)||isByeSlot(g.home)){ var nm=sideDisplay(t,isByeSlot(g.away)?g.home:g.away).name; return '<div class="gm-byewrap"><div class="gm-team">'+tnHTML(nm)+'</div><div class="gm-meta">'+(nextGameOf(t,g.g)?'Advanced on a bye':'Champion')+'</div></div><div class="gm-sec"><h4>Recap</h4><p class="gm-recap">'+esc(text)+'</p></div>'; }
     var A=sideDisplay(t,g.away), H=sideDisplay(t,g.home), aWin=g.away_score>g.home_score, hWin=g.home_score>g.away_score;
-    return '<div class="gm-score"><div class="gm-srow '+(aWin?'win':'')+'"><span class="t"><span class="gm-tn">'+esc(A.name)+'</span></span><span class="s">'+g.away_score+'</span></div><div class="gm-srow '+(hWin?'win':'')+'"><span class="t"><span class="gm-tn">'+esc(H.name)+'</span></span><span class="s">'+g.home_score+'</span></div></div>'+
+    return '<div class="gm-score"><div class="gm-srow '+(aWin?'win':'')+'"><span class="t">'+tnHTML(A.name,A.tbd)+'</span><span class="s">'+g.away_score+'</span></div><div class="gm-srow '+(hWin?'win':'')+'"><span class="t">'+tnHTML(H.name,H.tbd)+'</span><span class="s">'+g.home_score+'</span></div></div>'+
       '<div class="gm-sec"><h4>Recap</h4><p class="gm-recap">'+esc(text)+'</p></div>';
   }
 

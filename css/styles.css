@@ -83,7 +83,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-6) 0; }
 /* ── Layout ────────────────────────────────────────────────────────── */
 .container { width: 100%; max-width: var(--container); margin: 0 auto; padding: 0 var(--space-5); }
 .container.narrow { max-width: var(--container-narrow); }
-.section { padding: var(--space-8) 0; }
+.section { padding-block: var(--space-8); }
 .section-tight { padding-block: var(--space-6); }
 
 /* ── Top nav (frosted) ─────────────────────────────────────────────── */
@@ -115,7 +115,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-6) 0; }
 .caret { font-size: 10px; }
 @media (max-width: 860px) {
   .nav-toggle { display: inline-flex; }
-  .nav-links { position: absolute; top: 64px; left: 0; right: 0; flex-direction: column; align-items: stretch; gap: 2px; background: var(--sts-navy); padding: var(--space-3); max-height: 0; overflow: hidden; transition: max-height .2s ease, padding .2s ease; }
+  .nav-links { position: absolute; top: 64px; left: 0; right: 0; flex-direction: column; align-items: stretch; gap: 2px; background: var(--sts-navy); padding: 0 var(--space-3); max-height: 0; overflow: hidden; transition: max-height .2s ease, padding .2s ease; }
   .nav-links.open { max-height: 80vh; padding: var(--space-3); overflow: auto; }
   .nav-dropdown { position: static; display: flex; background: rgba(255,255,255,.05); margin-top: 2px; }
   .nav-more.open .nav-dropdown { display: flex; }
@@ -489,6 +489,8 @@ table.tbl .actions { display: flex; gap: 6px; }
 .gm-byewrap { text-align:center; padding:18px 0 6px; }
 .gm-byewrap .gm-team { font-family:var(--font-display); font-weight:700; font-size:var(--text-xl); color:var(--sts-navy); }
 .gm-byewrap .gm-meta { margin-top:4px; }
+a.gm-tlink { color:inherit; text-decoration:none; cursor:pointer; border-bottom:1px solid transparent; transition:border-color .12s ease; }
+a.gm-tlink:hover, a.gm-tlink:focus-visible { border-bottom-color:currentColor; }
 .gm-sec { margin-top:16px; border-top:1px solid var(--line); padding-top:14px; }
 .gm-sec h4 { font-family:var(--font-display); text-transform:uppercase; letter-spacing:.06em; font-size:var(--text-xs); color:var(--sts-navy); margin:0 0 6px; }
 .gm-recap { margin:0; color:var(--fg); line-height:1.6; }
