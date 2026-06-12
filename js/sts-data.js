@@ -149,6 +149,12 @@ export async function saveForm(form) {
   if (form.id) { var i = _forms.findIndex(function (f) { return f.id === form.id; }); if (i >= 0) _forms[i] = Object.assign(_forms[i], form); else _forms.push(form); return form.id; }
   form.id = slugify(form.title) || ('form-' + Date.now()); _forms.push(form); return form.id;
 }
+// Hard-delete a form (super only). Archiving is usually safer — this leaves any
+// existing registrations/games without an event, so the admin warns first.
+export async function deleteForm(id) {
+  if (isConfigured) { await deleteDoc(doc(db, 'forms', id)); return; }
+  var i = _forms.findIndex(function (f) { return f.id === id; }); if (i >= 0) _forms.splice(i, 1);
+}
 
 // ── REGISTRATIONS (entries) ──────────────────────────────────────────
 export async function createRegistration(data) {

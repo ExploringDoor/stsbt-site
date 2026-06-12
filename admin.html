@@ -229,7 +229,7 @@
 <!-- Form edit modal -->
 <div class="modal-bg" id="formModal"><div class="modal"><div class="modal-head"><h3 id="fmTitle">Form</h3><button class="x-close" data-close aria-label="Close">✕</button></div>
   <div class="modal-body" id="fmBody"></div>
-  <div class="modal-foot"><button class="btn btn-outline btn-sm" id="fmArchive">Archive</button><div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" data-close>Cancel</button><button class="btn btn-navy btn-sm" id="fmSave">Save Form</button></div></div>
+  <div class="modal-foot"><div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" id="fmArchive">Archive</button><button class="btn btn-outline btn-sm" id="fmDelete" style="color:var(--sts-red)">Delete</button></div><div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" data-close>Cancel</button><button class="btn btn-navy btn-sm" id="fmSave">Save Form</button></div></div>
 </div></div>
 
 <!-- Director (admin) modal -->
@@ -724,6 +724,19 @@
     document.getElementById('f_sport').addEventListener('change', function(e){ document.getElementById('f_divs').innerHTML = divChipsHTML(e.target.value, selectedDivs()); });
     document.getElementById('fmArchive').textContent = f.archived ? 'Restore' : 'Archive';
     document.getElementById('fmArchive').onclick = async function(){ f.archived=!f.archived; await STS.saveForm(f); FORMS = await STS.loadFormsScoped(ME, {includeInactive:true}); renderForms(); closeModal('formModal'); };
+    document.getElementById('fmDelete').style.display = isNew ? 'none' : '';
+    document.getElementById('fmDelete').onclick = async function(){
+      if(!f.id){ closeModal('formModal'); return; }
+      var regs=[]; try{ regs = await STS.loadRegistrations({ formId: f.id }); }catch(e){}
+      var games = (GAMES||[]).filter(function(g){ return g.form_id===f.id; });
+      var n=regs.length, m=games.length;
+      var warn = (n||m) ? ('\n\n⚠ This form has '+n+' registration'+(n===1?'':'s')+' and '+m+' game'+(m===1?'':'s')+' — they would be left without an event. Archiving is usually safer.') : '';
+      if(!confirm('Permanently delete "'+(f.title||'this form')+'"? This cannot be undone.'+warn)) return;
+      await STS.deleteForm(f.id);
+      FORMS = await STS.loadFormsScoped(ME, { includeInactive: true });
+      document.getElementById('entryForm').innerHTML = '<option value="">All forms</option>' + FORMS.map(function(x){ return '<option value="'+esc(x.id)+'">'+esc(x.title)+'</option>'; }).join('');
+      renderForms(); closeModal('formModal');
+    };
     document.getElementById('fmSave').onclick = async function(){
       f.title = val('f_title'); f.type = val('f_type'); f.sport = val('f_sport');
       f.start_date = val('f_start'); f.end_date = val('f_end');
