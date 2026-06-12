@@ -103,7 +103,21 @@ service cloud.firestore {
       allow delete: if isSuper();
     }
 
+    // ── TEAM ROSTERS (minors' dob for eligibility — PII) ─────────────
+    // The PUBLIC teams doc carries a dob-free roster ({num,name,grade,guest,pid}).
+    // Full rosters WITH birthdates live here, readable only by active admins.
+    // Writes are Admin-SDK only (the server bypasses rules); no client may write.
+    match /team_rosters/{id} {
+      allow read:  if isAdmin();
+      allow write: if false;
+    }
+
     // ── Public-read collections with admin writes ────────────────────
+    // NOTE: roster docs here must NEVER contain a child's dob (it ships to every
+    // browser via this `read: if true` rule). DOB lives in team_rosters/ above.
+    // TODO(#26): also move team_code off this public doc — it currently gates
+    // roster edits (api/roster-save.js) and is world-readable here; the Admin-SDK
+    // roster endpoints should look the code up from the gated registration instead.
     match /teams/{id}        { allow read: if true; allow write: if isSuper(); }
     match /standings/{id}    { allow read: if true; allow write: if isSuper(); }
     match /site_content/{id} { allow read: if true; allow write: if isSuper(); }
@@ -130,9 +144,16 @@ service cloud.firestore {
 //    API + API key are unauthenticated and will now be DENIED:
 //      • api/create-checkout.js  (patches the registration → pending)
 //      • api/clover-webhook.js   (marks paid + creates the team)
-//      • api/roster-save.js      (saves the team roster)
+//      • api/roster-save.js      (saves the team roster — now writes BOTH the
+//                                 dob-free public teams doc AND the gated
+//                                 team_rosters/{id} doc, which is write:if false
+//                                 so ONLY the Admin SDK can write it)
 //    Migrate all three (+ api/_firestore.js) to the Firebase Admin SDK with a
 //    service account (FIREBASE_SERVICE_ACCOUNT env) BEFORE payments go live.
+//    While doing #26 ALSO: (a) add a coach roster-LOAD endpoint (code-checked,
+//    Admin SDK) so roster-edit.html can prefill existing dobs without a public
+//    read; (b) move team_code off the public teams doc (look it up from the
+//    gated registration); (c) set ROSTER_PID_SALT env to a real secret.
 //    Also: backfill a `form_id` on any existing games/tournaments docs, and
 //    keep saveAdmin always writing events:[] + active:true.
 // ════════════════════════════════════════════════════════════════════

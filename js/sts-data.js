@@ -225,6 +225,18 @@ export async function saveTeamRoster(teamId, roster, code) {
   if (String(t.team_code) !== String(code)) throw new Error('Wrong team code');
   t.roster = roster;
 }
+// Admin-only FULL roster (includes dob for eligibility). The PUBLIC teams doc no
+// longer carries dob — birthdates live in the gated team_rosters/{teamId} collection
+// (Admin-SDK writes via /api/roster-save; admins read it under the firestore rule).
+// Sample mode keeps the full roster in-memory.
+export async function getTeamRoster(teamId) {
+  if (isConfigured) {
+    try { var gr = await fsOne('team_rosters', teamId); if (gr && Array.isArray(gr.roster)) return gr.roster; } catch (e) {}
+    var t = await getTeam(teamId); return (t && Array.isArray(t.roster)) ? t.roster : [];   // fallback: legacy / pre-split docs
+  }
+  var s = _teams.find(function (x) { return x.id === teamId || x.slug === teamId; });
+  return (s && Array.isArray(s.roster)) ? s.roster : [];
+}
 // Auto-create the public team page from a registration. The Clover webhook does
 // this for PAID entries; this is the client-side path for FREE ($0) team entries
 // (and any future server endpoint can call the same shape). Idempotent per
@@ -236,7 +248,10 @@ function buildTeamDoc(reg, slug) {
     name: reg.team_name, slug: slug, sport: reg.sport || '', division: reg.division || '',
     age_class: reg.age_class || '', town: reg.town || '', reg_id: reg.id || '', team_code: reg.team_code || '',
     coach_name: reg.coach_name || '',   // NAME ONLY — never email/phone on a public team doc
-    roster: Array.isArray(reg.roster) ? reg.roster : [],
+    // PUBLIC doc roster — never a child's dob (PII stays in gated team_rosters/{id}).
+    roster: (Array.isArray(reg.roster) ? reg.roster : []).map(function (p) {
+      return { num: p.num || '', name: p.name || '', grade: p.grade || '', guest: !!p.guest };
+    }),
     tournaments: reg.form_title ? [reg.form_title] : [],
     live: true, status: 'active', w: 0, l: 0, t: 0, rs: 0, ra: 0
   };

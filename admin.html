@@ -785,16 +785,18 @@
     if(m<0||(m===0&&cut.getDate()<d.getDate())) age--;
     return age>=0?age:'';
   }
-  function openRosterView(t){
-    var r=t.roster||[];
+  async function openRosterView(t){
     document.getElementById('rvTitle').textContent=t.name+' — Roster';
+    document.getElementById('rvBody').innerHTML='<div class="empty">Loading…</div>';
+    openModal('rosterViewModal');
+    // DOB lives in the gated team_rosters collection, not the public team doc.
+    var r=[]; try{ r=await STS.getTeamRoster(t.slug||t.id); }catch(e){ r=t.roster||[]; }
     document.getElementById('rvCount').textContent=r.length+' player'+(r.length===1?'':'s')+(t.coach_name?' · Coach '+t.coach_name:'');
     document.getElementById('rvBody').innerHTML = r.length
       ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>#</th><th>Player</th><th>DOB</th><th title="Age as of May 1">Age 5/1</th><th>Grade</th></tr></thead><tbody>'+
         r.map(function(p){ return '<tr><td>'+esc(p.num||'')+'</td><td><b>'+esc(p.name||'')+'</b>'+(p.guest?' <span style="color:var(--sts-red);font-size:10px;font-weight:700;letter-spacing:.04em">GUEST</span>':'')+'</td><td>'+esc(p.dob||'—')+'</td><td>'+esc(ageAsOfMay1(p.dob))+'</td><td>'+esc(p.grade||'')+'</td></tr>'; }).join('')+
         '</tbody></table></div>'
       : '<div class="empty">No roster submitted yet.</div>';
-    openModal('rosterViewModal');
   }
   document.getElementById('teamsBody').addEventListener('click', function(e){ var b=e.target.closest('button[data-roster]'); if(!b) return; var t=TEAMS.find(function(x){ return (x.slug||x.id)===b.dataset.roster; }); if(t) openRosterView(t); });
 

@@ -82,12 +82,17 @@
     // ── this player's appearances across every team (rostered + guest), matched
     //    by name + date of birth. No DOB on file → only the clicked team, so two
     //    different same-named players never merge. ──
+    // Identity priority: stable non-PII pid (public docs carry this, not dob) →
+    // name+dob (sample/local only) → same-team-only when neither is available.
+    var ppid = (p.pid||'').trim();
     var seen = {}, appearances = [];
     all.forEach(function(tm){
       (tm.roster||[]).forEach(function(rp){
-        if (norm(rp.name) !== norm(pname)) return;
-        if (pdob) { if ((rp.dob||'').trim() !== pdob) return; }
-        else { if ((tm.slug||tm.id) !== (team.slug||team.id)) return; }
+        var m;
+        if (ppid) m = (rp.pid||'') === ppid;
+        else if (pdob) m = norm(rp.name)===norm(pname) && (rp.dob||'').trim()===pdob;
+        else m = norm(rp.name)===norm(pname) && (tm.slug||tm.id)===(team.slug||team.id);
+        if (!m) return;
         var key = tm.slug || tm.id;
         if (seen[key]) return; seen[key] = 1;
         appearances.push({ team: tm, rp: rp, guest: !!rp.guest });

@@ -5,7 +5,18 @@
 //
 // Env: FIREBASE_PROJECT_ID, FIREBASE_API_KEY
 
+import crypto from 'crypto';
 import { fsGet, fsPatch, fsQuery, fbConfigured } from './_firestore.js';
+
+// Stable, non-reversible player id from name+dob. SALTED with a server-only secret
+// so the pid on the PUBLIC team doc can't be brute-forced back to a child's birthdate.
+// player.html only ever compares stored pids, so it never needs the salt.
+const PID_SALT = process.env.ROSTER_PID_SALT || 'sts-roster-pid-salt-v1';
+function playerId(name, dob) {
+  return 'p' + crypto.createHash('sha256')
+    .update(PID_SALT + '|' + String(name || '').toLowerCase().trim() + '|' + String(dob || '').trim())
+    .digest('hex').slice(0, 16);
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -24,19 +35,29 @@ export default async function handler(req, res) {
     if (!team) return res.status(404).json({ error: 'Team not found' });
     if (String(team.team_code).toUpperCase() !== String(code).toUpperCase()) return res.status(403).json({ error: 'Wrong team code' });
 
-    const clean = roster
+    // Full roster (WITH dob) — admin-only, lands in the gated team_rosters collection.
+    const full = roster
       .filter(p => p && (p.name || '').trim())
       .slice(0, 40)
-      .map(p => ({
-        num: String(p.num || '').slice(0, 4),
-        name: String(p.name || '').slice(0, 60),
-        dob: String(p.dob || '').slice(0, 10),
-        grade: String(p.grade || '').slice(0, 4),
-        guest: !!p.guest
-      }));
+      .map(p => {
+        const name = String(p.name || '').slice(0, 60);
+        const dob = String(p.dob || '').slice(0, 10);
+        return {
+          num: String(p.num || '').slice(0, 4),
+          name,
+          dob,
+          grade: String(p.grade || '').slice(0, 4),
+          guest: !!p.guest,
+          pid: playerId(name, dob),
+        };
+      });
+    // Public roster (NO dob — birthdates are minors' PII and the teams collection is
+    // world-readable). pid lets the player page match a kid across teams without it.
+    const pub = full.map(p => ({ num: p.num, name: p.name, grade: p.grade, guest: p.guest, pid: p.pid }));
 
-    await fsPatch(`teams/${team.id}`, { roster: clean });
-    return res.status(200).json({ ok: true, count: clean.length });
+    await fsPatch(`teams/${team.id}`, { roster: pub });
+    await fsPatch(`team_rosters/${team.id}`, { team_id: team.id, roster: full });
+    return res.status(200).json({ ok: true, count: full.length });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
   }
