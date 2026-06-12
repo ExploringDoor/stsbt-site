@@ -18,6 +18,22 @@ function playerId(name, dob) {
     .digest('hex').slice(0, 16);
 }
 
+// Keith's eligibility cutoff: age as of May 1 of the season year. The season runs
+// Aug 1 → Jul 31, so from August onward the relevant cutoff is NEXT May 1. This
+// derived age (age51) is the only age info the public team doc carries.
+function ageAsOfMay1(dob) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return '';
+  const now = new Date();
+  const yr = now.getMonth() >= 7 ? now.getFullYear() + 1 : now.getFullYear();
+  const cut = new Date(yr, 4, 1, 12);
+  const b = new Date(dob + 'T12:00:00');
+  if (isNaN(b)) return '';
+  let age = cut.getFullYear() - b.getFullYear();
+  const m = cut.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && cut.getDate() < b.getDate())) age--;
+  return age >= 0 && age < 30 ? age : '';
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -35,13 +51,24 @@ export default async function handler(req, res) {
     if (!team) return res.status(404).json({ error: 'Team not found' });
     if (String(team.team_code).toUpperCase() !== String(code).toUpperCase()) return res.status(403).json({ error: 'Wrong team code' });
 
+    // A coach re-editing can't see stored birthdates (the public doc has none), so an
+    // empty incoming dob must KEEP the one already on file — never silently wipe it.
+    let prevDob = {};
+    try {
+      const prev = await fsGet(`team_rosters/${team.id}`);
+      (prev && Array.isArray(prev.roster) ? prev.roster : []).forEach(p => {
+        const k = String(p.name || '').toLowerCase().trim();
+        if (k && p.dob) prevDob[k] = p.dob;
+      });
+    } catch (e) {}
+
     // Full roster (WITH dob) — admin-only, lands in the gated team_rosters collection.
     const full = roster
       .filter(p => p && (p.name || '').trim())
       .slice(0, 40)
       .map(p => {
         const name = String(p.name || '').slice(0, 60);
-        const dob = String(p.dob || '').slice(0, 10);
+        const dob = String(p.dob || '').slice(0, 10) || prevDob[name.toLowerCase().trim()] || '';
         return {
           num: String(p.num || '').slice(0, 4),
           name,
@@ -52,8 +79,9 @@ export default async function handler(req, res) {
         };
       });
     // Public roster (NO dob — birthdates are minors' PII and the teams collection is
-    // world-readable). pid lets the player page match a kid across teams without it.
-    const pub = full.map(p => ({ num: p.num, name: p.name, grade: p.grade, guest: p.guest, pid: p.pid }));
+    // world-readable). age51 = derived age at the May 1 cutoff (Keith shows this
+    // publicly for eligibility); pid lets the player page match a kid across teams.
+    const pub = full.map(p => ({ num: p.num, name: p.name, grade: p.grade, guest: p.guest, pid: p.pid, age51: ageAsOfMay1(p.dob) }));
 
     await fsPatch(`teams/${team.id}`, { roster: pub });
     await fsPatch(`team_rosters/${team.id}`, { team_id: team.id, roster: full });

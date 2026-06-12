@@ -776,15 +776,7 @@
     }).join('') || '<tr><td colspan="8" class="muted" style="padding:var(--space-5)">No teams yet — they appear here once a registration is paid.</td></tr>';
   }
   // age as of May 1 of the season year (Keith's eligibility cutoff)
-  function ageAsOfMay1(dob){
-    if(!dob) return '';
-    var d=new Date(dob+'T12:00:00'); if(isNaN(d)) return '';
-    var yr=(window.LEAGUE_CONFIG&&LEAGUE_CONFIG.season&&LEAGUE_CONFIG.season.year)||2026;
-    var cut=new Date(yr+'-05-01T12:00:00');
-    var age=cut.getFullYear()-d.getFullYear(), m=cut.getMonth()-d.getMonth();
-    if(m<0||(m===0&&cut.getDate()<d.getDate())) age--;
-    return age>=0?age:'';
-  }
+  var ageAsOfMay1 = STS.ageAsOfMay1;   // shared cutoff math (sts-data.js)
   async function openRosterView(t){
     document.getElementById('rvTitle').textContent=t.name+' — Roster';
     document.getElementById('rvBody').innerHTML='<div class="empty">Loading…</div>';

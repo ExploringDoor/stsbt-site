@@ -33,6 +33,24 @@ export function abbr(name) {
   if (w.length === 1) return w[0].slice(0, 3).toUpperCase();
   return (w[0][0] + w[1][0] + (w[2] ? w[2][0] : '')).toUpperCase();
 }
+// Keith's eligibility cutoff: a player's age as of May 1 of the season year.
+// This derived age is the ONLY age info shown publicly — never the birthdate.
+export function ageAsOfMay1(dob) {
+  if (!dob) return '';
+  var d = new Date(dob + 'T12:00:00'); if (isNaN(d)) return '';
+  var yr = (window.LEAGUE_CONFIG && LEAGUE_CONFIG.season && LEAGUE_CONFIG.season.year) || 2026;
+  var cut = new Date(yr + '-05-01T12:00:00');
+  var age = cut.getFullYear() - d.getFullYear(), m = cut.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && cut.getDate() < d.getDate())) age--;
+  return age >= 0 ? age : '';
+}
+// Public age for a roster entry: the server-stamped age51 (real docs carry no dob),
+// falling back to computing from dob when present (sample/admin data).
+export function playerAge(p) {
+  if (!p) return '';
+  if (p.age51 != null && p.age51 !== '') return p.age51;
+  return p.dob ? ageAsOfMay1(p.dob) : '';
+}
 
 // ── SAMPLE DATA (used until Firebase is configured) ──────────────────
 var AGE_PRICES = [
@@ -249,8 +267,9 @@ function buildTeamDoc(reg, slug) {
     age_class: reg.age_class || '', town: reg.town || '', reg_id: reg.id || '', team_code: reg.team_code || '',
     coach_name: reg.coach_name || '',   // NAME ONLY — never email/phone on a public team doc
     // PUBLIC doc roster — never a child's dob (PII stays in gated team_rosters/{id}).
+    // age51 = derived age as of the May 1 cutoff, the only age info shown publicly.
     roster: (Array.isArray(reg.roster) ? reg.roster : []).map(function (p) {
-      return { num: p.num || '', name: p.name || '', grade: p.grade || '', guest: !!p.guest };
+      return { num: p.num || '', name: p.name || '', grade: p.grade || '', guest: !!p.guest, age51: p.dob ? ageAsOfMay1(p.dob) : '' };
     }),
     tournaments: reg.form_title ? [reg.form_title] : [],
     live: true, status: 'active', w: 0, l: 0, t: 0, rs: 0, ra: 0

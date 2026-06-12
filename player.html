@@ -141,10 +141,12 @@
     var rostered = appearances.filter(function(a){ return !a.guest; });
     var guests = appearances.filter(function(a){ return a.guest; });
     var grade = (p.grade||'').trim();
-    var sub = [ grade ? 'Grade ' + esc(grade) : '',
+    var age = STS.playerAge(p);
+    var sub = [ age !== '' ? '<span title="Age as of the May 1 eligibility cutoff">Age '+esc(age)+'</span>' : '',
+                grade ? 'Grade ' + esc(grade) : '',
                 appearances.length + ' team' + (appearances.length===1?'':'s'),
                 games.length ? (games.length + ' game' + (games.length===1?'':'s')) : '' ]
-      .filter(Boolean).map(function(s){ return '<span>'+s+'</span>'; }).join('');
+      .filter(Boolean).map(function(s){ return s.indexOf('<span')===0 ? s : '<span>'+s+'</span>'; }).join('');
 
     function teamCard(a){
       var tm = a.team, slug = tm.slug || tm.id;
@@ -187,7 +189,7 @@
         '<div class="sec-head"><h2>Games</h2><span class="muted" style="font-size:var(--text-sm)">'+(games.length?games.length+' played':'')+'</span></div>'+gamesHTML+
         '<div class="sec-head mt-7"><h2>Teams</h2></div>'+teamsHTML+
         guestHTML+
-        '<p class="pl-note">Player pages group a player\'s appearances by name and date of birth. Games shown are those played by this player\'s teams. Birthdates are never shown publicly.</p>'+
+        '<p class="pl-note">Games shown are those played by this player\'s teams. Ages are as of the May 1 eligibility cutoff — birthdates are never shown publicly.</p>'+
       '</main>';
     if (window.STSfx) STSfx.arm(document);
   })();
