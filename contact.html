@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Contact · Small Town Select Tournaments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div id="sts-nav"></div>
+<header class="hero" style="min-height:30vh;background:linear-gradient(180deg,#00224f,#001a3d)">
+  <div class="container"><div class="eyebrow" style="color:var(--gold)">Get In Touch</div><h1>Contact</h1><p>Questions about a tournament, registration, or insurance? Reach out.</p></div>
+</header>
+<main class="container narrow section">
+  <div class="card" id="contactCard" style="text-align:center"></div>
+  <div class="center mt-7"><a class="btn btn-red" href="register.html">Register a Team →</a></div>
+</main>
+<div id="sts-footer"></div>
+<script src="js/sts-chrome.js"></script>
+<script>
+  (function(){
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+    var cfg = window.LEAGUE_CONFIG||{};
+    var d = (cfg.contact||{}).director||{};
+    var gen = (cfg.contact||{}).generalEmail||'';
+    document.getElementById('contactCard').innerHTML =
+      '<div class="sts-logo" style="width:72px;height:72px;font-size:22px;margin:0 auto var(--space-4)">STS</div>'+
+      '<h2 style="margin:0 0 4px">'+esc(d.name||'Keith Philips')+'</h2>'+
+      '<div class="muted" style="margin-bottom:var(--space-4)">'+esc(d.role||'Owner / Director')+'</div>'+
+      (d.email?'<p style="margin:6px 0"><a class="btn btn-outline" href="mailto:'+esc(d.email)+'">✉ '+esc(d.email)+'</a></p>':'')+
+      (d.phone?'<p style="margin:10px 0"><a class="btn btn-outline" href="tel:'+esc(d.phone.replace(/[^0-9]/g,''))+'">📞 '+esc(d.phone)+'</a></p>':'')+
+      (gen?'<p style="margin:10px 0"><a class="btn btn-outline" href="mailto:'+esc(gen)+'">✉ '+esc(gen)+'</a></p>':'')+
+      (cfg.facebook?'<p style="margin:10px 0"><a class="btn btn-navy" href="'+esc(cfg.facebook)+'" target="_blank" rel="noopener">Follow on Facebook</a></p>':'')+
+      '<p class="muted mt-5" style="font-size:var(--text-sm)">Each tournament has its own local director — see them all on the <a href="directors.html">Directors</a> page.</p>';
+  })();
+</script>
+</body>
+</html>

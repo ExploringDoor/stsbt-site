@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Edit Roster · Small Town Select Tournaments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  .roster-row { display: grid; grid-template-columns: 70px 1fr 90px 44px; gap: 10px; margin-bottom: 10px; align-items: center; }
+  .roster-row .del { background: none; border: 1px solid var(--line); border-radius: 8px; color: var(--sts-red); cursor: pointer; height: 44px; }
+  @media (max-width: 540px){ .roster-row { grid-template-columns: 56px 1fr 70px 40px; } }
+</style>
+</head>
+<body>
+
+<div id="sts-nav"></div>
+
+<header class="reg-hero" style="background:linear-gradient(180deg,#00224f,#001a3d);color:#fff;padding:var(--space-7) 0">
+  <div class="container narrow">
+    <div class="eyebrow" style="color:var(--gold)">Coach Tools</div>
+    <h1 style="color:#fff;margin:0" id="reTitle">Edit Your Roster</h1>
+    <p style="color:rgba(255,255,255,.85);margin:8px 0 0" id="reSub">Enter your team code to add or update players.</p>
+  </div>
+</header>
+
+<main class="container narrow section">
+  <!-- gate -->
+  <div id="gate" class="form-wrap">
+    <div class="card">
+      <div class="field"><label>Team Code <span class="req">*</span></label><input class="input" id="codeInput" placeholder="e.g. ABCDE" style="text-transform:uppercase;letter-spacing:.15em;font-family:var(--font-display)" /></div>
+      <button class="btn btn-navy" id="unlockBtn" style="width:100%">Unlock Roster</button>
+      <div id="gateErr" class="notice notice-warn hidden mt-5"></div>
+      <p class="form-note mt-5">Your team code was emailed to you and shown on your registration confirmation.</p>
+    </div>
+  </div>
+
+  <!-- editor -->
+  <div id="editor" class="form-wrap hidden">
+    <div class="card">
+      <div class="spread" style="margin-bottom:var(--space-4)"><h3 style="margin:0" id="edTeam">Roster</h3><a class="muted" id="viewTeamLink" style="font-size:var(--text-sm)" href="#">View team page ↗</a></div>
+      <div class="roster-row" style="font-family:var(--font-display);text-transform:uppercase;letter-spacing:.04em;font-size:var(--text-xs);color:var(--muted)"><span>#</span><span>Player Name</span><span>Pos</span><span></span></div>
+      <div id="rosterRows"></div>
+      <button class="btn btn-outline btn-sm" id="addRow">+ Add Player</button>
+      <div class="total-line" style="border:0"><span></span><button class="btn btn-red" id="saveRoster">Save Roster</button></div>
+      <div id="saveMsg" class="notice notice-ok hidden"></div>
+    </div>
+  </div>
+</main>
+
+<div id="sts-footer"></div>
+
+<script src="js/sts-chrome.js"></script>
+<script type="module">
+  import * as STS from './js/sts-data.js';
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function qs(k){ return new URLSearchParams(location.search).get(k); }
+
+  var teamId = qs('id');
+  var preCode = qs('code') || (teamId ? localStorage.getItem('sts-code-'+teamId) : '') || '';
+  var TEAM = null, roster = [];
+
+  if (!teamId){
+    document.getElementById('gate').innerHTML = '<div class="empty"><h2>Almost there</h2><p class="muted">Your team page and roster unlock as soon as your registration payment clears. Keep your team code handy — we emailed it to you.</p><a class="btn btn-navy" href="teams.html">Browse teams</a></div>';
+  } else {
+    if (preCode) document.getElementById('codeInput').value = preCode;
+    document.getElementById('unlockBtn').addEventListener('click', unlock);
+    document.getElementById('codeInput').addEventListener('keydown', function(e){ if(e.key==='Enter') unlock(); });
+    if (preCode) unlock();
+  }
+
+  async function unlock(){
+    var err = document.getElementById('gateErr'); err.classList.add('hidden');
+    var code = (document.getElementById('codeInput').value||'').trim().toUpperCase();
+    if (!code){ err.textContent='Enter your team code.'; err.classList.remove('hidden'); return; }
+    TEAM = await STS.getTeam(teamId);
+    if (!TEAM){ err.textContent='Team not found.'; err.classList.remove('hidden'); return; }
+    if (String(TEAM.team_code).toUpperCase() !== code){ err.textContent='That code doesn\'t match this team. Check your confirmation email.'; err.classList.remove('hidden'); return; }
+    localStorage.setItem('sts-code-'+teamId, code);
+    roster = (TEAM.roster||[]).slice();
+    if (!roster.length) roster.push({ num:'', name:'', pos:'' });
+    document.getElementById('gate').classList.add('hidden');
+    document.getElementById('editor').classList.remove('hidden');
+    document.getElementById('reTitle').textContent = TEAM.name + ' — Roster';
+    document.getElementById('reSub').textContent = 'Add, edit, or remove players, then save.';
+    document.getElementById('edTeam').textContent = TEAM.name;
+    document.getElementById('viewTeamLink').href = 'team.html?id='+encodeURIComponent(TEAM.slug||TEAM.id);
+    renderRows();
+  }
+
+  function renderRows(){
+    document.getElementById('rosterRows').innerHTML = roster.map(function(p,i){
+      return '<div class="roster-row">'+
+        '<input class="input" data-i="'+i+'" data-f="num" value="'+esc(p.num||'')+'" placeholder="#">'+
+        '<input class="input" data-i="'+i+'" data-f="name" value="'+esc(p.name||'')+'" placeholder="Full name">'+
+        '<input class="input" data-i="'+i+'" data-f="pos" value="'+esc(p.pos||'')+'" placeholder="Pos">'+
+        '<button class="del" data-del="'+i+'" title="Remove">✕</button></div>';
+    }).join('');
+  }
+  document.getElementById('rosterRows').addEventListener('input', function(e){ var t=e.target; if(t.dataset.i!=null){ roster[+t.dataset.i][t.dataset.f]=t.value; } });
+  document.getElementById('rosterRows').addEventListener('click', function(e){ var b=e.target.closest('[data-del]'); if(!b) return; roster.splice(+b.dataset.del,1); if(!roster.length) roster.push({num:'',name:'',pos:''}); renderRows(); });
+  document.getElementById('addRow').addEventListener('click', function(){ roster.push({num:'',name:'',pos:''}); renderRows(); });
+  document.getElementById('saveRoster').addEventListener('click', async function(){
+    var clean = roster.filter(function(p){ return (p.name||'').trim(); });
+    var msg = document.getElementById('saveMsg');
+    try {
+      await STS.saveTeamRoster(TEAM.slug||TEAM.id, clean, (document.getElementById('codeInput').value||'').trim().toUpperCase());
+      msg.className='notice notice-ok'; msg.textContent='Roster saved! '+clean.length+' player'+(clean.length===1?'':'s')+'.'; msg.classList.remove('hidden');
+    } catch(ex){ msg.className='notice notice-warn'; msg.textContent='Could not save: '+(ex.message||'try again'); msg.classList.remove('hidden'); }
+  });
+</script>
+
+</body>
+</html>

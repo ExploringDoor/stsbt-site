@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>You're Registered · Small Town Select Tournaments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  .thanks { max-width: 560px; margin: 0 auto; text-align: center; }
+  .check-orb { width: 84px; height: 84px; border-radius: 50%; background: #ECFDF5; color: #16A34A; display: inline-flex; align-items: center; justify-content: center; font-size: 44px; margin-bottom: var(--space-4); }
+  .code-box { background: var(--sts-navy); color: #fff; border-radius: var(--radius); padding: var(--space-5); margin: var(--space-5) 0; }
+  .code-box .lbl { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .08em; font-size: var(--text-xs); color: rgba(255,255,255,.7); }
+  .code-box .code { font-family: var(--font-display); font-weight: 700; font-size: var(--text-4xl); letter-spacing: .15em; color: var(--gold); }
+</style>
+</head>
+<body>
+
+<div id="sts-nav"></div>
+
+<main class="container section">
+  <div class="thanks card">
+    <div class="check-orb" id="orb">✓</div>
+    <h1 id="thanksTitle">You're Registered!</h1>
+    <p id="thanksMsg" class="muted">Thanks for registering with Small Town Select Tournaments.</p>
+
+    <div id="pendingNote" class="notice notice-warn hidden">Your spot is reserved. Payment is still pending — your team page goes live the moment payment clears.</div>
+
+    <div class="code-box">
+      <div class="lbl">Your Team Code — save this</div>
+      <div class="code" id="teamCode">—</div>
+      <div class="lbl" style="margin-top:8px">Use it to edit your roster anytime</div>
+    </div>
+
+    <div class="stack-3">
+      <a class="btn btn-gold hidden" id="rosterBtn" href="#" style="width:100%">Add Your Roster →</a>
+      <a class="btn btn-navy hidden" id="teamBtn" href="#" style="width:100%">View Your Team Page →</a>
+      <div class="notice notice-info" id="rosterNote">Save your team code above. Your team page &amp; roster open as soon as your registration is confirmed — we'll email you the link.</div>
+      <a class="btn btn-outline" href="register.html" style="width:100%">Register Another Team</a>
+      <a href="index.html" class="muted" style="font-size:var(--text-sm)">Back to home</a>
+    </div>
+    <p class="form-note mt-5">A confirmation email is on its way to the address you provided.</p>
+  </div>
+</main>
+
+<div id="sts-footer"></div>
+
+<script src="js/sts-chrome.js"></script>
+<script type="module">
+  import * as STS from './js/sts-data.js';
+  function qs(k){ return new URLSearchParams(location.search).get(k); }
+  var regId = qs('reg'), code = qs('code'), team = qs('team'), status = qs('status'), entry = qs('entry');
+
+  document.getElementById('teamCode').textContent = code || '—';
+  if (team) document.getElementById('thanksMsg').textContent = team + (entry ? ' · Entry #' + entry : '') + ' — you\'re in.';
+
+  var teamSlug = team ? STS.slugify(team) : '';
+  function activateTeam(slug){
+    if (!slug) return;
+    var rb = document.getElementById('rosterBtn'); rb.href = 'roster-edit.html?id=' + encodeURIComponent(slug) + (code ? '&code=' + encodeURIComponent(code) : ''); rb.classList.remove('hidden');
+    var tb = document.getElementById('teamBtn'); tb.href = 'team.html?id=' + encodeURIComponent(slug); tb.classList.remove('hidden');
+    document.getElementById('rosterNote').classList.add('hidden');
+    document.getElementById('pendingNote').classList.add('hidden');
+    document.getElementById('thanksTitle').textContent = "You're Registered!";
+    document.getElementById('orb').textContent = '✓'; document.getElementById('orb').removeAttribute('style');
+  }
+
+  if (status === 'pending') {
+    document.getElementById('pendingNote').classList.remove('hidden');
+    document.getElementById('thanksTitle').textContent = 'Almost Done!';
+    document.getElementById('orb').textContent = '⏳';
+    document.getElementById('orb').style.cssText += 'background:#FEF3C7;color:#B45309';
+  } else {
+    if (window.STSfx) setTimeout(function(){ STSfx.confetti(); }, 400);
+  }
+
+  // The team page is created by the Clover webhook once payment clears. Poll the
+  // PUBLIC team doc (an unauthenticated coach can't read registrations) and reveal
+  // the roster CTA when it appears. Free/season entries create no team — note stays.
+  (async function(){
+    if (!teamSlug) return;
+    var tries = STS.isConfigured ? 20 : 1;
+    for (var i = 0; i < tries; i++){
+      try { var t = await STS.getTeam(teamSlug); if (t && t.live){ activateTeam(t.slug || teamSlug); if (window.STSfx) STSfx.confetti(); return; } } catch(e){}
+      if (i < tries - 1) await new Promise(function(r){ setTimeout(r, 3000); });
+    }
+  })();
+</script>
+
+</body>
+</html>

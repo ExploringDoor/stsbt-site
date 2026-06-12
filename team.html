@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Team · Small Town Select Tournaments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div id="sts-nav"></div>
+
+<div id="teamRoot">
+  <div class="team-hero"><div class="container"><div class="th-inner"><div class="team-logo">…</div><div><h1>Loading…</h1></div></div></div></div>
+</div>
+
+<div id="sts-footer"></div>
+
+<script src="js/sts-chrome.js"></script>
+<script type="module">
+  import * as STS from './js/sts-data.js';
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function qs(k){ return new URLSearchParams(location.search).get(k); }
+
+  (async function(){
+    var id = qs('id');
+    var root = document.getElementById('teamRoot');
+    if (!id){ root.innerHTML = '<div class="container section"><div class="empty">No team specified.</div></div>'; return; }
+    var t = await STS.getTeam(id);
+    if (!t || (!t.live && t.status!=='active')){
+      root.innerHTML = '<div class="container section"><div class="empty"><h2>Team page pending</h2><p class="muted">This team\'s page goes live once their registration payment clears. Check back soon.</p><a class="btn btn-navy" href="teams.html">Browse teams</a></div></div>';
+      document.title = 'Team · Small Town Select';
+      return;
+    }
+    document.title = t.name + ' · Small Town Select';
+    var logo = '<img src="assets/logos/'+esc(t.slug||t.id)+'.png" alt="'+esc(t.name)+' logo" loading="lazy" onerror="this.remove()">'+esc(STS.abbr(t.name));
+    var meta = [t.division, t.age_class, t.sport, t.town].filter(Boolean).map(function(m){ return '<span>'+esc(m)+'</span>'; }).join('');
+    var roster = (t.roster||[]);
+    var rosterHTML = roster.length
+      ? '<div class="table-wrap"><table class="tbl roster-table"><thead><tr><th>#</th><th>Player</th><th>Pos</th></tr></thead><tbody>'+
+        roster.map(function(p){ return '<tr><td class="jersey">'+esc(p.num||'')+'</td><td>'+esc(p.name||'')+'</td><td>'+esc(p.pos||'')+'</td></tr>'; }).join('')+
+        '</tbody></table></div>'
+      : '<div class="empty">No roster posted yet. The coach can add players with their team code.</div>';
+    var tourneys = (t.tournaments||[]);
+    var tourneyHTML = tourneys.length
+      ? '<div class="card-grid">'+tourneys.map(function(name){ return '<div class="card"><div class="eyebrow">Registered</div><h3 style="margin:4px 0 0">'+esc(name)+'</h3></div>'; }).join('')+'</div>'
+      : '<div class="empty">Not registered for any tournaments yet.</div>';
+    var record = (t.w!=null||t.l!=null) ? ('<span>'+(t.w||0)+'–'+(t.l||0)+(t.t?'–'+t.t:'')+'</span>') : '';
+
+    root.innerHTML =
+      '<div class="team-hero"><div class="container"><div class="th-inner">'+
+        '<div class="team-logo">'+logo+'</div>'+
+        '<div><h1>'+esc(t.name)+'</h1><div class="th-meta">'+meta+record+'</div></div>'+
+        '<div style="margin-left:auto"><a class="btn btn-gold btn-sm" href="roster-edit.html?id='+esc(t.slug||t.id)+'">Edit Roster</a></div>'+
+      '</div></div></div>'+
+      '<main class="container section">'+
+        '<div class="sec-head"><h2>Roster</h2><span class="muted" style="font-size:var(--text-sm)">'+roster.length+' player'+(roster.length===1?'':'s')+'</span></div>'+rosterHTML+
+        '<div class="sec-head mt-7"><h2>Tournaments</h2></div>'+tourneyHTML+
+      '</main>';
+    if (window.STSfx) STSfx.arm(document);
+  })();
+</script>
+
+</body>
+</html>

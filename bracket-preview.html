@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Bracket Examples · Small Town Select Tournaments</title>
+<meta name="description" content="See what single- and double-elimination brackets look like for 3 to 20 teams." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Saira+Condensed:wght@600;700;800&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  .ex { border:1px solid var(--line); border-radius:14px; padding:var(--space-4) var(--space-5) var(--space-3); margin-bottom:var(--space-5); background:var(--surface); }
+  .ex-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .ex-head h2 { margin:0; color:var(--sts-navy); }
+  .ex-head .meta { font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-xs); color:var(--muted); }
+  .seg { display:inline-flex; border:1.5px solid var(--line); border-radius:999px; overflow:hidden; background:#fff; }
+  .seg button { border:0; background:#fff; font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-sm); padding:9px 20px; cursor:pointer; color:var(--sts-navy); }
+  .seg button.active { background:var(--sts-navy); color:#fff; }
+  .controls { display:flex; gap:var(--space-4); align-items:center; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<div id="sts-nav"></div>
+
+<header class="hero" style="min-height:30vh;background:linear-gradient(180deg,#00224f,#001a3d)">
+  <div class="container"><div class="eyebrow" style="color:var(--gold)">Tournament Play</div><h1>Bracket Examples</h1><p>What a bracket looks like for every team count — 3 through 20 teams.</p></div>
+</header>
+
+<main class="container section">
+  <div class="controls" style="margin-bottom:var(--space-5)">
+    <span style="font-family:var(--font-display);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-size:var(--text-sm)">Format:</span>
+    <div class="seg" id="fmtSeg"><button data-fmt="single" class="active">Single Elimination</button><button data-fmt="double">Double Elimination</button></div>
+    <div class="bk-legend" style="padding:0"><span><span class="chip w"></span> Winners</span><span><span class="chip l"></span> Losers</span><span><span class="chip f"></span> Championship</span></div>
+  </div>
+  <p class="muted" style="font-size:var(--text-sm);margin-bottom:var(--space-4)">Round 1 shows the seeds; later games show “Winner of Game N”. Odd counts get byes. Hover a team to trace its path.</p>
+  <div id="gallery"><div class="bk-empty">Generating brackets…</div></div>
+</main>
+
+<div id="sts-footer"></div>
+
+<script src="js/sts-tourney-gen.js"></script>
+<script src="js/sts-bracket.js"></script>
+<script src="js/sts-bracket-render.js"></script>
+<script src="js/sts-chrome.js"></script>
+<script>
+  (function(){
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+    var COUNTS = [3,4,5,6,7,8,9,10,12,14,16,20];
+    var fmt = 'single';
+    function render(){
+      var out = document.getElementById('gallery');
+      out.innerHTML = COUNTS.map(function(n){
+        var teams = []; for (var i=1;i<=n;i++) teams.push('Team '+i);
+        var games = STSgen.generateBracket({ format: fmt, teams: teams, startGame: 1 });
+        var byes = (function(){ var p=1; while(p<n) p<<=1; return p-n; })();
+        var meta = games.length + ' games' + (byes>0 ? ' · '+byes+' bye'+(byes>1?'s':'')+' (Round 1)' : '');
+        return '<div class="ex"><div class="ex-head"><h2>'+n+' Teams</h2><span class="meta">'+esc(meta)+'</span></div>'+STSbracketRender.render(games, {})+'</div>';
+      }).join('');
+      var g = document.getElementById('gallery'); STSbracketRender.wireHover(g);
+      if (window.STSfx) STSfx.arm(document);
+    }
+    document.getElementById('fmtSeg').addEventListener('click', function(e){
+      var b = e.target.closest('button[data-fmt]'); if(!b) return;
+      fmt = b.dataset.fmt;
+      document.querySelectorAll('#fmtSeg button').forEach(function(x){ x.classList.toggle('active', x===b); });
+      render();
+    });
+    render();
+  })();
+</script>
+
+</body>
+</html>

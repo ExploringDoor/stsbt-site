@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Brackets · Small Town Select Tournaments</title>
+<meta name="description" content="Live single- and double-elimination brackets — winners advance automatically as scores post." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Saira+Condensed:wght@600;700;800&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div id="sts-nav"></div>
+
+<header class="page-banner"><img src="assets/headers/brackets.png" alt="Brackets — Small Town Select Tournaments" style="object-position:center 50%" /><h1 class="sr-only">Brackets</h1></header>
+
+<main class="container section">
+  <div class="toolbar" style="align-items:center">
+    <select class="input" id="eventSel" style="max-width:340px"></select>
+    <div class="bk-legend">
+      <span><span class="chip w"></span> Winners bracket</span>
+      <span><span class="chip l"></span> Losers bracket</span>
+      <span><span class="chip f"></span> Championship</span>
+      <div class="bk-tools">
+        <div class="bk-zoomctl"><button type="button" id="zoomOut" aria-label="Zoom out">−</button><span id="zoomLabel">100%</span><button type="button" id="zoomIn" aria-label="Zoom in">+</button></div>
+        <button type="button" class="bk-tool-btn" id="zoomFit">Fit</button>
+        <a class="bk-tool-btn" href="bracket-preview.html" style="text-decoration:none;display:inline-flex;align-items:center">Examples</a>
+      </div>
+    </div>
+  </div>
+  <div id="bracketOut"><div class="bk-empty">Loading brackets…</div></div>
+  <div class="notice notice-info mt-5"><b>Live bracket.</b> When a score is posted, the winner advances automatically — “Winner of Game 5” becomes the actual team, and the line carries them to the next round.</div>
+</main>
+
+<div id="sts-footer"></div>
+
+<script src="js/sts-bracket.js"></script>
+<script src="js/sts-bracket-render.js"></script>
+<script src="js/sts-gamemodal.js"></script>
+<script src="js/sts-chrome.js"></script>
+<script type="module">
+  import * as STS from './js/sts-data.js';
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  var GAMES=[], FORMS=[], cur='', ZOOM=1, CURBG=[];
+  function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
+
+  function applyZoom(){ var z=document.querySelector('#bracketOut .bk-zoomable'); if(z) z.style.zoom=ZOOM; document.getElementById('zoomLabel').textContent=Math.round(ZOOM*100)+'%'; }
+  function render(){
+    var out=document.getElementById('bracketOut');
+    var bg = GAMES.filter(function(g){ return g.g!=null && g.form_id===cur; });
+    CURBG = bg;
+    if(!bg.length){ out.innerHTML='<div class="bk-empty">No bracket posted for this event yet.</div>'; return; }
+    out.innerHTML = '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: titleFor(cur) })+'</div>';
+    STSbracketRender.wireHover(out);
+    ZOOM=1; applyZoom();
+    if (window.STSfx) STSfx.arm(document);
+  }
+  // click a bracket card → preview (upcoming) / recap (final) modal
+  document.getElementById('bracketOut').addEventListener('click', function(e){
+    var card = e.target.closest('.bk-match[data-g]'); if(!card) return;
+    var gn = card.getAttribute('data-g');
+    var g = CURBG.find(function(x){ return String(x.g)===gn; });
+    if(g && window.STSgameModal) STSgameModal.open(titleFor(cur), CURBG, g);
+  });
+  document.getElementById('eventSel').addEventListener('change', function(e){ cur=e.target.value; render(); location.hash=cur; });
+  document.getElementById('zoomIn').addEventListener('click', function(){ ZOOM=Math.min(1.4,Math.round((ZOOM+0.1)*10)/10); applyZoom(); });
+  document.getElementById('zoomOut').addEventListener('click', function(){ ZOOM=Math.max(0.4,Math.round((ZOOM-0.1)*10)/10); applyZoom(); });
+  document.getElementById('zoomFit').addEventListener('click', function(){
+    var c=document.querySelector('#bracketOut .bk-canvas'); var z=document.querySelector('#bracketOut .bk-zoomable'); if(!c||!z) return;
+    z.style.zoom=1; var main=document.querySelector('main.container'); var avail=(main?main.clientWidth:window.innerWidth)-6;
+    ZOOM = c.offsetWidth>0 ? Math.round(Math.max(0.4,Math.min(1,avail/c.offsetWidth))*100)/100 : 1; applyZoom();
+  });
+
+  (async function(){
+    try {
+      FORMS = await STS.loadForms(); GAMES = await STS.loadGames();
+      var withB={}; GAMES.forEach(function(g){ if(g.g!=null) withB[g.form_id]=1; });
+      var opts = FORMS.filter(function(f){ return withB[f.id]; });
+      if(!opts.length){ document.getElementById('bracketOut').innerHTML='<div class="bk-empty"><h2 style="color:var(--sts-navy);margin:0 0 8px">No brackets yet</h2><p class="muted" style="text-transform:none;letter-spacing:0">Brackets post here once tournament play begins. See <a href="bracket-preview.html">example brackets</a> for every team count.</p></div>'; document.getElementById('eventSel').style.display='none'; return; }
+      document.getElementById('eventSel').innerHTML = opts.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
+      var deep = location.hash.replace('#','');
+      cur = opts.find(function(f){return f.id===deep;}) ? deep : opts[0].id;
+      document.getElementById('eventSel').value = cur;
+      render();
+    } catch(e){ document.getElementById('bracketOut').innerHTML='<div class="bk-empty">Could not load brackets.</div>'; }
+  })();
+</script>
+
+</body>
+</html>

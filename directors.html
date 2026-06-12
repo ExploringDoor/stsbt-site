@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Tournament Directors · Small Town Select Tournaments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div id="sts-nav"></div>
+<header class="hero" style="min-height:30vh;background:linear-gradient(180deg,#00224f,#001a3d)">
+  <div class="container"><div class="eyebrow" style="color:var(--gold)">Our Team</div><h1>Tournament Directors</h1><p>The directors who run Small Town Select events across Texas.</p></div>
+</header>
+<main class="container section">
+  <div class="card-grid" id="dirGrid"></div>
+</main>
+<div id="sts-footer"></div>
+<script src="js/sts-chrome.js"></script>
+<script>
+  (function(){
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+    var cfg = window.LEAGUE_CONFIG||{}; var dirs = cfg.directors||[];
+    document.getElementById('dirGrid').innerHTML = dirs.map(function(d){
+      var initials = (d.name||'').split(/\s+/).map(function(w){return w[0];}).slice(0,2).join('').toUpperCase();
+      return '<div class="card" style="text-align:center"><div class="sts-logo" style="width:64px;height:64px;font-size:20px;margin:0 auto var(--space-3)">'+esc(initials)+'</div>'+
+        '<h3 style="margin:0 0 4px">'+esc(d.name)+'</h3>'+
+        '<div class="muted" style="font-size:var(--text-sm)">'+esc([d.role,d.area].filter(Boolean).join(' · '))+'</div>'+
+        (d.email?'<div style="margin-top:10px;font-size:var(--text-sm)"><a href="mailto:'+esc(d.email)+'">'+esc(d.email)+'</a></div>':'')+
+        (d.phone?'<div class="muted" style="font-size:var(--text-sm)"><a href="tel:'+esc(d.phone.replace(/[^0-9]/g,''))+'">'+esc(d.phone)+'</a></div>':'')+
+        '</div>';
+    }).join('') || '<div class="empty">Directors coming soon.</div>';
+  })();
+</script>
+</body>
+</html>

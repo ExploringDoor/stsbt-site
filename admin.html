@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Admin · Small Town Select Tournaments</title>
+<meta name="robots" content="noindex" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,18,48,.55); display: none; align-items: flex-start; justify-content: center; padding: var(--space-6) var(--space-4); z-index: 100; overflow-y: auto; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border-radius: var(--radius-lg); width: 100%; max-width: 620px; box-shadow: var(--shadow-lg); }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; padding: var(--space-5); border-bottom: 1px solid var(--line); }
+  .modal-head h3 { margin: 0; }
+  .modal-body { padding: var(--space-5); }
+  .modal-foot { padding: var(--space-4) var(--space-5); border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
+  .x-close { background: none; border: 0; font-size: 22px; cursor: pointer; color: var(--muted); }
+  .kv { display: grid; grid-template-columns: 130px 1fr; gap: 8px 14px; font-size: var(--text-sm); }
+  .kv dt { color: var(--muted); font-family: var(--font-display); text-transform: uppercase; letter-spacing: .03em; font-size: var(--text-xs); }
+  .refund-help { background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: var(--space-4); margin-top: var(--space-4); }
+  .copy-chip { display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; font-family: var(--font-display); cursor: pointer; }
+  .stat-row { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-5); }
+  .mini-stat { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-4) var(--space-5); min-width: 130px; }
+  .mini-stat .n { font-family: var(--font-display); font-weight: 700; font-size: var(--text-2xl); color: var(--sts-navy); }
+  .mini-stat .l { font-size: var(--text-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+</style>
+</head>
+<body class="admin-body">
+
+<!-- Login gate (only when Firebase configured) -->
+<div class="login-gate hidden" id="loginGate">
+  <form class="login-card" id="loginForm">
+    <div class="nav-crest mono" style="margin:0 auto var(--space-4);width:64px;height:64px;font-size:22px;color:var(--sts-navy);display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:#fff;box-shadow:0 0 0 2px var(--line)">STS</div>
+    <h2 style="margin:0 0 6px">Admin Sign In</h2>
+    <p class="muted" style="font-size:var(--text-sm);margin-bottom:var(--space-5)">Small Town Select Tournaments</p>
+    <div class="field"><input class="input" type="email" id="loginEmail" placeholder="Email" autocomplete="username" required /></div>
+    <div class="field"><input class="input" type="password" id="loginPass" placeholder="Password" autocomplete="current-password" required /></div>
+    <button class="btn btn-navy" type="submit" style="width:100%">Sign In</button>
+    <div id="loginErr" class="notice notice-warn hidden mt-5"></div>
+  </form>
+</div>
+
+<!-- Signed in but not an enabled admin -->
+<div class="login-gate hidden" id="noAccess">
+  <div class="login-card">
+    <div class="nav-crest mono" style="margin:0 auto var(--space-4);width:64px;height:64px;font-size:22px;color:var(--sts-navy);display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:#fff;box-shadow:0 0 0 2px var(--line)">STS</div>
+    <h2 style="margin:0 0 6px">Not enabled yet</h2>
+    <p class="muted" style="font-size:var(--text-sm)">Your account (<b data-who></b>) isn't set up as an administrator. Ask Keith to add you as a director.</p>
+    <button class="btn btn-outline" id="noAccessOut" style="width:100%">Sign Out</button>
+  </div>
+</div>
+
+<!-- Admin app -->
+<div class="admin-wrap hidden" id="adminApp">
+  <aside class="admin-side">
+    <div class="brand"><span class="nav-crest mono" style="width:38px;height:38px;font-size:13px;color:var(--sts-navy);display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:#fff">STS</span><b>STS Admin</b></div>
+    <ul class="admin-nav" id="adminNav">
+      <li><button data-panel="entries" class="active">📋 Entries</button></li>
+      <li><button data-panel="schedule">📅 Schedule</button></li>
+      <li><button data-panel="analysis">📊 Analysis</button></li>
+      <li><button data-panel="forms">📝 Forms</button></li>
+      <li><button data-panel="teams">⚾ Teams</button></li>
+      <li><button data-panel="champions">🏆 Champions</button></li>
+      <li><button data-panel="content">🏠 Homepage</button></li>
+      <li><button data-panel="prices">💲 Prices</button></li>
+      <li><button data-panel="users">👥 Directors</button></li>
+    </ul>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <div><h1 id="panelTitle" style="margin:0">Entries</h1><div class="who" id="whoami"></div></div>
+      <div style="display:flex;gap:8px"><a class="btn btn-outline btn-sm" href="index.html" target="_blank">View Site ↗</a><button class="btn btn-outline btn-sm" id="signOutBtn">Sign Out</button></div>
+    </div>
+
+    <!-- ENTRIES -->
+    <section class="panel active" id="panel-entries">
+      <div class="stat-row" id="entryStats"></div>
+      <div class="toolbar">
+        <input class="input grow" id="entrySearch" placeholder="Search team, coach, email…" />
+        <select class="input" id="entryForm" style="max-width:220px"><option value="">All forms</option></select>
+        <div class="pill-tabs" id="payPills">
+          <button class="pill active" data-pay="">All</button>
+          <button class="pill" data-pay="paid">Paid</button>
+          <button class="pill" data-pay="pending">Pending</button>
+          <button class="pill" data-pay="unpaid">Unpaid</button>
+          <button class="pill" data-pay="free">Free</button>
+          <button class="pill" data-pay="failed">Failed</button>
+        </div>
+        <div class="pill-tabs" id="statusPills">
+          <button class="pill active" data-status="completed">Active</button>
+          <button class="pill" data-status="archived">Archived</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="tbl" id="entriesTbl">
+          <thead><tr>
+            <th>#</th><th>Submitted</th><th>Pay</th><th>Sport</th><th>Age / Class</th><th>Division</th>
+            <th>Team</th><th>Coach</th><th>Email</th><th>Phone</th><th>Waiver</th>
+            <th>Amount</th><th>Last 4</th><th>CC Txn / Order</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="entriesBody"></tbody>
+        </table>
+      </div>
+      <div id="entriesEmpty" class="empty hidden">No entries match.</div>
+    </section>
+
+    <!-- SCHEDULE -->
+    <section class="panel" id="panel-schedule">
+      <div class="spread" style="margin-bottom:var(--space-4)">
+        <div class="toolbar" style="margin:0">
+          <select class="input" id="schedEvent" style="max-width:260px"><option value="">All events</option></select>
+        </div>
+        <div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" id="bracketBtn">🏆 Bracket / Pool</button><button class="btn btn-red btn-sm" id="newGameBtn">+ Add Game</button></div>
+      </div>
+      <p class="muted" style="font-size:var(--text-sm)">Create games and post scores for your events. Standings on the public site update automatically from finished games.</p>
+      <div id="scheduleWrap"></div>
+      <datalist id="teamNames"></datalist>
+    </section>
+
+    <!-- FORMS -->
+    <section class="panel" id="panel-forms">
+      <div class="spread" style="margin-bottom:var(--space-4)"><p class="muted" style="margin:0">Create a registration form for each tournament, season, or product. Teams register through these.</p><button class="btn btn-red btn-sm" id="newFormBtn">+ New Form</button></div>
+      <div class="table-wrap">
+        <table class="tbl"><thead><tr><th>Order</th><th>Title</th><th>Type</th><th>Sport</th><th>Fee</th><th>Entries</th><th>Active</th><th>Actions</th></tr></thead>
+        <tbody id="formsBody"></tbody></table>
+      </div>
+    </section>
+
+    <!-- TEAMS -->
+    <section class="panel" id="panel-teams">
+      <p class="muted">Teams are created automatically when a registration is paid. Each gets a public team page and a roster the coach can edit with their team code.</p>
+      <div class="table-wrap">
+        <table class="tbl"><thead><tr><th>Team</th><th>Sport</th><th>Division</th><th>Age</th><th>Town</th><th>Code</th><th>Live</th><th>Actions</th></tr></thead>
+        <tbody id="teamsBody"></tbody></table>
+      </div>
+    </section>
+
+    <!-- CONTENT -->
+    <section class="panel" id="panel-content">
+      <p class="muted">Edit the words on your homepage. Changes publish instantly.</p>
+      <div class="form-wrap" style="margin:0;max-width:640px">
+        <div class="field"><label>Hero Headline</label><input class="input" id="c_hero_title" /></div>
+        <div class="field"><label>Hero Subtitle</label><textarea class="input" id="c_hero_sub"></textarea></div>
+        <div class="field"><label>Announcement Banner <span class="muted">(blank = hidden)</span></label><input class="input" id="c_announce" /></div>
+        <button class="btn btn-navy" id="saveContentBtn">Save Homepage</button>
+        <div id="contentMsg" class="notice notice-ok hidden mt-5"></div>
+      </div>
+    </section>
+
+    <!-- PRICES -->
+    <section class="panel" id="panel-prices">
+      <p class="muted">Set the default fees applied to new registration forms. You can still override per-form.</p>
+      <div class="form-wrap" style="margin:0;max-width:480px">
+        <div class="field"><label>Convenience Fee (per entry)</label><input class="input" id="p_conv" inputmode="decimal" placeholder="3.00" /></div>
+        <div class="field"><label>Default Tournament Entry (per team)</label><input class="input" id="p_entry" inputmode="decimal" placeholder="125.00" /></div>
+        <div class="field"><label>Team Insurance</label><input class="input" id="p_ins" inputmode="decimal" placeholder="50.00" /></div>
+        <button class="btn btn-navy" id="savePricesBtn">Save Prices</button>
+        <div id="pricesMsg" class="notice notice-ok hidden mt-5"></div>
+      </div>
+    </section>
+
+    <!-- DIRECTORS (super only) -->
+    <section class="panel" id="panel-users">
+      <div class="spread" style="margin-bottom:var(--space-4)">
+        <p class="muted" style="margin:0;max-width:60ch">Add a tournament director as a <b>Season Administrator</b>. Each one sees and manages only the events you assign — and nothing else.</p>
+        <button class="btn btn-red btn-sm" id="newAdminBtn">+ Add Director</button>
+      </div>
+      <div class="notice notice-info">First create the director's login in Firebase Authentication, then add them here by their <b>User UID</b> and check which events they run.</div>
+      <div class="table-wrap">
+        <table class="tbl"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Events</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="adminsBody"></tbody></table>
+      </div>
+    </section>
+
+    <!-- ANALYSIS (director schedule-fairness QA — not public) -->
+    <section class="panel" id="panel-analysis">
+      <div class="spread" style="margin-bottom:var(--space-4)">
+        <p class="muted" style="margin:0;max-width:64ch">Check that a tournament's schedule is fair before you publish it — home/away balance, time-slot spread, repeat opponents, and doubleheader waits. Built live from the posted games. <b>Admin-only.</b></p>
+      </div>
+      <div class="toolbar" style="align-items:center;margin-bottom:var(--space-4)">
+        <select class="input" id="an_event" style="max-width:340px"></select>
+        <select class="input" id="an_div" style="max-width:220px"></select>
+      </div>
+      <div id="an_out"><div class="an-empty"><p class="muted" style="text-transform:none;letter-spacing:0">Pick an event to see its schedule analysis.</p></div></div>
+    </section>
+
+    <!-- CHAMPIONS (winner photo uploader) -->
+    <section class="panel" id="panel-champions">
+      <div class="spread" style="margin-bottom:var(--space-4)">
+        <p class="muted" style="margin:0;max-width:64ch">Champions are crowned automatically on the public <a href="champions.html" target="_blank">Champions page</a> as brackets finish. Add a winner's <b>photo</b> here and it shows on their champion card.</p>
+      </div>
+      <h3 style="color:var(--sts-navy);margin:0 0 8px">Crowned champions needing a photo</h3>
+      <div id="ch_awaiting" style="margin-bottom:var(--space-5)"></div>
+
+      <div class="card" style="margin-bottom:var(--space-5)">
+        <h3 id="ch_formTitle" style="margin:0 0 var(--space-3)">Add a champion photo</h3>
+        <div class="field-row">
+          <div class="field"><label>Year</label><input class="input" id="ch_year" inputmode="numeric" placeholder="2026"></div>
+          <div class="field"><label>Sport</label><select class="input" id="ch_sport"><option value="">Auto</option><option>Baseball</option><option>Softball</option></select></div>
+        </div>
+        <div class="field"><label>Team</label><input class="input" id="ch_team" placeholder="Winning team name"></div>
+        <div class="field"><label>Tournament / Title</label><input class="input" id="ch_title" placeholder='e.g. Iowa Park "Heat Wave" — Majors'></div>
+        <div class="field"><label>Caption <span class="muted">(optional)</span></label><input class="input" id="ch_caption" placeholder="Auto-filled if blank"></div>
+        <label class="ch-drop" id="ch_drop" for="ch_file"><input type="file" id="ch_file" accept="image/*" hidden><span id="ch_dropTxt">📷 Click or drag a photo here</span><img id="ch_preview" alt="" hidden></label>
+        <div class="spread" style="margin-top:var(--space-3)">
+          <span class="muted" id="ch_msg" style="font-size:var(--text-sm)"></span>
+          <div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" id="ch_clear">Clear</button><button class="btn btn-navy btn-sm" id="ch_save" disabled>Save Champion Photo</button></div>
+        </div>
+      </div>
+
+      <h3 style="color:var(--sts-navy);margin:0 0 8px">Uploaded photos</h3>
+      <div id="ch_list"></div>
+    </section>
+  </main>
+</div>
+
+<!-- Entry edit modal -->
+<div class="modal-bg" id="entryModal"><div class="modal"><div class="modal-head"><h3 id="emTitle">Entry</h3><button class="x-close" data-close aria-label="Close">✕</button></div>
+  <div class="modal-body" id="emBody"></div>
+  <div class="modal-foot"><button class="btn btn-outline btn-sm" id="emArchive">Archive</button><div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" data-close>Cancel</button><button class="btn btn-navy btn-sm" id="emSave">Save</button></div></div>
+</div></div>
+
+<!-- Form edit modal -->
+<div class="modal-bg" id="formModal"><div class="modal"><div class="modal-head"><h3 id="fmTitle">Form</h3><button class="x-close" data-close aria-label="Close">✕</button></div>
+  <div class="modal-body" id="fmBody"></div>
+  <div class="modal-foot"><button class="btn btn-outline btn-sm" id="fmArchive">Archive</button><div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" data-close>Cancel</button><button class="btn btn-navy btn-sm" id="fmSave">Save Form</button></div></div>
+</div></div>
+
+<!-- Director (admin) modal -->
+<div class="modal-bg" id="adminModal"><div class="modal"><div class="modal-head"><h3 id="amTitle">Director</h3><button class="x-close" data-close aria-label="Close">✕</button></div>
+  <div class="modal-body" id="amBody"></div>
+  <div class="modal-foot"><button class="btn btn-outline btn-sm" id="amDisable">Disable</button><div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" data-close>Cancel</button><button class="btn btn-navy btn-sm" id="amSave">Save Director</button></div></div>
+</div></div>
+
+<!-- Game modal -->
+<div class="modal-bg" id="gameModal"><div class="modal"><div class="modal-head"><h3 id="gmTitle">Game</h3><button class="x-close" data-close aria-label="Close">✕</button></div>
+  <div class="modal-body" id="gmBody"></div>
+  <div class="modal-foot"><button class="btn btn-outline btn-sm danger" id="gmDelete" style="color:var(--sts-red)">Delete</button><div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" data-close>Cancel</button><button class="btn btn-navy btn-sm" id="gmSave">Save Game</button></div></div>
+</div></div>
+
+<!-- Bracket modal -->
+<div class="modal-bg" id="bracketModal"><div class="modal"><div class="modal-head"><h3>Create Bracket or Pool</h3><button class="x-close" data-close aria-label="Close">✕</button></div>
+  <div class="modal-body" id="bkBody"></div>
+  <div class="modal-foot"><span class="muted" id="bkNote" style="font-size:var(--text-xs)"></span><div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" data-close>Cancel</button><button class="btn btn-navy btn-sm" id="bkGen">Generate &amp; Save</button></div></div>
+</div></div>
+
+<script src="js/sts-tourney-gen.js"></script>
+<script src="js/sts-bracket.js"></script>
+<script src="js/sts-analysis.js"></script>
+<script src="js/sts-analysis-render.js"></script>
+<script src="js/sts-logos.js"></script>
+<script type="module">
+  import { auth, isConfigured } from './js/firebase-init.js';
+  import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
+  import * as STS from './js/sts-data.js';
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function fmtDate(d){ if(!d) return '—'; try{ var x = (d && d.toDate) ? d.toDate() : new Date(d); if(isNaN(x)) return String(d).slice(0,16); return (x.getMonth()+1)+'/'+x.getDate()+'/'+String(x.getFullYear()).slice(2)+' '+x.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); }catch(e){ return '—'; } }
+  function payBadge(s){ s = s||'unpaid'; return '<span class="badge badge-'+s+'">'+s+'</span>'; }
+
+  // ── Auth gate + role scope ──────────────────────────────────────────
+  var ME = null;  // { id, role, events[], name, email } — the signed-in admin
+  var SUPER_ONLY = ['forms','teams','content','prices','users','champions'];
+  function isSuper(){ return ME && ME.role === 'super'; }
+
+  async function showApp(uid, email){
+    ME = await STS.getCurrentAdmin(uid);
+    if (isConfigured && !ME){   // signed in, but no enabled admin doc
+      document.getElementById('loginGate').classList.add('hidden');
+      document.getElementById('adminApp').classList.add('hidden');
+      showNoAccess(email); return;
+    }
+    document.getElementById('noAccess').classList.add('hidden');
+    document.getElementById('loginGate').classList.add('hidden');
+    document.getElementById('adminApp').classList.remove('hidden');
+    var role = isSuper() ? 'Super Admin' : ('Season Administrator · ' + ((ME&&ME.events)||[]).length + ' event(s)');
+    document.getElementById('whoami').textContent = email
+      ? ('Signed in as ' + email + ' · ' + role)
+      : ('Demo mode — previewing as ' + (ME ? (ME.name + ' · ' + role) : 'Super Admin'));
+    applyRoleGating();
+    boot();
+  }
+  function showNoAccess(email){
+    var el = document.getElementById('noAccess');
+    el.querySelector('[data-who]').textContent = email || '';
+    el.classList.remove('hidden');
+  }
+  // Hide super-only panels for directors; bounce off a hidden panel.
+  function applyRoleGating(){
+    var superOnly = SUPER_ONLY;
+    document.querySelectorAll('#adminNav button[data-panel]').forEach(function(b){
+      var hide = !isSuper() && superOnly.indexOf(b.dataset.panel) >= 0;
+      b.closest('li').style.display = hide ? 'none' : '';
+    });
+    var nf = document.getElementById('newFormBtn'); if (nf) nf.style.display = isSuper() ? '' : 'none';
+    var active = document.querySelector('#adminNav button.active');
+    if (active && !isSuper() && superOnly.indexOf(active.dataset.panel) >= 0)
+      document.querySelector('#adminNav button[data-panel="entries"]').click();
+  }
+
+  if (isConfigured) {
+    document.getElementById('loginGate').classList.remove('hidden');
+    onAuthStateChanged(auth, function(u){ if (u) showApp(u.uid, u.email); else { document.getElementById('loginGate').classList.remove('hidden'); document.getElementById('adminApp').classList.add('hidden'); document.getElementById('noAccess').classList.add('hidden'); } });
+    document.getElementById('loginForm').addEventListener('submit', async function(e){
+      e.preventDefault(); var err = document.getElementById('loginErr'); err.classList.add('hidden');
+      try { await signInWithEmailAndPassword(auth, document.getElementById('loginEmail').value, document.getElementById('loginPass').value); }
+      catch(ex){ err.textContent = 'Sign-in failed. Check your email and password.'; err.classList.remove('hidden'); }
+    });
+  } else {
+    // demo mode — straight in. ?as=uid-carl previews a director's scoped view.
+    var asParam = new URLSearchParams(location.search).get('as');
+    if (asParam) STS._setSampleScope(asParam);
+    showApp(null, null);
+  }
+  function doSignOut(){ if (isConfigured) signOut(auth); else location.href='index.html'; }
+  document.getElementById('signOutBtn').addEventListener('click', doSignOut);
+  document.getElementById('noAccessOut').addEventListener('click', doSignOut);
+
+  // ── Panel switching ─────────────────────────────────────────────────
+  document.getElementById('adminNav').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-panel]'); if (!b) return;
+    if (!isSuper() && SUPER_ONLY.indexOf(b.dataset.panel) >= 0) return;  // directors can't switch to super-only panels
+    document.querySelectorAll('#adminNav button').forEach(function(x){ x.classList.toggle('active', x===b); });
+    document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('active', p.id==='panel-'+b.dataset.panel); });
+    document.getElementById('panelTitle').textContent = b.textContent.replace(/^[^A-Za-z]+/, '');
+    if (b.dataset.panel === 'analysis') initAnalysisPanel();
+    if (b.dataset.panel === 'champions') initChampionsPanel();
+  });
+
+  var CURRENT_SEASON = (window.LEAGUE_CONFIG && LEAGUE_CONFIG.season && LEAGUE_CONFIG.season.year) || 2026;
+
+  // ── Analysis panel (schedule-fairness QA, admin-only) ───────────────
+  var anInited = false, anCur = '', anDiv = '';
+  function eventsWithGames(){ var has={}; GAMES.forEach(function(g){ has[g.form_id]=1; }); return FORMS.filter(function(f){ return has[f.id]; }); }
+  function anDivisions(fid){ var s={}; GAMES.forEach(function(g){ if(g.form_id===fid && g.division) s[g.division]=1; }); return Object.keys(s).sort(); }
+  function renderAnalysis(){
+    var out=document.getElementById('an_out');
+    if(!anCur || !window.STSanalysis){ out.innerHTML='<div class="an-empty"><p class="muted" style="text-transform:none;letter-spacing:0">Pick an event to see its schedule analysis.</p></div>'; return; }
+    var gs=GAMES.filter(function(g){ return g.form_id===anCur && (!anDiv || (g.division||'')===anDiv); });
+    out.innerHTML = STSanalysisRender.render(STSanalysis.compute(gs));
+  }
+  function anSyncDiv(){
+    var divs=anDivisions(anCur), sel=document.getElementById('an_div');
+    if(divs.length>1){ sel.style.display=''; sel.innerHTML='<option value="">All divisions</option>'+divs.map(function(d){return '<option value="'+esc(d)+'">'+esc(d)+'</option>';}).join(''); if(divs.indexOf(anDiv)<0) anDiv=''; sel.value=anDiv; }
+    else { sel.style.display='none'; anDiv=''; }
+  }
+  function initAnalysisPanel(){
+    var opts=eventsWithGames(), sel=document.getElementById('an_event');
+    sel.innerHTML = opts.length ? opts.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('') : '<option value="">No events with games yet</option>';
+    if(!anInited){
+      sel.addEventListener('change', function(e){ anCur=e.target.value; anDiv=''; anSyncDiv(); renderAnalysis(); });
+      document.getElementById('an_div').addEventListener('change', function(e){ anDiv=e.target.value; renderAnalysis(); });
+      anInited=true;
+    }
+    if(opts.length){ if(!opts.find(function(f){return f.id===anCur;})) anCur=opts[0].id; sel.value=anCur; anSyncDiv(); renderAnalysis(); }
+    else { anCur=''; renderAnalysis(); }
+  }
+
+  // ── Champions panel (winner-photo uploader) ─────────────────────────
+  var chInited=false, chStatic=[], chUploaded=[], chPending=null, chPendingKey=null;
+  function chNorm(s){ return String(s==null?'':s).toLowerCase().replace(/\s+/g,' ').trim(); }
+  function chSeasonOf(t){ var ds=(t.games||[]).map(function(g){return g.date;}).filter(Boolean).sort(); var m=String(ds[ds.length-1]||'').match(/^(\d{4})/); return m?m[1]:String(CURRENT_SEASON); }
+  function crownedChampions(){
+    if(!window.STSbracket) return [];
+    var byKey={}; GAMES.forEach(function(g){ if(g.g!=null){ var k=g.form_id+'||'+(g.division||''); (byKey[k]=byKey[k]||[]).push(g); } });
+    var out=[];
+    Object.keys(byKey).forEach(function(k){
+      var t={games:byKey[k]}, champ=null;
+      try{ champ=STSbracket.championOutcome(t, STSbracket.classify(t)).champion; }catch(e){}
+      if(champ){ var parts=k.split('||'), fid=parts[0], dv=parts[1]||''; var f=FORMS.find(function(x){return x.id===fid;})||{}; out.push({ key:fid, team:champ, tournament:f.title||fid, division:dv, sport:/soft/i.test(f.sport||'')?'Softball':'Baseball', year:chSeasonOf(t) }); }
+    });
+    return out;
+  }
+  function chHasPhoto(c){
+    function match(p){
+      if(String(p.year)!==String(c.year) || chNorm(p.team)!==chNorm(c.team)) return false;
+      var pt=chNorm(p.title||''), ct=chNorm(c.tournament||'');
+      return !pt || !ct || pt.indexOf(ct)===0 || ct.indexOf(pt)===0;
+    }
+    return chStatic.some(match) || chUploaded.some(match);
+  }
+  function renderAwaiting(){
+    var box=document.getElementById('ch_awaiting');
+    var need=crownedChampions().filter(function(c){ return !chHasPhoto(c); });
+    if(!need.length){ box.innerHTML='<div class="notice" style="background:rgba(4,120,87,.08);border:1px solid #047857;color:#065f46">✓ Every crowned champion has a photo.</div>'; return; }
+    box.innerHTML='<div class="champ-grid">'+need.map(function(c){
+      return '<div class="champ-card"><span class="trophy">🏆</span><div class="info"><div class="tourney">'+esc(c.tournament)+(c.division?' <span class="muted" style="font-weight:400">· '+esc(c.division)+'</span>':'')+'</div><div class="team">'+esc(c.team)+'</div><div class="note">'+esc(c.year)+' · '+esc(c.sport)+'</div></div><button class="btn btn-navy btn-sm ch-addbtn" data-key="'+esc(c.key)+'" data-div="'+esc(c.division||'')+'">📷 Add photo</button></div>';
+    }).join('')+'</div>';
+  }
+  function pickChampion(c){
+    document.getElementById('ch_year').value=c.year; document.getElementById('ch_team').value=c.team;
+    document.getElementById('ch_title').value=c.tournament + (c.division?' — '+c.division:''); document.getElementById('ch_sport').value=c.sport;
+    document.getElementById('ch_caption').value=''; chPendingKey=c.key;
+    document.getElementById('ch_formTitle').textContent='Add photo — '+c.team;
+    document.getElementById('ch_drop').scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  function chProcessImage(file){
+    return new Promise(function(resolve,reject){
+      var url=URL.createObjectURL(file), im=new Image();
+      im.onload=function(){ URL.revokeObjectURL(url); var w=im.naturalWidth,h=im.naturalHeight,MAXW=1100; if(w>MAXW){ h=Math.round(h*MAXW/w); w=MAXW; } var cv=document.createElement('canvas'); cv.width=w; cv.height=h; cv.getContext('2d').drawImage(im,0,0,w,h); var q=0.82,du=cv.toDataURL('image/jpeg',q); while(du.length>720000 && q>0.4){ q-=0.1; du=cv.toDataURL('image/jpeg',q); } resolve({dataUrl:du,w:w,h:h,bytes:du.length}); };
+      im.onerror=function(){ URL.revokeObjectURL(url); reject(new Error('Could not read that image')); };
+      im.src=url;
+    });
+  }
+  function chOnFile(file){
+    if(!file || !/^image\//.test(file.type)){ document.getElementById('ch_msg').textContent='Please choose an image file.'; return; }
+    document.getElementById('ch_msg').textContent='Processing…';
+    chProcessImage(file).then(function(r){
+      chPending=r; var pv=document.getElementById('ch_preview'); pv.src=r.dataUrl; pv.hidden=false;
+      document.getElementById('ch_dropTxt').hidden=true;
+      document.getElementById('ch_msg').textContent=r.w+'×'+r.h+' · '+Math.round(r.bytes/1024)+' KB';
+      document.getElementById('ch_save').disabled=false;
+    }).catch(function(e){ document.getElementById('ch_msg').textContent=String(e.message||e); });
+  }
+  function chResetForm(){
+    ['ch_year','ch_team','ch_title','ch_caption'].forEach(function(id){ document.getElementById(id).value=''; });
+    document.getElementById('ch_sport').value=''; chPending=null; chPendingKey=null;
+    var pv=document.getElementById('ch_preview'); pv.hidden=true; pv.removeAttribute('src');
+    document.getElementById('ch_dropTxt').hidden=false; document.getElementById('ch_file').value='';
+    document.getElementById('ch_save').disabled=true; document.getElementById('ch_msg').textContent='';
+    document.getElementById('ch_formTitle').textContent='Add a champion photo';
+  }
+  async function chSave(){
+    var team=document.getElementById('ch_team').value.trim(), title=document.getElementById('ch_title').value.trim(), year=document.getElementById('ch_year').value.trim()||String(CURRENT_SEASON);
+    if(!team || !title){ document.getElementById('ch_msg').textContent='Team and tournament are required.'; return; }
+    if(!/^\d{4}$/.test(year)){ document.getElementById('ch_msg').textContent='Enter a valid 4-digit year.'; return; }
+    if(!chPending){ document.getElementById('ch_msg').textContent='Choose a photo first.'; return; }
+    var sport=document.getElementById('ch_sport').value || (/soft|SB-/i.test(title)?'Softball':'Baseball');
+    var caption=document.getElementById('ch_caption').value.trim() || ('Congrats to '+team+' on winning the '+year+' '+title+'!');
+    var rec={ year:year, team:team, title:title, caption:caption, sport:sport, img:chPending.dataUrl };
+    if(chPendingKey) rec.tkey=chPendingKey;
+    document.getElementById('ch_save').disabled=true; document.getElementById('ch_msg').textContent='Saving…';
+    try{ await STS.saveChampion(rec); chUploaded=await STS.loadChampions(); chResetForm(); renderAwaiting(); renderChampList(); document.getElementById('ch_msg').textContent = isConfigured ? 'Saved — live on the Champions page.' : 'Saved (demo — saves to Firebase once connected).'; }
+    catch(e){ document.getElementById('ch_save').disabled=false; document.getElementById('ch_msg').textContent='Could not save'+(/permission/i.test(String(e))?' — publish the Firestore rule for "champions".':'.'); }
+  }
+  function renderChampList(){
+    var box=document.getElementById('ch_list');
+    if(!chUploaded.length){ box.innerHTML='<p class="muted">No uploaded photos yet.</p>'; return; }
+    box.innerHTML='<div class="champ-grid">'+chUploaded.slice().sort(function(a,b){return String(b.year).localeCompare(String(a.year));}).map(function(u){
+      return '<div class="champ-card"><img src="'+esc(u.img)+'" width="48" height="48" style="border-radius:8px;object-fit:cover;flex-shrink:0" alt=""><div class="info"><div class="tourney">'+esc(u.title)+'</div><div class="team">'+esc(u.team)+'</div><div class="note">'+esc(u.year)+' · '+esc(u.sport||'')+'</div></div><button class="btn btn-outline btn-sm ch-del" data-id="'+esc(u.id)+'" style="color:var(--sts-red)">Delete</button></div>';
+    }).join('')+'</div>';
+  }
+  async function initChampionsPanel(){
+    if(!chStatic.length){ try{ chStatic=((await (await fetch('data/champions-photos.json')).json()).photos)||[]; }catch(e){ chStatic=[]; } }
+    try{ chUploaded=await STS.loadChampions(); }catch(e){ chUploaded=[]; }
+    renderAwaiting(); renderChampList();
+    if(!chInited){
+      document.getElementById('ch_awaiting').addEventListener('click', function(e){ var b=e.target.closest('.ch-addbtn'); if(!b) return; var c=crownedChampions().find(function(x){return x.key===b.dataset.key && (x.division||'')===(b.dataset.div||'');}); if(c) pickChampion(c); });
+      document.getElementById('ch_file').addEventListener('change', function(e){ if(e.target.files[0]) chOnFile(e.target.files[0]); });
+      var drop=document.getElementById('ch_drop');
+      ['dragover','dragenter'].forEach(function(ev){ drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.add('drag'); }); });
+      ['dragleave'].forEach(function(ev){ drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.remove('drag'); }); });
+      drop.addEventListener('drop', function(e){ e.preventDefault(); drop.classList.remove('drag'); if(e.dataTransfer.files[0]) chOnFile(e.dataTransfer.files[0]); });
+      document.getElementById('ch_save').addEventListener('click', chSave);
+      document.getElementById('ch_clear').addEventListener('click', chResetForm);
+      document.getElementById('ch_list').addEventListener('click', async function(e){ var b=e.target.closest('.ch-del'); if(!b) return; if(!confirm('Delete this champion photo?')) return; await STS.deleteChampion(b.dataset.id); chUploaded=await STS.loadChampions(); renderAwaiting(); renderChampList(); });
+      chInited=true;
+    }
+  }
+
+  // ── Modal helpers ───────────────────────────────────────────────────
+  function openModal(id){
+    var m = document.getElementById(id), inner = m.querySelector('.modal');
+    if (inner){ inner.setAttribute('role','dialog'); inner.setAttribute('aria-modal','true'); var h=inner.querySelector('h3'); if(h){ if(!h.id) h.id=id+'-title'; inner.setAttribute('aria-labelledby', h.id); } }
+    m._opener = document.activeElement;
+    m.classList.add('open');
+    setTimeout(function(){ var f = m.querySelector('input:not([type=hidden]),select,textarea,button:not(.x-close)'); if(f) try{ f.focus(); }catch(e){} }, 30);
+  }
+  function closeModal(id){ var m=document.getElementById(id); m.classList.remove('open'); if(m._opener && m._opener.focus){ try{ m._opener.focus(); }catch(e){} } }
+  document.querySelectorAll('.modal-bg').forEach(function(m){ m.addEventListener('click', function(e){ if (e.target===m || e.target.closest('[data-close]')) closeModal(m.id); }); });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ var open=document.querySelector('.modal-bg.open'); if(open) closeModal(open.id); } });
+
+  // ── State ───────────────────────────────────────────────────────────
+  var FORMS = [], REGS = [], TEAMS = [], GAMES = [];
+  var filt = { pay: '', status: 'completed', form: '', q: '' };
+  var schedFilt = '';
+
+  async function boot(){
+    FORMS = await STS.loadFormsScoped(ME, { includeInactive: true });
+    REGS = await STS.loadRegistrationsScoped(ME, {});
+    GAMES = await STS.loadGamesScoped(ME, {});
+    TEAMS = isSuper() ? await STS.loadTeams({ includeHidden: true }) : [];   // teams panel is super-only
+    // form filter dropdown (scoped label for directors)
+    document.getElementById('entryForm').innerHTML = '<option value="">' + (isSuper() ? 'All forms' : 'All my events') + '</option>' + FORMS.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
+    renderEntries(); renderForms(); renderTeams(); loadPrices(); renderSchedule();
+    if (isSuper()) renderAdmins();
+  }
+
+  // ── ENTRIES ─────────────────────────────────────────────────────────
+  function filteredRegs(){
+    var q = filt.q.toLowerCase();
+    return REGS.filter(function(r){
+      if ((r.status||'completed') !== filt.status) return false;
+      if (filt.pay && (r.payment_status||'unpaid') !== filt.pay) return false;
+      if (filt.form && r.form_id !== filt.form) return false;
+      if (q){ var hay = (r.team_name+' '+r.coach_name+' '+r.coach_email+' '+r.coach_phone).toLowerCase(); if (hay.indexOf(q) < 0) return false; }
+      return true;
+    });
+  }
+  function renderEntryStats(){
+    var active = REGS.filter(function(r){ return (r.status||'completed')==='completed'; });
+    var paid = active.filter(function(r){ return r.payment_status==='paid'; });
+    var revenue = paid.reduce(function(s,r){ return s + (r.amount_cents||0); }, 0);
+    var unpaid = active.filter(function(r){ return ['unpaid','pending','failed'].indexOf(r.payment_status)>=0; }).length;
+    document.getElementById('entryStats').innerHTML =
+      '<div class="mini-stat"><div class="n">'+active.length+'</div><div class="l">Total Entries</div></div>'+
+      '<div class="mini-stat"><div class="n">'+paid.length+'</div><div class="l">Paid</div></div>'+
+      '<div class="mini-stat"><div class="n">'+unpaid+'</div><div class="l">Unpaid / Pending</div></div>'+
+      '<div class="mini-stat"><div class="n">'+STS.money(revenue)+'</div><div class="l">Collected</div></div>';
+  }
+  function renderEntries(){
+    renderEntryStats();
+    var rows = filteredRegs();
+    var body = document.getElementById('entriesBody');
+    document.getElementById('entriesEmpty').classList.toggle('hidden', rows.length>0);
+    body.innerHTML = rows.map(function(r){
+      var archived = (r.status==='archived');
+      return '<tr>'+
+        '<td class="num">'+esc(r.entry_no||'—')+'</td>'+
+        '<td>'+fmtDate(r.created_at)+'</td>'+
+        '<td>'+payBadge(r.payment_status)+'</td>'+
+        '<td>'+esc(r.sport||'')+'</td>'+
+        '<td>'+esc(r.age_class||'')+'</td>'+
+        '<td>'+esc(r.division||'')+'</td>'+
+        '<td><b>'+esc(r.team_name||'')+'</b></td>'+
+        '<td>'+esc(r.coach_name||'')+'</td>'+
+        '<td>'+(r.coach_email?'<a href="mailto:'+esc(r.coach_email)+'">'+esc(r.coach_email)+'</a>':'—')+'</td>'+
+        '<td>'+esc(r.coach_phone||'')+'</td>'+
+        '<td>'+(r.waiver_agreed?'✓':'—')+'</td>'+
+        '<td>'+STS.money(r.amount_cents)+'</td>'+
+        '<td>'+(r.card_last4?('•••• '+esc(r.card_last4)):'—')+'</td>'+
+        '<td>'+esc(r.clover_order_id||'—')+'</td>'+
+        '<td><div class="actions">'+
+          '<button class="icon-btn" data-edit="'+esc(r.id)+'" title="View / edit">✎</button>'+
+          '<button class="icon-btn" data-copy="'+esc(r.id)+'" title="Copy entry">⎘</button>'+
+          (archived
+            ? '<button class="icon-btn" data-restore="'+esc(r.id)+'" title="Restore">↩</button>'
+            : '<button class="icon-btn danger" data-archive="'+esc(r.id)+'" title="Archive">🗄</button>')+
+        '</div></td></tr>';
+    }).join('');
+  }
+  // entry filters
+  document.getElementById('entrySearch').addEventListener('input', function(e){ filt.q = e.target.value; renderEntries(); });
+  document.getElementById('entryForm').addEventListener('change', function(e){ filt.form = e.target.value; renderEntries(); });
+  document.getElementById('payPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.pay=b.dataset.pay; document.querySelectorAll('#payPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); renderEntries(); });
+  document.getElementById('statusPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.status=b.dataset.status; document.querySelectorAll('#statusPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); renderEntries(); });
+
+  // entry actions
+  document.getElementById('entriesBody').addEventListener('click', async function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    var id = b.dataset.edit || b.dataset.archive || b.dataset.restore || b.dataset.copy;
+    var r = REGS.find(function(x){ return x.id===id; }); if(!r) return;
+    if (b.dataset.archive){ await STS.updateRegistration(id, { status:'archived' }); r.status='archived'; renderEntries(); return; }
+    if (b.dataset.restore){ await STS.updateRegistration(id, { status:'completed' }); r.status='completed'; renderEntries(); return; }
+    if (b.dataset.copy){ var copy = Object.assign({}, r); ['id','paid_at','team_id','team_code','entry_no','created_at','clover_session_id','clover_payment_id','card_last4','clover_order_id'].forEach(function(k){ delete copy[k]; }); copy.team_name = r.team_name+' (copy)'; copy.payment_status = (Number(copy.amount_cents)>0?'unpaid':'free'); await STS.createRegistration(copy); REGS = await STS.loadRegistrationsScoped(ME, {}); renderEntries(); return; }
+    if (b.dataset.edit){ openEntryModal(r); }
+  });
+
+  function openEntryModal(r){
+    document.getElementById('emTitle').textContent = 'Entry #' + (r.entry_no||'') + ' — ' + (r.team_name||'');
+    var refund = (r.payment_status==='paid') ? (
+      '<div class="refund-help"><b>Refund helper</b><div class="muted" style="font-size:var(--text-xs);margin:4px 0 8px">Match these in Clover to issue a refund.</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<span class="copy-chip" data-cp="'+esc(r.card_last4||'')+'">•••• '+esc(r.card_last4||'—')+'</span>'+
+        '<span class="copy-chip" data-cp="'+esc(r.clover_order_id||'')+'">Order '+esc(r.clover_order_id||'—')+'</span>'+
+        '<a class="btn btn-outline btn-sm" href="https://www.clover.com/" target="_blank" rel="noopener">Open Clover ↗</a>'+
+      '</div></div>') : '';
+    document.getElementById('emBody').innerHTML =
+      '<div class="field-row"><div class="field"><label>Team Name</label><input class="input" id="e_team" value="'+esc(r.team_name||'')+'"></div>'+
+      '<div class="field"><label>Division</label><input class="input" id="e_div" value="'+esc(r.division||'')+'"></div></div>'+
+      '<div class="field-row"><div class="field"><label>Age / Class</label><input class="input" id="e_age" value="'+esc(r.age_class||'')+'"></div>'+
+      '<div class="field"><label>Payment Status</label><select class="input" id="e_pay">'+['unpaid','pending','free','paid','failed'].map(function(s){return '<option'+(r.payment_status===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div></div>'+
+      '<div class="field-row"><div class="field"><label>Coach Name</label><input class="input" id="e_cname" value="'+esc(r.coach_name||'')+'"></div>'+
+      '<div class="field"><label>Coach Phone</label><input class="input" id="e_cphone" value="'+esc(r.coach_phone||'')+'"></div></div>'+
+      '<div class="field"><label>Coach Email</label><input class="input" id="e_cemail" value="'+esc(r.coach_email||'')+'"></div>'+
+      '<div class="field-row"><div class="field"><label>Amount (USD)</label><input class="input" id="e_amt" value="'+((r.amount_cents||0)/100).toFixed(2)+'"></div>'+
+      '<div class="field"><label>Card Last 4</label><input class="input" id="e_last4" value="'+esc(r.card_last4||'')+'"></div></div>'+
+      '<div class="field"><label>CC Txn / Clover Order ID</label><input class="input" id="e_order" value="'+esc(r.clover_order_id||'')+'"></div>'+
+      '<dl class="kv mt-5"><dt>Team Code</dt><dd>'+esc(r.team_code||'—')+'</dd><dt>Form</dt><dd>'+esc((FORMS.find(function(f){return f.id===r.form_id;})||{}).title||r.form_id||'—')+'</dd></dl>'+
+      refund;
+    document.getElementById('emArchive').textContent = (r.status==='archived') ? 'Restore' : 'Archive';
+    document.getElementById('emArchive').onclick = async function(){ var ns = (r.status==='archived')?'completed':'archived'; await STS.updateRegistration(r.id, { status: ns }); r.status=ns; renderEntries(); closeModal('entryModal'); };
+    document.getElementById('emSave').onclick = async function(){
+      var fields = {
+        team_name: val('e_team'), division: val('e_div'), age_class: val('e_age'), payment_status: val('e_pay'),
+        coach_name: val('e_cname'), coach_phone: val('e_cphone'), coach_email: val('e_cemail'),
+        amount_cents: Math.round(parseFloat(val('e_amt')||'0')*100), card_last4: val('e_last4'), clover_order_id: val('e_order')
+      };
+      if (fields.payment_status === 'free') fields.amount_cents = 0;   // free ⇒ $0 (keep the invariant)
+      await STS.updateRegistration(r.id, fields); Object.assign(r, fields); renderEntries(); closeModal('entryModal');
+    };
+    document.querySelectorAll('#emBody .copy-chip').forEach(function(c){ c.addEventListener('click', function(){ navigator.clipboard && navigator.clipboard.writeText(c.dataset.cp); c.style.background='#DCFCE7'; }); });
+    openModal('entryModal');
+  }
+  function val(id){ return (document.getElementById(id)||{}).value || ''; }
+
+  // ── FORMS ───────────────────────────────────────────────────────────
+  function entriesFor(fid){ return REGS.filter(function(r){ return r.form_id===fid && (r.status||'completed')==='completed'; }).length; }
+  function renderForms(){
+    document.getElementById('formsBody').innerHTML = FORMS.map(function(f){
+      var fee = (f.convenience_fee_cents||0) + (((f.price_options||[])[0]||{}).cents||0);
+      return '<tr'+(f.archived?' style="opacity:.55"':'')+'>'+
+        '<td class="num">'+(f.order||'')+'</td>'+
+        '<td><b>'+esc(f.title)+'</b>'+(f.archived?' <span class="badge badge-archived">archived</span>':'')+'</td>'+
+        '<td>'+esc(f.type||'')+'</td><td>'+esc(f.sport||'')+'</td>'+
+        '<td>'+(fee?STS.money(fee):'Free')+'</td>'+
+        '<td class="num">'+entriesFor(f.id)+'</td>'+
+        '<td>'+(f.active?'✅':'⏸')+'</td>'+
+        '<td><div class="actions"><button class="icon-btn" data-fedit="'+esc(f.id)+'">✎ Edit</button><button class="icon-btn" data-ftoggle="'+esc(f.id)+'">'+(f.active?'Pause':'Activate')+'</button></div></td></tr>';
+    }).join('');
+  }
+  document.getElementById('formsBody').addEventListener('click', async function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    var f = FORMS.find(function(x){ return x.id===(b.dataset.fedit||b.dataset.ftoggle); }); if(!f) return;
+    if (b.dataset.ftoggle){ f.active=!f.active; await STS.saveForm(f); renderForms(); return; }
+    openFormModal(f);
+  });
+  document.getElementById('newFormBtn').addEventListener('click', function(){ openFormModal(null); });
+  // Standard STSBT age divisions (the "Age as of 05/01" menu). Each form picks which
+  // apply + sets a per-age entry fee. Custom labels (Open, Rec All-Star…) add as rows.
+  var AGE_DIVS = ['7U','8U Coach Pitch','8U Kid Pitch','9U','10U','11U','12U','13U','14U'];
+  function apCustomRow(label, amt){
+    return '<div class="ap-row ap-cust on"><input class="input ap-clbl" value="'+esc(label||'')+'" placeholder="Division name">'+
+      '<span class="ap-amt-wrap">$<input class="input ap-amt" inputmode="decimal" value="'+esc(amt||'')+'" placeholder="0.00"></span>'+
+      '<button type="button" class="icon-btn ap-rm" aria-label="Remove division">✕</button></div>';
+  }
+  function apGridHTML(opts){
+    opts = opts || [];
+    var byLabel = {}; opts.forEach(function(o){ byLabel[o.label] = o; });
+    var std = AGE_DIVS.map(function(lbl){
+      var o = byLabel[lbl], on = !!o, amt = o ? ((o.cents||0)/100).toFixed(2) : '';
+      return '<div class="ap-row'+(on?' on':'')+'"><input type="checkbox" class="ap-ck"'+(on?' checked':'')+' aria-label="'+esc(lbl)+'"><span class="ap-lbl">'+esc(lbl)+'</span>'+
+        '<span class="ap-amt-wrap">$<input class="input ap-amt" inputmode="decimal" value="'+amt+'" placeholder="0.00"></span></div>';
+    }).join('');
+    var custom = opts.filter(function(o){ return AGE_DIVS.indexOf(o.label) < 0; }).map(function(o){ return apCustomRow(o.label, ((o.cents||0)/100).toFixed(2)); }).join('');
+    return '<div class="ap-grid" id="f_ages">'+std+'</div><div class="ap-custwrap" id="f_custom">'+custom+'</div>';
+  }
+  function apWireGrid(){
+    var ages = document.getElementById('f_ages');
+    ages.addEventListener('click', function(e){
+      if (e.target.classList.contains('ap-amt')) return;            // editing a price
+      var row = e.target.closest('.ap-row'); if (!row) return;
+      var ck = row.querySelector('.ap-ck'); if (e.target !== ck) ck.checked = !ck.checked;
+      row.classList.toggle('on', ck.checked);
+    });
+    document.getElementById('f_bulkApply').addEventListener('click', function(){
+      var v = document.getElementById('f_bulk').value; if (v === '' || isNaN(parseFloat(v))) return;
+      document.querySelectorAll('#f_ages .ap-row.on .ap-amt, #f_custom .ap-cust .ap-amt').forEach(function(inp){ inp.value = parseFloat(v).toFixed(2); });
+    });
+    document.getElementById('f_addCustom').addEventListener('click', function(){ document.getElementById('f_custom').insertAdjacentHTML('beforeend', apCustomRow('','')); });
+    document.getElementById('f_custom').addEventListener('click', function(e){ if (e.target.classList.contains('ap-rm')) e.target.closest('.ap-cust').remove(); });
+  }
+  function apCollect(){
+    var po = [];
+    document.querySelectorAll('#f_ages .ap-row').forEach(function(row){
+      if (!row.querySelector('.ap-ck').checked) return;
+      var lbl = row.querySelector('.ap-lbl').textContent.trim();
+      po.push({ label: lbl, cents: Math.round((parseFloat(row.querySelector('.ap-amt').value) || 0) * 100) });
+    });
+    document.querySelectorAll('#f_custom .ap-cust').forEach(function(row){
+      var lbl = (row.querySelector('.ap-clbl').value || '').trim(); if (!lbl) return;
+      po.push({ label: lbl, cents: Math.round((parseFloat(row.querySelector('.ap-amt').value) || 0) * 100) });
+    });
+    return po;
+  }
+  function openFormModal(f){
+    var isNew = !f; f = f || { type:'tournament', sport:'baseball', active:true, order:(FORMS.length+1), convenience_fee_cents:300, price_options:[], divisions:[] };
+    document.getElementById('fmTitle').textContent = isNew ? 'New Form' : 'Edit Form';
+    document.getElementById('fmBody').innerHTML =
+      '<div class="field"><label>Title</label><input class="input" id="f_title" value="'+esc(f.title||'')+'"></div>'+
+      '<div class="field-row"><div class="field"><label>Type</label><select class="input" id="f_type">'+['tournament','season','product'].map(function(t){return '<option'+(f.type===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select></div>'+
+      '<div class="field"><label>Sport</label><select class="input" id="f_sport">'+['baseball','softball','both'].map(function(s){return '<option'+(f.sport===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div></div>'+
+      '<div class="field-row"><div class="field"><label>Event Dates</label><input class="input" id="f_dates" value="'+esc(f.event_dates||'')+'"></div>'+
+      '<div class="field"><label>Location</label><input class="input" id="f_loc" value="'+esc(f.location||'')+'"></div></div>'+
+      '<div class="field"><label>Divisions <span class="muted">(comma-separated, optional)</span></label><input class="input" id="f_divs" value="'+esc((f.divisions||[]).join(', '))+'"></div>'+
+      '<div class="field"><label>Convenience Fee (USD)</label><input class="input" id="f_conv" value="'+((f.convenience_fee_cents||0)/100).toFixed(2)+'"></div>'+
+      '<div class="field"><label>Age Divisions &amp; Pricing <span class="muted">(check the ages this form accepts; set each team entry fee)</span></label>'+
+        '<div class="ap-bulk"><span class="muted" style="font-size:var(--text-sm)">Same fee for all?</span> $<input class="input ap-amt" id="f_bulk" inputmode="decimal" placeholder="125.00"> <button type="button" class="btn btn-outline" id="f_bulkApply" style="padding:6px 12px;font-size:var(--text-sm)">Apply to checked</button></div>'+
+        apGridHTML(f.price_options)+
+        '<button type="button" class="btn btn-outline" id="f_addCustom" style="padding:6px 12px;font-size:var(--text-sm);margin-top:10px">+ Add custom division</button></div>'+
+      '<div class="field"><label>Waiver Text</label><textarea class="input" id="f_waiver">'+esc(f.waiver_text||'')+'</textarea></div>';
+    apWireGrid();
+    document.getElementById('fmArchive').textContent = f.archived ? 'Restore' : 'Archive';
+    document.getElementById('fmArchive').onclick = async function(){ f.archived=!f.archived; await STS.saveForm(f); FORMS = await STS.loadFormsScoped(ME, {includeInactive:true}); renderForms(); closeModal('formModal'); };
+    document.getElementById('fmSave').onclick = async function(){
+      f.title = val('f_title'); f.type = val('f_type'); f.sport = val('f_sport');
+      f.event_dates = val('f_dates'); f.location = val('f_loc');
+      f.divisions = val('f_divs').split(',').map(function(s){return s.trim();}).filter(Boolean);
+      f.convenience_fee_cents = Math.round(parseFloat(val('f_conv')||'0')*100);
+      f.price_options = apCollect();
+      f.waiver_text = val('f_waiver');
+      if (isNew) f.active = true;
+      await STS.saveForm(f);
+      FORMS = await STS.loadFormsScoped(ME, { includeInactive: true });
+      document.getElementById('entryForm').innerHTML = '<option value="">All forms</option>' + FORMS.map(function(x){ return '<option value="'+esc(x.id)+'">'+esc(x.title)+'</option>'; }).join('');
+      renderForms(); closeModal('formModal');
+    };
+    openModal('formModal');
+  }
+
+  // ── TEAMS ───────────────────────────────────────────────────────────
+  function renderTeams(){
+    document.getElementById('teamsBody').innerHTML = TEAMS.map(function(t){
+      return '<tr'+(t.status==='archived'?' style="opacity:.55"':'')+'>'+
+        '<td><b>'+esc(t.name)+'</b></td><td>'+esc(t.sport||'')+'</td><td>'+esc(t.division||'')+'</td><td>'+esc(t.age_class||'')+'</td>'+
+        '<td>'+esc(t.town||'')+'</td><td>'+esc(t.team_code||'')+'</td><td>'+(t.live?'🟢':'⚪')+'</td>'+
+        '<td><div class="actions"><a class="icon-btn" href="team.html?id='+esc(t.slug||t.id)+'" target="_blank">View ↗</a></div></td></tr>';
+    }).join('') || '<tr><td colspan="8" class="muted" style="padding:var(--space-5)">No teams yet — they appear here once a registration is paid.</td></tr>';
+  }
+
+  // ── PRICES / CONTENT (Firestore site_content when live; localStorage in demo) ──
+  async function loadPrices(){
+    var stored = await STS.loadSiteContent('prices');
+    var p = (stored && Object.keys(stored).length) ? stored : ((window.LEAGUE_CONFIG||{}).pricing || {});
+    document.getElementById('p_conv').value = ((p.convenienceFeeCents||300)/100).toFixed(2);
+    document.getElementById('p_entry').value = ((p.defaultEntryCents||12500)/100).toFixed(2);
+    document.getElementById('p_ins').value = ((p.insuranceCents||0)/100).toFixed(2);
+  }
+  document.getElementById('savePricesBtn').addEventListener('click', async function(){
+    var p = { convenienceFeeCents: Math.round(parseFloat(val('p_conv')||'0')*100), defaultEntryCents: Math.round(parseFloat(val('p_entry')||'0')*100), insuranceCents: Math.round(parseFloat(val('p_ins')||'0')*100) };
+    await STS.saveSiteContent('prices', p);
+    var m = document.getElementById('pricesMsg'); m.textContent = isConfigured ? 'Default prices saved (apply to new forms).' : 'Saved locally (demo — saves to Firebase once connected).'; m.classList.remove('hidden'); setTimeout(function(){ m.classList.add('hidden'); }, 2800);
+  });
+  document.getElementById('saveContentBtn').addEventListener('click', async function(){
+    var c = { hero_title: val('c_hero_title'), hero_sub: val('c_hero_sub'), announce: val('c_announce') };
+    await STS.saveSiteContent('homepage', c);
+    var m = document.getElementById('contentMsg'); m.textContent = isConfigured ? 'Homepage content saved.' : 'Saved locally (demo — saves to Firebase once connected).'; m.classList.remove('hidden'); setTimeout(function(){ m.classList.add('hidden'); }, 3000);
+  });
+  (async function(){ var c = await STS.loadSiteContent('homepage'); if(c.hero_title) document.getElementById('c_hero_title').value=c.hero_title; if(c.hero_sub) document.getElementById('c_hero_sub').value=c.hero_sub; if(c.announce) document.getElementById('c_announce').value=c.announce; })();
+
+  // ── DIRECTORS (super only) ──────────────────────────────────────────
+  var ADMINS = [];
+  function renderAdmins(){
+    Promise.resolve(STS.loadAdmins()).then(function(list){
+      ADMINS = list;
+      var titleById = {}; FORMS.forEach(function(f){ titleById[f.id]=f.title; });
+      document.getElementById('adminsBody').innerHTML = ADMINS.map(function(a){
+        var evNames = a.role==='super' ? '<span class="badge badge-gold">ALL EVENTS</span>'
+          : ((a.events||[]).map(function(id){ return '<span class="badge badge-archived">'+esc(titleById[id]||id)+'</span>'; }).join(' ') || '<span class="muted">none assigned</span>');
+        var status = a.active===false ? '<span class="badge badge-archived">disabled</span>' : '<span class="badge badge-paid">active</span>';
+        var actions = '<button class="icon-btn" data-aedit="'+esc(a.id)+'">✎ Edit</button>' +
+          (a.role==='super' ? '' : ' <button class="icon-btn danger" data-adisable="'+esc(a.id)+'">'+(a.active===false?'Enable':'Disable')+'</button>');
+        return '<tr'+(a.active===false?' style="opacity:.55"':'')+'><td><b>'+esc(a.name||'')+'</b></td><td>'+esc(a.email||'')+'</td><td>'+esc(a.role)+'</td><td>'+evNames+'</td><td>'+status+'</td><td><div class="actions">'+actions+'</div></td></tr>';
+      }).join('');
+    });
+  }
+  document.getElementById('adminsBody').addEventListener('click', async function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    var a = ADMINS.find(function(x){ return x.id===(b.dataset.aedit||b.dataset.adisable); }); if(!a) return;
+    if (b.dataset.adisable){ if (a.active===false){ a.active=true; await STS.saveAdmin(a); } else { await STS.deleteAdmin(a.id); a.active=false; } renderAdmins(); return; }
+    openAdminModal(a);
+  });
+  document.getElementById('newAdminBtn').addEventListener('click', function(){ openAdminModal(null); });
+  function openAdminModal(a){
+    var isNew = !a; a = a || { role:'director', events:[], active:true };
+    document.getElementById('amTitle').textContent = isNew ? 'Add Director' : 'Edit Director';
+    var tourneys = FORMS.filter(function(f){ return f.type==='tournament'; });
+    var evChecks = tourneys.map(function(f){
+      var on = (a.events||[]).indexOf(f.id)>=0 ? ' checked' : '';
+      return '<label class="check" style="margin-bottom:8px"><input type="checkbox" value="'+esc(f.id)+'"'+on+'><span style="text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500">'+esc(f.title)+'</span></label>';
+    }).join('') || '<div class="muted">No tournaments yet — create one in Forms first.</div>';
+    document.getElementById('amBody').innerHTML =
+      '<div class="field-row"><div class="field"><label>Name</label><input class="input" id="a_name" value="'+esc(a.name||'')+'"></div>'+
+      '<div class="field"><label>Role</label><select class="input" id="a_role">'+['director','super'].map(function(r){return '<option'+(a.role===r?' selected':'')+'>'+r+'</option>';}).join('')+'</select></div></div>'+
+      '<div class="field"><label>Email</label><input class="input" id="a_email" value="'+esc(a.email||'')+'"></div>'+
+      '<div class="field"><label>Firebase Auth User UID <span class="req">*</span></label><input class="input" id="a_uid" value="'+esc(a.id||'')+'"'+(isNew?'':' readonly')+' placeholder="paste from Firebase → Authentication"><div class="hint">Create the director\'s login in Firebase Authentication first, then paste their User UID here.</div></div>'+
+      '<div class="field" id="a_eventsWrap"><label>Events this director manages</label><div id="a_events" style="max-height:200px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:12px">'+evChecks+'</div></div>';
+    var disableBtn = document.getElementById('amDisable');
+    disableBtn.textContent = (a.active===false) ? 'Enable' : 'Disable';
+    disableBtn.style.display = (isNew || a.role==='super' || (ME && a.id===ME.id)) ? 'none' : '';  // never disable a super or yourself
+    disableBtn.onclick = async function(){ if (a.active===false){ a.active=true; await STS.saveAdmin(a); } else { await STS.deleteAdmin(a.id); } renderAdmins(); closeModal('adminModal'); };
+    // toggle the events picker visibility when role = super
+    var roleSel = document.getElementById('a_role');
+    function syncRole(){ document.getElementById('a_eventsWrap').style.display = (roleSel.value==='super') ? 'none' : ''; }
+    roleSel.addEventListener('change', syncRole); syncRole();
+    document.getElementById('amSave').onclick = async function(){
+      var uid = (document.getElementById('a_uid').value||'').trim();
+      if (!uid){ alert('A Firebase Auth User UID is required (create the login in Firebase Authentication, then paste the UID).'); return; }
+      var role = document.getElementById('a_role').value;
+      var events = [].slice.call(document.querySelectorAll('#a_events input:checked')).map(function(c){ return c.value; });
+      await STS.saveAdmin({ id: uid, name: document.getElementById('a_name').value, email: document.getElementById('a_email').value, role: role, events: role==='super'?[]:events, active: a.active!==false });
+      renderAdmins(); closeModal('adminModal');
+    };
+    openModal('adminModal');
+  }
+
+  // ── SCHEDULE / SCORES (super + directors, scoped to their events) ───
+  function TOURNEY_FORMS(){ return FORMS.filter(function(f){ return f.type==='tournament'; }); }
+  function fmtGTime(t){ if(!t) return ''; var p=String(t).split(':'); var h=+p[0],m=p[1]||'00'; if(isNaN(h)) return t; var ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+m+' '+ap; }
+  function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
+  function refreshSchedControls(){
+    var tf = TOURNEY_FORMS();
+    document.getElementById('schedEvent').innerHTML = '<option value="">All events</option>' + tf.map(function(f){ return '<option value="'+esc(f.id)+'"'+(schedFilt===f.id?' selected':'')+'>'+esc(f.title)+'</option>'; }).join('');
+    var names = {}; REGS.forEach(function(r){ if(r.team_name) names[r.team_name]=1; }); GAMES.forEach(function(g){ if(g.away)names[g.away]=1; if(g.home)names[g.home]=1; });
+    document.getElementById('teamNames').innerHTML = Object.keys(names).sort().map(function(n){ return '<option value="'+esc(n)+'">'; }).join('');
+  }
+  function renderSchedule(){
+    refreshSchedControls();
+    var wrap = document.getElementById('scheduleWrap');
+    var rows = GAMES.filter(function(g){ return !schedFilt || g.form_id===schedFilt; });
+    if (!rows.length){ wrap.innerHTML = '<div class="empty">No games yet. Click <b>+ Add Game</b> to build your schedule.</div>'; return; }
+    var byEvent = {}; rows.forEach(function(g){ (byEvent[g.form_id]=byEvent[g.form_id]||[]).push(g); });
+    wrap.innerHTML = Object.keys(byEvent).map(function(fid){
+      var body = byEvent[fid].map(function(g){
+        var score = (g.done && g.away_score!=null && g.home_score!=null) ? (g.away_score+'–'+g.home_score) : '<span class="muted">—</span>';
+        var status = g.done ? '<span class="badge badge-paid">Final</span>' : '<span class="badge badge-pending">Scheduled</span>';
+        return '<tr><td>'+esc(g.date||'TBD')+'</td><td>'+esc(fmtGTime(g.time))+'</td><td>'+esc(g.field||'')+'</td>'+
+          '<td><b>'+esc(g.away||'TBD')+'</b></td><td class="num">'+score+'</td><td><b>'+esc(g.home||'TBD')+'</b></td>'+
+          '<td>'+status+'</td><td><div class="actions"><button class="icon-btn" data-gedit="'+esc(g.id)+'">✎ Edit</button></div></td></tr>';
+      }).join('');
+      return '<h3 style="margin:var(--space-5) 0 var(--space-3)">'+esc(titleFor(fid))+'</h3>'+
+        '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Time</th><th>Field</th><th>Away</th><th>Score</th><th>Home</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div>';
+    }).join('');
+  }
+  document.getElementById('schedEvent').addEventListener('change', function(e){ schedFilt=e.target.value; renderSchedule(); });
+  document.getElementById('scheduleWrap').addEventListener('click', function(e){ var b=e.target.closest('button[data-gedit]'); if(!b) return; var g=GAMES.find(function(x){return x.id===b.dataset.gedit;}); if(g) openGameModal(g); });
+  document.getElementById('newGameBtn').addEventListener('click', function(){
+    if (!TOURNEY_FORMS().length){ alert('Create a tournament form first (Forms tab) — games attach to an event.'); return; }
+    openGameModal(null);
+  });
+  function openGameModal(g){
+    var isNew=!g; g = g || { form_id: schedFilt || (TOURNEY_FORMS()[0]||{}).id || '', sport:'baseball', done:false };
+    var isBracket = g.g != null;
+    document.getElementById('gmTitle').textContent = isNew ? 'Add Game' : (isBracket ? 'Bracket Game '+g.g : 'Edit Game');
+    var tf = TOURNEY_FORMS();
+    document.getElementById('gmBody').innerHTML =
+      '<div class="field"><label for="g_form">Event</label><select class="input" id="g_form"'+(isBracket?' disabled':'')+'>'+tf.map(function(f){return '<option value="'+esc(f.id)+'"'+(g.form_id===f.id?' selected':'')+'>'+esc(f.title)+'</option>';}).join('')+'</select></div>'+
+      (isBracket?'<div class="notice notice-info" style="font-size:var(--text-xs)">Bracket game — teams advance automatically from scores. Post the score below; the matchup is locked.</div>':'')+
+      '<div class="field-row"><div class="field"><label for="g_div">Division</label><input class="input" id="g_div" value="'+esc(g.division||'')+'" placeholder="e.g. Triple-A / 12U"></div>'+
+      '<div class="field"><label for="g_field">Field</label><input class="input" id="g_field" value="'+esc(g.field||'')+'"></div></div>'+
+      '<div class="field-row"><div class="field"><label for="g_date">Date</label><input class="input" id="g_date" type="date" value="'+esc(g.date||'')+'"></div>'+
+      '<div class="field"><label for="g_time">Time</label><input class="input" id="g_time" type="time" value="'+esc(g.time||'')+'"></div></div>'+
+      '<div class="field-row"><div class="field"><label for="g_away">Away Team</label><input class="input" id="g_away" '+(isBracket?'readonly':'list="teamNames"')+' value="'+esc(g.away||'')+'"></div>'+
+      '<div class="field"><label for="g_home">Home Team</label><input class="input" id="g_home" '+(isBracket?'readonly':'list="teamNames"')+' value="'+esc(g.home||'')+'"></div></div>'+
+      '<div class="field-row"><div class="field"><label for="g_as">Away Score</label><input class="input" id="g_as" type="number" inputmode="numeric" value="'+(g.away_score!=null?g.away_score:'')+'"></div>'+
+      '<div class="field"><label for="g_hs">Home Score</label><input class="input" id="g_hs" type="number" inputmode="numeric" value="'+(g.home_score!=null?g.home_score:'')+'"></div></div>'+
+      '<div class="field check"><input type="checkbox" id="g_done"'+(g.done?' checked':'')+'><label for="g_done" style="text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500">Final — count this game in standings</label></div>';
+    document.getElementById('gmDelete').style.display = isNew ? 'none' : '';
+    document.getElementById('gmDelete').onclick = async function(){ if(g.id){ await STS.deleteGame(g.id); GAMES = await STS.loadGamesScoped(ME, {}); renderSchedule(); } closeModal('gameModal'); };
+    document.getElementById('gmSave').onclick = async function(){
+      var fid = isBracket ? g.form_id : document.getElementById('g_form').value;
+      if (!fid){ alert('Pick an event for this game.'); return; }
+      var f = FORMS.find(function(x){return x.id===fid;});
+      await STS.saveGame({ id:g.id, form_id:fid, g:(isBracket?g.g:undefined), sport:(f&&f.sport)||g.sport||'baseball', division:val('g_div'),
+        away:(isBracket?g.away:val('g_away')), home:(isBracket?g.home:val('g_home')), field:val('g_field'), date:val('g_date'), time:val('g_time'),
+        away_score:val('g_as'), home_score:val('g_hs'), done:document.getElementById('g_done').checked });
+      GAMES = await STS.loadGamesScoped(ME, {}); renderSchedule(); closeModal('gameModal');
+    };
+    openModal('gameModal');
+  }
+
+  // ── CREATE BRACKET (single/double elim auto-generator) ──────────────
+  document.getElementById('bracketBtn').addEventListener('click', function(){
+    if (!TOURNEY_FORMS().length){ alert('Create a tournament form first (Forms tab).'); return; }
+    openBracketModal();
+  });
+  function openBracketModal(){
+    var tf = TOURNEY_FORMS(), fid0 = schedFilt || tf[0].id;
+    document.getElementById('bkBody').innerHTML =
+      '<div class="field"><label for="bk_form">Event</label><select class="input" id="bk_form">'+tf.map(function(f){return '<option value="'+esc(f.id)+'"'+(f.id===fid0?' selected':'')+'>'+esc(f.title)+'</option>';}).join('')+'</select></div>'+
+      '<div class="field"><label for="bk_format">Format</label><select class="input" id="bk_format">'+
+        '<option value="single">Single elimination</option><option value="double">Double elimination</option><option value="roundrobin">Round robin (pool play)</option></select></div>'+
+      '<div class="field hidden" id="bk_gppWrap"><label for="bk_gpp">Pool games per team</label><input class="input" id="bk_gpp" type="number" inputmode="numeric" value="3" min="1" max="10"></div>'+
+      '<div class="field"><div class="spread"><label for="bk_teams" style="margin:0">Teams &amp; Seeds <span class="muted">(one per line, best seed first)</span></label><button type="button" class="btn btn-outline btn-sm" id="bk_seed">↻ Seed from standings</button></div><textarea class="input" id="bk_teams" style="min-height:150px;margin-top:8px"></textarea></div>'+
+      '<div class="field"><label for="bk_dates">Dates <span class="muted">(optional, comma-separated)</span></label><input class="input" id="bk_dates" placeholder="2026-06-13, 2026-06-14"></div>'+
+      '<div class="notice notice-warn" style="font-size:var(--text-xs)">Typical flow: <b>Round robin</b> creates pool games (these feed standings) → post scores → reopen here, click <b>Seed from standings</b>, and generate a <b>bracket</b>. Generating a bracket replaces any existing one and advances teams automatically. <a href="bracket-preview.html" target="_blank" rel="noopener" style="color:var(--sts-navy);font-weight:600">See example brackets ↗</a></div>';
+    function fillTeams(){ var fid=document.getElementById('bk_form').value, s={}; REGS.forEach(function(r){ if(r.form_id===fid && r.team_name) s[r.team_name]=1; }); document.getElementById('bk_teams').value=Object.keys(s).join('\n'); }
+    document.getElementById('bk_form').addEventListener('change', fillTeams); fillTeams();
+    function syncFmt(){ document.getElementById('bk_gppWrap').classList.toggle('hidden', document.getElementById('bk_format').value!=='roundrobin'); }
+    document.getElementById('bk_format').addEventListener('change', syncFmt); syncFmt();
+    document.getElementById('bk_seed').onclick = function(){
+      var fid=document.getElementById('bk_form').value;
+      var pool=GAMES.filter(function(g){ return g.form_id===fid && g.g==null; });
+      var st=STS.computeStandings(pool);
+      if(!st.length){ document.getElementById('bkNote').textContent='No finished pool games to seed from yet.'; return; }
+      document.getElementById('bk_teams').value=st.map(function(r){ return r.team; }).join('\n');
+      document.getElementById('bkNote').textContent='Seeded by pool standings ('+st.length+' teams).';
+    };
+    document.getElementById('bkNote').textContent='';
+    document.getElementById('bkGen').onclick = async function(){
+      var fid=document.getElementById('bk_form').value, f=FORMS.find(function(x){return x.id===fid;});
+      var teams=document.getElementById('bk_teams').value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+      if(teams.length<2){ document.getElementById('bkNote').textContent='Add at least 2 teams.'; return; }
+      if(!window.STSgen){ document.getElementById('bkNote').textContent='Generator not loaded.'; return; }
+      var format=document.getElementById('bk_format').value;
+      var dates=document.getElementById('bk_dates').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+      var meta={sport:(f&&f.sport)||'baseball', division:''};
+      if(format==='roundrobin'){
+        var gpp=parseInt(document.getElementById('bk_gpp').value,10)||3;
+        var pool=window.STSgen.generatePool(teams, {gamesPerTeam:gpp});
+        var times=['09:00','11:00','13:00','15:00','17:00'], fields=['Field 1','Field 2'];
+        pool.forEach(function(m,i){ m.date=dates.length?dates[Math.floor(i/times.length)%dates.length]:''; m.time=times[i%times.length]; m.field=fields[i%fields.length]; });
+        await STS.savePool(fid, meta, pool);
+      } else {
+        var games=window.STSgen.generateBracket({format:format, teams:teams, startGame:1});
+        window.STSgen.scheduleGames(games, {dates:dates, times:['09:00','12:00','15:00','18:00'], fields:['Field 1','Field 2']});
+        await STS.saveBracket(fid, meta, games);
+      }
+      GAMES=await STS.loadGamesScoped(ME, {}); schedFilt=fid; renderSchedule(); closeModal('bracketModal');
+    };
+    openModal('bracketModal');
+  }
+</script>
+
+</body>
+</html>

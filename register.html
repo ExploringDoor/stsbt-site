@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Register a Team · Small Town Select Tournaments</title>
+<meta name="description" content="Register your baseball or softball team for Small Town Select Tournaments. Pick your division, build your roster, and pay online." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  .reg-subhead { background: linear-gradient(180deg, #001a3d, #00224f); color: #fff; padding: var(--space-5) 0; }
+  .reg-subhead h1 { color: #fff; margin: 0; font-size: var(--text-2xl); }
+  .reg-subhead p { color: rgba(255,255,255,.85); margin: 8px 0 0; }
+  .form-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px,1fr)); gap: var(--space-4); }
+  .group-label { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .08em; color: var(--sts-red); font-size: var(--text-sm); margin: var(--space-6) 0 var(--space-3); }
+  .price-readout { font-family: var(--font-display); font-weight: 700; color: var(--sts-navy); }
+  .pay-note { display: flex; align-items: center; gap: 8px; justify-content: center; color: var(--muted); font-size: var(--text-xs); margin-top: var(--space-3); }
+</style>
+</head>
+<body>
+
+<div id="sts-nav"></div>
+
+<header class="page-banner"><img src="assets/headers/register.png" alt="Register a Team — Small Town Select Tournaments" style="object-position:center 44%" /></header>
+<section class="reg-subhead">
+  <div class="container narrow">
+    <h1 id="regTitle">Register a Team</h1>
+    <p id="regSub">Choose a tournament or season registration to begin.</p>
+  </div>
+</section>
+
+<main class="container narrow section">
+  <!-- Picker (no form selected) -->
+  <div id="picker"></div>
+
+  <!-- Form (a form is selected) -->
+  <div id="formWrap" class="form-wrap hidden">
+    <a href="register.html" class="muted" style="font-size:var(--text-sm)">← All registrations</a>
+    <div class="card mt-5" id="formMeta" style="border-left:4px solid var(--sts-red)"></div>
+
+    <form id="regForm" class="mt-5" novalidate>
+      <div class="field">
+        <label for="f_team_name">Team Name <span class="req">*</span></label>
+        <input class="input" id="f_team_name" name="team_name" required placeholder="e.g. Brownwood Bombers" />
+      </div>
+
+      <div class="field-row">
+        <div class="field" id="divisionField">
+          <label for="f_division">Division / Classification <span class="req">*</span></label>
+          <select class="input" id="f_division" name="division" required></select>
+        </div>
+        <div class="field" id="ageField">
+          <label id="ageLabel" for="f_age_class">Team Age <span class="req">*</span></label>
+          <select class="input" id="f_age_class" name="age_class" required></select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f_town">Home Town / City</label>
+        <input class="input" id="f_town" name="town" placeholder="e.g. Brownwood, TX" />
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="f_coach_name">Head Coach Name <span class="req">*</span></label>
+          <input class="input" id="f_coach_name" name="coach_name" required />
+        </div>
+        <div class="field">
+          <label for="f_coach_phone">Coach Contact Number <span class="req">*</span></label>
+          <input class="input" id="f_coach_phone" name="coach_phone" type="tel" required inputmode="tel" placeholder="254-000-0000" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f_coach_email">Coach Email <span class="req">*</span></label>
+        <input class="input" id="f_coach_email" name="coach_email" type="email" required placeholder="coach@email.com" />
+        <div class="hint">Your confirmation and team-code go here.</div>
+      </div>
+
+      <div class="field">
+        <label>Scheduling Availability <span class="muted">(optional)</span></label>
+        <div class="field-row">
+          <input class="input" name="avail_earliest" type="time" aria-label="Earliest start" />
+          <input class="input" name="avail_latest" type="time" aria-label="Latest start" />
+        </div>
+        <div class="hint">Earliest / latest game times your team can play. We'll honor these when building the schedule.</div>
+      </div>
+
+      <div class="waiver-box" id="waiverBox"></div>
+      <div class="field check">
+        <input type="checkbox" id="agree" name="agree" required />
+        <label for="agree" style="text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500">I have read and agree to the waiver above, and confirm my team carries (or will carry) insurance through Small Town Select. <span class="req">*</span></label>
+      </div>
+
+      <div class="total-line">
+        <span class="tl-label">Total Due</span>
+        <span class="tl-amt" id="totalAmt">$0.00</span>
+      </div>
+
+      <button class="btn btn-red" type="submit" id="submitBtn" style="width:100%;margin-top:var(--space-4)">Continue</button>
+      <div class="pay-note" id="payNote">🔒 Payments processed securely through Clover / Fiserv.</div>
+      <div id="formErr" class="notice notice-warn hidden mt-5"></div>
+    </form>
+  </div>
+</main>
+
+<div id="sts-footer"></div>
+
+<script src="js/sts-chrome.js"></script>
+<script type="module">
+  import * as STS from './js/sts-data.js';
+  var cfg = window.LEAGUE_CONFIG || {};
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function qs(k){ return new URLSearchParams(location.search).get(k); }
+
+  var formId = qs('form');
+  var sportFilter = qs('sport');
+
+  function divisionNames(sport){
+    var d = (cfg.divisions || {})[sport] || [];
+    return d.map(function(x){ return x.name; });
+  }
+
+  // ── PICKER ──────────────────────────────────────────────────────────
+  async function renderPicker(){
+    var wrap = document.getElementById('picker');
+    var forms = await STS.loadForms();
+    if (sportFilter) forms = forms.filter(function(f){ return f.sport === sportFilter || f.sport === 'both'; });
+    if (!forms.length){ wrap.innerHTML = '<div class="empty">No open registrations right now — check back soon.</div>'; return; }
+    var groups = [
+      { key:'tournament', label:'Tournaments' },
+      { key:'season', label:'Season Team Registration' },
+      { key:'product', label:'Add-ons & Products' }
+    ];
+    var html = '';
+    groups.forEach(function(g){
+      var items = forms.filter(function(f){ return f.type === g.key; });
+      if (!items.length) return;
+      html += '<div class="group-label">'+g.label+'</div><div class="form-list">';
+      html += items.map(function(f){
+        var price = (f.price_options && f.price_options[0]) ? f.price_options[0].cents : 0;
+        var priceTxt = f.type==='tournament' ? 'From '+STS.money(price)+'/team' : (price? STS.money(price) : 'No fee');
+        return '<a class="tcard" href="register.html?form='+encodeURIComponent(f.id)+'" style="text-decoration:none">'+
+          '<div class="tc-top"><span class="tc-date">'+esc(f.event_dates||'')+'</span>'+(f.sport==='both'?'':'<span class="badge badge-sport">'+esc(f.sport)+'</span>')+'</div>'+
+          '<div class="tc-body"><h3>'+esc(f.title)+'</h3><div class="tc-loc">'+esc(f.location||'')+'</div></div>'+
+          '<div class="tc-foot"><span class="price-readout">'+priceTxt+'</span><span class="btn btn-navy btn-sm">Select</span></div></a>';
+      }).join('') + '</div>';
+    });
+    wrap.innerHTML = html;
+  }
+
+  // ── FORM ────────────────────────────────────────────────────────────
+  var FORM = null;
+  function selectedAgePrice(){
+    var sel = document.querySelector('[name=age_class]');
+    var opt = sel && sel.selectedOptions[0];
+    return opt ? (parseInt(opt.dataset.cents,10)||0) : 0;
+  }
+  function recalcTotal(){
+    var conv = (FORM.convenience_fee_cents||0);
+    var total = conv + selectedAgePrice();
+    document.getElementById('totalAmt').textContent = STS.money(total);
+    var btn = document.getElementById('submitBtn');
+    btn.textContent = total > 0 ? 'Continue to Payment' : 'Complete Registration';
+    return total;
+  }
+
+  async function renderForm(){
+    FORM = await STS.getForm(formId);
+    if (!FORM){ document.getElementById('formWrap').classList.remove('hidden'); document.getElementById('formMeta').innerHTML = '<div class="empty">That registration form was not found.</div>'; document.getElementById('regForm').classList.add('hidden'); return; }
+    document.getElementById('picker').classList.add('hidden');
+    document.getElementById('formWrap').classList.remove('hidden');
+    document.getElementById('regTitle').textContent = FORM.title;
+    document.getElementById('regSub').textContent = [FORM.event_dates, FORM.location].filter(Boolean).join(' · ') || 'Complete the form below to register.';
+
+    document.getElementById('formMeta').innerHTML =
+      '<div class="spread"><div><h3 style="margin:0">'+esc(FORM.title)+'</h3>'+
+      '<div class="muted" style="font-size:var(--text-sm)">'+esc([FORM.event_dates, FORM.location].filter(Boolean).join(' · '))+'</div></div>'+
+      (FORM.sport==='both'?'':'<span class="badge badge-navy">'+esc(FORM.sport)+'</span>')+'</div>';
+
+    // division options
+    var divSel = document.querySelector('[name=division]');
+    var divs = (FORM.divisions && FORM.divisions.length) ? FORM.divisions : divisionNames(FORM.sport);
+    if (!divs.length){ document.getElementById('divisionField').classList.add('hidden'); divSel.required=false; }
+    else { divSel.innerHTML = '<option value="">Select one…</option>' + divs.map(function(d){ return '<option>'+esc(d)+'</option>'; }).join(''); }
+
+    // age / price options
+    var ageSel = document.querySelector('[name=age_class]');
+    var opts = FORM.price_options || [];
+    if (opts.length <= 1){
+      // single price (season/product) — hide the age selector, keep one hidden option
+      document.getElementById('ageField').classList.add('hidden'); ageSel.required = false;
+      ageSel.innerHTML = '<option data-cents="'+((opts[0]&&opts[0].cents)||0)+'" selected>'+esc((opts[0]&&opts[0].label)||'Registration')+'</option>';
+    } else {
+      document.getElementById('ageLabel').innerHTML = 'Team Age (as of '+esc((cfg.season&&cfg.season.ageAsOf)||'')+') <span class="req">*</span>';
+      ageSel.innerHTML = '<option value="">Select one…</option>' + opts.map(function(o){
+        var add = o.cents ? ' (+'+STS.money(o.cents)+')' : '';
+        return '<option data-cents="'+o.cents+'">'+esc(o.label)+add+'</option>';
+      }).join('');
+    }
+
+    document.getElementById('waiverBox').innerHTML = FORM.waiver_text ? esc(FORM.waiver_text) : 'By registering you agree to Small Town Select tournament rules and policies.';
+    ageSel.addEventListener('change', recalcTotal);
+    recalcTotal();
+  }
+
+  // ── SUBMIT ──────────────────────────────────────────────────────────
+  function bindSubmit(){
+    document.getElementById('regForm').addEventListener('submit', async function(e){
+      e.preventDefault();
+      var err = document.getElementById('formErr'); err.classList.add('hidden');
+      var f = e.target;
+      if (!f.checkValidity() || !f.agree.checked){ err.textContent = 'Please fill in all required fields and agree to the waiver.'; err.classList.remove('hidden'); return; }
+      var btn = document.getElementById('submitBtn'); btn.disabled = true; btn.textContent = 'Submitting…';
+      var ageOpt = f.age_class.selectedOptions[0];
+      var amount = (FORM.convenience_fee_cents||0) + (ageOpt ? (parseInt(ageOpt.dataset.cents,10)||0) : 0);
+      var data = {
+        form_id: FORM.id, form_title: FORM.title, sport: FORM.sport,
+        team_name: f.team_name.value.trim(), division: f.division.value || '',
+        age_class: (ageOpt ? ageOpt.textContent.replace(/\s*\(\+.*\)$/,'').trim() : ''),
+        town: f.town.value.trim(), coach_name: f.coach_name.value.trim(),
+        coach_email: f.coach_email.value.trim(), coach_phone: f.coach_phone.value.trim(),
+        avail_earliest: f.avail_earliest.value || '', avail_latest: f.avail_latest.value || '',
+        waiver_agreed: true, amount_cents: amount, fee_cents: (FORM.convenience_fee_cents||0)
+      };
+      try {
+        var res = await STS.createRegistration(data);
+        // notify Keith (best-effort; no-op if email not configured)
+        try { fetch('/api/notify-registration', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ event:'submitted', registration: Object.assign({ entry_no: res.entry_no }, data) }) }); } catch(_){}
+        if (amount > 0) {
+          // PHASE 2: redirect to Clover hosted checkout
+          try {
+            var r = await fetch('/api/create-checkout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ regId: res.id }) });
+            if (r.ok) { var j = await r.json(); if (j.href) { location.href = j.href; return; } }
+          } catch(_){}
+          // fallback (payment not yet wired): go to thanks with a pending flag
+          location.href = thanksUrl(res, data, 'pending'); return;
+        }
+        // FREE ($0) entry — no payment, so create the team page now (paid entries
+        // get theirs from the Clover webhook). Products/add-ons don't make a team.
+        if (FORM.type !== 'product') {
+          try { await STS.createTeamFromRegistration(Object.assign({}, data, { id: res.id, team_code: res.team_code, roster: [] })); } catch(_){}
+        }
+        location.href = thanksUrl(res, data, 'paid');
+      } catch(ex){
+        err.textContent = 'Sorry — something went wrong submitting your registration. Please try again.'; err.classList.remove('hidden');
+        btn.disabled = false; recalcTotal();
+      }
+    });
+  }
+  function thanksUrl(res, data, status){
+    var p = new URLSearchParams({ reg: res.id, entry: res.entry_no, code: res.team_code, team: data.team_name, status: status });
+    return 'thanks.html?' + p.toString();
+  }
+
+  (async function(){
+    if (formId){ await renderForm(); bindSubmit(); }
+    else { await renderPicker(); }
+    if (window.STSfx) STSfx.arm(document);
+  })();
+</script>
+
+</body>
+</html>

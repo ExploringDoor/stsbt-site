@@ -1,0 +1,137 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── helpers ──────────────────────────────────────────────────────
+    function signedIn() { return request.auth != null; }
+    function adminDoc() { return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data; }
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && adminDoc().active == true;
+    }
+    function isSuper() { return isAdmin() && adminDoc().role == 'super'; }
+    // May touch this event (form_id): super, or a director who owns it.
+    function ownsEvent(fid) {
+      return isSuper() || (isAdmin() && fid is string && adminDoc().events is list && fid in adminDoc().events);
+    }
+    // form_id present, a string, and UNCHANGED between stored and incoming doc.
+    function formIdUnchanged() {
+      return request.resource.data.form_id is string
+          && request.resource.data.form_id == resource.data.form_id;
+    }
+    // A games doc may only carry these keys, with these types. (Scores are sanitized
+    // to a finite number or null client-side in saveGame; rules pin the key set + types.)
+    function gameShapeOK() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['form_id','sport','division','away','home','date','time','field','away_score','home_score','done','g'])
+          && d.form_id is string && d.away is string && d.home is string
+          && (d.away_score == null || d.away_score is number)
+          && (d.home_score == null || d.home_score is number)
+          && d.done is bool
+          && (!('g' in d) || d.g is int);   // bracket game number (single/double elim)
+    }
+
+    // ── FORMS (events): public read; super-only writes ───────────────
+    // Pricing / waiver / which divisions a form offers are Keith's call.
+    match /forms/{id} {
+      allow read:  if true;
+      allow write: if isSuper();
+    }
+
+    // ── TOURNAMENTS: scoped by the doc's form_id ─────────────────────
+    match /tournaments/{id} {
+      allow read:   if true;
+      allow create: if isSuper() && request.resource.data.form_id is string;
+      allow update: if isSuper() || (ownsEvent(resource.data.form_id) && formIdUnchanged());
+      allow delete: if isSuper();
+    }
+
+    // ── GAMES (schedules + scores): a director manages their event ───
+    match /games/{id} {
+      allow read:   if true;
+      allow create: if request.resource.data.form_id is string
+                    && exists(/databases/$(database)/documents/forms/$(request.resource.data.form_id))
+                    && ownsEvent(request.resource.data.form_id)
+                    && gameShapeOK();
+      allow update: if resource.data.form_id is string
+                    && ownsEvent(resource.data.form_id)
+                    && formIdUnchanged()
+                    && gameShapeOK();
+      allow delete: if resource.data.form_id is string && ownsEvent(resource.data.form_id);
+    }
+
+    // ── REGISTRATIONS (entries — PII) ────────────────────────────────
+    // Public submit, but SHAPE-PINNED so a bot can't forge a paid/escalated entry.
+    // The client may only ever set a non-paid status; payment truth + team_id are
+    // stamped server-side (Admin SDK) by the Clover webhook.
+    match /registrations/{id} {
+      allow create: if request.resource.data.form_id is string
+                    && exists(/databases/$(database)/documents/forms/$(request.resource.data.form_id))
+                    && request.resource.data.payment_status in ['unpaid', 'pending', 'free']
+                    && request.resource.data.status == 'completed'
+                    && request.resource.data.waiver_agreed == true
+                    && request.resource.data.team_name is string
+                    && request.resource.data.coach_email is string
+                    && request.resource.data.coach_email.size() < 200
+                    && request.resource.data.amount_cents is number
+                    && request.resource.data.amount_cents >= 0
+                    && (request.resource.data.payment_status != 'free' || request.resource.data.amount_cents == 0)
+                    && !('card_last4' in request.resource.data)
+                    && !('clover_order_id' in request.resource.data)
+                    && !('clover_payment_id' in request.resource.data)
+                    && !('paid_at' in request.resource.data)
+                    && !('team_id' in request.resource.data);
+      // PII read scoped per-document by the entry's stored form_id.
+      allow read:   if isSuper() || ownsEvent(resource.data.form_id);
+      // Edits/deletes are super-only (and the Admin-SDK server, which bypasses rules).
+      allow update, delete: if isSuper();
+    }
+
+    // ── ADMINS (the crown jewels) ────────────────────────────────────
+    // A director may read ONLY their own doc (to boot their scope); super reads all.
+    // ONLY super writes admin docs → no self-escalation, no scope-poaching.
+    match /admins/{uid} {
+      allow read:   if isSuper() || (signedIn() && request.auth.uid == uid);
+      allow create: if isSuper()
+                    && request.resource.data.events is list
+                    && request.resource.data.events.size() <= 10;
+      // Partial merge-updates (e.g. the active:false kill-switch) need not restate events.
+      allow update: if isSuper()
+                    && (!('events' in request.resource.data)
+                        || (request.resource.data.events is list && request.resource.data.events.size() <= 10));
+      allow delete: if isSuper();
+    }
+
+    // ── Public-read collections with admin writes ────────────────────
+    match /teams/{id}        { allow read: if true; allow write: if isSuper(); }
+    match /standings/{id}    { allow read: if true; allow write: if isSuper(); }
+    match /site_content/{id} { allow read: if true; allow write: if isSuper(); }
+
+    // Everything else: locked.
+    match /{document=**} { allow read, write: if false; }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// ⚠️  TWO HARD GATES BEFORE DEPLOYING THESE RULES (see SETUP.md):
+//
+// 1) BOOTSTRAP — these rules make every admin write require an admins/{uid}
+//    doc with active==true. The first super CANNOT be made through the app.
+//    ORDER: (a) create Keith's user in Firebase Authentication, copy the UID;
+//    (b) in the Firestore console create  admins/{thatUID} = { role:'super',
+//    active:true, events:[], name, email };  (c) sign in + confirm the
+//    Directors panel loads;  ONLY THEN  (d) publish these rules. Skipping (b)
+//    locks everyone out (break-glass: edit admins/* in the console anytime).
+//
+// 2) SERVER WRITES — these rules limit request.auth==null to registration
+//    CREATE only. The serverless functions that write via the Firestore REST
+//    API + API key are unauthenticated and will now be DENIED:
+//      • api/create-checkout.js  (patches the registration → pending)
+//      • api/clover-webhook.js   (marks paid + creates the team)
+//      • api/roster-save.js      (saves the team roster)
+//    Migrate all three (+ api/_firestore.js) to the Firebase Admin SDK with a
+//    service account (FIREBASE_SERVICE_ACCOUNT env) BEFORE payments go live.
+//    Also: backfill a `form_id` on any existing games/tournaments docs, and
+//    keep saveAdmin always writing events:[] + active:true.
+// ════════════════════════════════════════════════════════════════════

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Locations &amp; Maps · Small Town Select Tournaments</title>
+<meta name="description" content="Every host field — click any venue for a map and turn-by-turn directions." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  .loc-city { margin-top: var(--space-5); }
+  .loc-city h2 { color: var(--sts-navy); font-size: var(--text-lg); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  .loc-city h2 .pin { color: var(--sts-red); }
+  .venue-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .venue-chip { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: #fff; border: 1px solid var(--line); border-left: 3px solid var(--sts-red); border-radius: 10px; padding: 12px 14px; cursor: pointer; font: inherit; color: var(--sts-navy); transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease; }
+  .venue-chip:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,45,114,.12); border-color: var(--sts-navy); }
+  .venue-chip .vn { flex: 1; font-family: var(--font-display); font-weight: 600; font-size: var(--text-sm); line-height: 1.2; }
+  .venue-chip .vgo { color: var(--muted); font-size: var(--text-xs); font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+  .loc-search { max-width: 360px; }
+  /* map modal */
+  .map-ov { position: fixed; inset: 0; z-index: 1000; background: rgba(4,12,28,.6); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 18px; opacity: 0; visibility: hidden; transition: opacity .18s ease, visibility .18s ease; }
+  .map-ov.open { opacity: 1; visibility: visible; }
+  .map-card { background: #fff; border-radius: 16px; width: min(760px, 100%); max-height: 92vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 24px 70px rgba(0,0,0,.4); border-top: 4px solid var(--sts-navy); }
+  .map-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 20px; }
+  .map-head h3 { margin: 0; color: var(--sts-navy); font-size: var(--text-lg); }
+  .map-head .sub { color: var(--muted); font-size: var(--text-sm); margin-top: 2px; }
+  .map-x { flex-shrink: 0; width: 34px; height: 34px; border: 0; border-radius: 50%; background: rgba(0,45,114,.07); color: var(--sts-navy); font-size: 14px; cursor: pointer; }
+  .map-x:hover { background: rgba(0,45,114,.16); }
+  .map-frame { position: relative; width: 100%; aspect-ratio: 16/10; background: #eef1f6; }
+  .map-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .map-foot { display: flex; gap: 10px; padding: 14px 20px; flex-wrap: wrap; }
+  .map-note { padding: 0 20px 14px; color: var(--muted); font-size: var(--text-xs); }
+</style>
+</head>
+<body>
+<div id="sts-nav"></div>
+<header class="hero" style="min-height:30vh;background:linear-gradient(180deg,#00224f,#001a3d)">
+  <div class="container"><div class="eyebrow" style="color:var(--gold)">Where We Play</div><h1>Locations &amp; Maps</h1><p>Click any field for a map and turn-by-turn directions.</p></div>
+</header>
+<main class="container section">
+  <div class="toolbar" style="margin-bottom:var(--space-4)">
+    <input class="input loc-search" id="locSearch" type="search" placeholder="Search a city or field…" aria-label="Search locations" />
+    <span class="muted" id="venueCount" style="font-size:var(--text-sm)"></span>
+  </div>
+  <div id="venuesOut"><div class="empty">Loading…</div></div>
+  <div class="notice notice-info mt-5" style="text-transform:none;letter-spacing:0"><b>Heads up:</b> maps open to the field by name + city. The exact field/parking map for a given tournament is posted on that event's <a href="schedule.html">schedule</a>.</div>
+</main>
+
+<div class="map-ov" id="mapOv">
+  <div class="map-card" role="dialog" aria-modal="true" aria-label="Venue map">
+    <div class="map-head"><div><h3 id="mapTitle">Field</h3><div class="sub" id="mapSub"></div></div><button class="map-x" id="mapX" aria-label="Close">✕</button></div>
+    <div class="map-frame"><iframe id="mapFrame" title="Map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
+    <div class="map-foot"><a class="btn btn-navy" id="mapDir" target="_blank" rel="noopener">🧭 Get Directions</a><a class="btn btn-outline" id="mapOpen" target="_blank" rel="noopener">Open in Google Maps ↗</a></div>
+    <div class="map-note">Directions use your current location as the starting point.</div>
+  </div>
+</div>
+
+<div id="sts-footer"></div>
+<script src="js/sts-chrome.js"></script>
+<script>
+  (function(){
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+    var CFG = window.LEAGUE_CONFIG || {};
+    var VENUES = CFG.venues || [];
+    var REGION = CFG.region || 'TX';
+    function q(place, city){ return encodeURIComponent(place + ', ' + city + ', ' + REGION); }
+
+    var out = document.getElementById('venuesOut');
+    var total = VENUES.reduce(function(n, c){ return n + (c.places||[]).length; }, 0);
+    document.getElementById('venueCount').textContent = total ? total + ' fields across ' + VENUES.length + ' cities' : '';
+
+    function render(filter){
+      filter = (filter||'').toLowerCase().trim();
+      var html = VENUES.map(function(c){
+        var places = (c.places||[]).filter(function(p){ return !filter || p.toLowerCase().indexOf(filter)>=0 || c.city.toLowerCase().indexOf(filter)>=0; });
+        if (!places.length) return '';
+        var chips = places.map(function(p){
+          return '<button type="button" class="venue-chip" data-place="'+esc(p)+'" data-city="'+esc(c.city)+'"><span class="vn">'+esc(p)+'</span><span class="vgo">Map ›</span></button>';
+        }).join('');
+        return '<div class="loc-city"><h2><span class="pin">📍</span>'+esc(c.city)+'</h2><div class="venue-grid">'+chips+'</div></div>';
+      }).join('');
+      out.innerHTML = html || '<div class="empty">No fields match “'+esc(filter)+'”.</div>';
+    }
+    render('');
+    document.getElementById('locSearch').addEventListener('input', function(e){ render(e.target.value); });
+
+    // map modal
+    var ov = document.getElementById('mapOv'), frame = document.getElementById('mapFrame');
+    function openMap(place, city){
+      var query = q(place, city);
+      document.getElementById('mapTitle').textContent = place;
+      document.getElementById('mapSub').textContent = city + ', ' + REGION;
+      frame.src = 'https://maps.google.com/maps?q=' + query + '&z=15&output=embed';
+      document.getElementById('mapDir').href = 'https://www.google.com/maps/dir/?api=1&destination=' + query;
+      document.getElementById('mapOpen').href = 'https://www.google.com/maps/search/?api=1&query=' + query;
+      ov.classList.add('open'); document.body.style.overflow = 'hidden';
+      document.getElementById('mapX').focus();
+    }
+    function closeMap(){ ov.classList.remove('open'); document.body.style.overflow=''; frame.src='about:blank'; }
+    out.addEventListener('click', function(e){ var b=e.target.closest('.venue-chip'); if(b) openMap(b.dataset.place, b.dataset.city); });
+    ov.addEventListener('click', function(e){ if(e.target===ov || e.target.closest('#mapX')) closeMap(); });
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape' && ov.classList.contains('open')) closeMap(); });
+  })();
+</script>
+</body>
+</html>

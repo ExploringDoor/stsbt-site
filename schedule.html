@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>2026 Schedule · Small Town Select Tournaments</title>
+<meta name="description" content="Game schedule and scores for Small Town Select Tournaments." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  .day-head { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .06em; color: var(--sts-red); font-size: var(--text-sm); margin: var(--space-5) 0 var(--space-2); }
+  .ev-head { display: flex; align-items: baseline; gap: 10px; margin: var(--space-6) 0 var(--space-2); }
+  .ev-head h2 { margin: 0; color: var(--sts-navy); font-size: var(--text-2xl); }
+  .game { display: grid; grid-template-columns: 110px 1fr auto; gap: var(--space-3); align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px var(--space-4); margin-bottom: 8px; cursor: pointer; transition: border-color .14s ease, box-shadow .14s ease, transform .14s ease; }
+  .game:hover { border-color: var(--sts-navy); box-shadow: 0 4px 14px rgba(0,45,114,.12); transform: translateY(-1px); }
+  .game:hover .gcue { opacity: 1; }
+  .gcue { grid-column: 2; font-family: var(--font-display); font-weight: 700; font-size: 9px; letter-spacing: .05em; text-transform: uppercase; color: var(--sts-navy); opacity: 0; transition: opacity .14s ease; }
+  @media (max-width:560px){ .gcue { display:none; } }
+  .game .when { font-family: var(--font-display); font-size: var(--text-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+  .game .matchup { font-family: var(--font-display); font-weight: 600; color: var(--sts-ink); }
+  .game .matchup .vs { color: var(--muted); font-weight: 400; margin: 0 6px; }
+  .game .winner { color: var(--sts-navy); }
+  .game .loser { color: var(--muted); }
+  .game .result { font-family: var(--font-display); font-weight: 700; font-size: var(--text-lg); color: var(--sts-navy); white-space: nowrap; }
+  .game .result.sched { color: var(--muted); font-weight: 500; font-size: var(--text-sm); }
+  @media (max-width:560px){ .game { grid-template-columns: 90px 1fr; } .game .result { grid-column: 2; text-align: left; } }
+</style>
+</head>
+<body>
+
+<div id="sts-nav"></div>
+
+<header class="page-banner"><img src="assets/headers/schedule.png" alt="2026 Schedule — Small Town Select Tournaments" style="object-position:center 52%" /><h1 class="sr-only">2026 Schedule</h1></header>
+
+<main class="container section">
+  <div class="toolbar">
+    <div class="pill-tabs" id="sportPills">
+      <button class="pill active" data-sport="">All</button>
+      <button class="pill" data-sport="baseball">Baseball</button>
+      <button class="pill" data-sport="softball">Softball</button>
+    </div>
+    <select class="input" id="eventSel" style="max-width:280px"><option value="">All events</option></select>
+  </div>
+  <div id="scheduleOut"><div class="empty">Loading schedule…</div></div>
+</main>
+
+<div id="sts-footer"></div>
+
+<script src="js/sts-bracket.js"></script>
+<script src="js/sts-gamemodal.js"></script>
+<script src="js/sts-chrome.js"></script>
+<script type="module">
+  import * as STS from './js/sts-data.js';
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  var DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtDate(s){ if(!s) return 'Date TBD'; var d=new Date(s+'T12:00:00'); if(isNaN(d)) return s; return DOW[d.getDay()]+', '+MON[d.getMonth()]+' '+d.getDate(); }
+  function fmtTime(t){ if(!t) return ''; var p=String(t).split(':'); var h=+p[0],m=p[1]||'00'; if(isNaN(h)) return t; var ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+m+' '+ap; }
+
+  var GAMES=[], FORMS=[], filt={sport:'',event:''}, bracketTables={};
+  function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
+  function sideName(g, raw){
+    if (g.g==null || !window.STSbracket) return raw||'TBD';
+    var bt = bracketTables[g.form_id] || (bracketTables[g.form_id]={games:GAMES.filter(function(x){return x.form_id===g.form_id && x.g!=null;})});
+    return STSbracket.sideDisplay(bt, raw).name;
+  }
+
+  function render(){
+    var out=document.getElementById('scheduleOut');
+    var rows=GAMES.filter(function(g){ if(filt.sport&&g.sport!==filt.sport) return false; if(filt.event&&g.form_id!==filt.event) return false; return true; });
+    if(!rows.length){ out.innerHTML='<div class="empty">No games posted yet — check back soon.</div>'; return; }
+    var byEvent={}; rows.forEach(function(g){ (byEvent[g.form_id]=byEvent[g.form_id]||[]).push(g); });
+    out.innerHTML = Object.keys(byEvent).map(function(fid){
+      var gs=byEvent[fid], byDay={};
+      gs.forEach(function(g){ (byDay[g.date||'']=byDay[g.date||'']||[]).push(g); });
+      var days = Object.keys(byDay).sort().map(function(d){
+        var games = byDay[d].map(function(g){
+          var played = g.done && g.away_score!=null && g.home_score!=null;
+          var tie = played && g.away_score===g.home_score;
+          var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score;
+          var result = played ? '<div class="result">'+g.away_score+'–'+g.home_score+'</div>' : '<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+(g.field?' · '+esc(g.field):'')+'</div>';
+          return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtTime(g.time)))+'</div>'+
+            '<div class="matchup"><span class="'+(aWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.away))+'</span><span class="vs">vs</span><span class="'+(hWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.home))+'</span>'+(g.division?' <span class="muted" style="font-size:var(--text-xs)">· '+esc(g.division)+'</span>':'')+'</div>'+
+            result+'<div class="gcue">'+(played?'Recap':'Preview')+' ›</div></div>';
+        }).join('');
+        return '<div class="day-head">'+esc(fmtDate(d))+'</div>'+games;
+      }).join('');
+      return '<div class="ev-head"><h2>'+esc(titleFor(fid))+'</h2></div>'+days;
+    }).join('');
+  }
+  document.getElementById('sportPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.sport=b.dataset.sport; document.querySelectorAll('#sportPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); render(); });
+  document.getElementById('eventSel').addEventListener('change', function(e){ filt.event=e.target.value; render(); });
+  // click a game row → preview (upcoming) / recap (final) modal
+  function openGame(gid){
+    var g = GAMES.find(function(x){ return String(x.id)===String(gid); }); if(!g || !window.STSgameModal) return;
+    var evGames = GAMES.filter(function(x){ return x.form_id===g.form_id; });
+    STSgameModal.open(titleFor(g.form_id), evGames, g);
+  }
+  document.getElementById('scheduleOut').addEventListener('click', function(e){ var row=e.target.closest('.game[data-gid]'); if(row) openGame(row.getAttribute('data-gid')); });
+  document.getElementById('scheduleOut').addEventListener('keydown', function(e){ if(e.key!=='Enter'&&e.key!==' ') return; var row=e.target.closest('.game[data-gid]'); if(row){ e.preventDefault(); openGame(row.getAttribute('data-gid')); } });
+
+  (async function(){
+    try {
+      FORMS = await STS.loadForms();
+      GAMES = await STS.loadGames();
+      GAMES.forEach(function(g){ if(!g.sport) g.sport=(FORMS.find(function(f){return f.id===g.form_id;})||{}).sport||''; });
+      var tf = FORMS.filter(function(f){ return f.type==='tournament'; });
+      document.getElementById('eventSel').innerHTML='<option value="">All events</option>'+tf.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
+      render();
+    } catch(e){ document.getElementById('scheduleOut').innerHTML='<div class="empty">Could not load the schedule.</div>'; }
+  })();
+</script>
+
+</body>
+</html>

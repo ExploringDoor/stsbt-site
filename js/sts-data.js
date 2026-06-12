@@ -1,0 +1,478 @@
+// ─────────────────────────────────────────────────────────────────────
+// STS data layer — the single client API for forms, registrations, teams.
+// Reads/writes Firestore when firebase-init is configured; otherwise serves
+// built-in SAMPLE data so every page renders for preview (writes mutate the
+// in-memory copy so the admin feels live within a session).
+//
+// Usage (per page):  import * as STS from './js/sts-data.js';
+// ─────────────────────────────────────────────────────────────────────
+import { db, isConfigured } from './firebase-init.js';
+import {
+  collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
+  query, where, orderBy, serverTimestamp, getCountFromServer
+} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+
+export { isConfigured };
+
+// ── helpers ──────────────────────────────────────────────────────────
+export function money(cents) {
+  var n = (Number(cents) || 0) / 100;
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+export function slugify(s) {
+  return String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+export function genTeamCode() {
+  var c = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', out = '';
+  for (var i = 0; i < 5; i++) out += c[Math.floor(Math.random() * c.length)];
+  return out;
+}
+export function abbr(name) {
+  var w = String(name || '').replace(/[^A-Za-z0-9 ]/g, '').trim().split(/\s+/);
+  if (!w[0]) return 'STS';
+  if (w.length === 1) return w[0].slice(0, 3).toUpperCase();
+  return (w[0][0] + w[1][0] + (w[2] ? w[2][0] : '')).toUpperCase();
+}
+
+// ── SAMPLE DATA (used until Firebase is configured) ──────────────────
+var AGE_PRICES = [
+  { label: '7U', cents: 12500 }, { label: '8U Coach Pitch', cents: 12500 }, { label: '8U Kid Pitch', cents: 12500 },
+  { label: '9U', cents: 12500 }, { label: '10U', cents: 12500 }, { label: '11U', cents: 12500 },
+  { label: '12U', cents: 12500 }, { label: '13U', cents: 12500 }, { label: '14U', cents: 12500 }
+];
+var WAIVER = 'All coaches must complete the season Team Registration before registering and paying for any tournaments. All teams must carry team insurance purchased through Small Town Select, or add Small Town Select as additionally insured on their team insurance.';
+
+var SAMPLE_FORMS = [
+  { id: 'season-baseball', title: '2026 Fall/Spring Baseball Team Registration', type: 'season', sport: 'baseball', order: 1, active: true, archived: false, convenience_fee_cents: 0, price_options: [{ label: 'Season Registration', cents: 0 }], waiver_text: WAIVER, location: '', event_dates: 'Aug 1, 2025 – Jul 31, 2026' },
+  { id: 'season-softball', title: '2026 Fall/Spring Softball Team Registration', type: 'season', sport: 'softball', order: 2, active: true, archived: false, convenience_fee_cents: 0, price_options: [{ label: 'Season Registration', cents: 0 }], waiver_text: WAIVER, location: '', event_dates: 'Aug 1, 2025 – Jul 31, 2026' },
+  { id: 'brownwood-summer-slam', title: 'Brownwood "Summer Slam Series"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A'], order: 3, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Brownwood, TX', event_dates: 'June 13–14, 2026' },
+  { id: 'iowa-park-heat-wave', title: 'Iowa Park "Heat Wave"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A', 'Majors'], order: 4, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Iowa Park, TX', event_dates: 'June 13–14, 2026' },
+  { id: 'hill-county-bash', title: 'Hillsboro "Hill County All-Star Bash"', type: 'tournament', sport: 'softball', divisions: ['Class C', 'Class B', 'Class A'], order: 5, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Wallace Park, Hillsboro, TX', event_dates: 'June 13, 2026' },
+  { id: 'team-insurance', title: '2026 STS Team Insurance', type: 'product', sport: 'both', order: 6, active: true, archived: false, convenience_fee_cents: 0, price_options: [{ label: 'Team Insurance', cents: 5000 }], waiver_text: '', location: '', event_dates: 'Aug 1, 2025 – Jul 31, 2026' },
+  { id: 'georgetown-fathers-day', title: 'Georgetown "Father\'s Day Classic"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A', 'Majors'], order: 7, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Georgetown, TX', event_dates: 'June 20–21, 2026' },
+  { id: 'clyde-summer-sizzle', title: 'Clyde "Summer Sizzle"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A'], order: 8, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Clyde, TX', event_dates: 'June 27–28, 2026' },
+  { id: 'san-angelo-belt-showdown', title: 'San Angelo "Stars & Stripes Belt Showdown"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A'], order: 9, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'San Angelo, TX', event_dates: 'July 11–12, 2026' },
+  { id: 'gamepro-baseballs', title: 'STS GamePro Baseballs', type: 'product', sport: 'both', order: 10, active: true, archived: false, convenience_fee_cents: 0, price_options: [{ label: '1 Dozen', cents: 6000 }, { label: '2 Dozen', cents: 11000 }, { label: '3 Dozen', cents: 15000 }], waiver_text: '', location: '', event_dates: '' }
+];
+
+var SAMPLE_TEAMS = [
+  { id: 'blacksox', name: 'Blacksox', slug: 'blacksox', sport: 'baseball', division: 'Minors', age_class: '7U', town: 'Brownwood, TX', live: true, status: 'active', team_code: 'BLK7X', tournaments: ['Brownwood "Summer Slam Series"'], roster: [{ name: 'Tanir Horton', num: '1', pos: 'P' }, { name: 'C. Horton', num: '7', pos: 'SS' }], w: 0, l: 0 },
+  { id: 'btx-vice', name: 'BTX Vice', slug: 'btx-vice', sport: 'baseball', division: 'Minors', age_class: '10U', town: 'Belton, TX', live: true, status: 'active', team_code: 'VICE0', tournaments: ['Iowa Park "Heat Wave"'], roster: [{ name: 'Randy Bates', num: '3', pos: 'C' }], w: 0, l: 0 },
+  { id: 'ctx-wolfpack', name: 'CTX Wolfpack', slug: 'ctx-wolfpack', sport: 'baseball', division: 'Triple-A', age_class: '12U', town: 'Waco, TX', live: true, status: 'active', team_code: 'WOLF2', tournaments: ['Brownwood "Summer Slam Series"', 'Iowa Park "Heat Wave"'], roster: [{ name: 'Dan Chiappe', num: '24', pos: 'CF' }], w: 0, l: 0 },
+  // auto-created from a FREE ($0) season registration (reg r6) — see createTeamFromRegistration
+  { id: 'comanche-bears', name: 'Comanche Bears', slug: 'comanche-bears', sport: 'baseball', division: 'Triple-A', age_class: '11U', town: 'Comanche, TX', live: true, status: 'active', team_code: 'BEAR4', reg_id: 'r6', tournaments: ['2026 Fall/Spring Baseball Team Registration'], roster: [], w: 0, l: 0 }
+];
+
+var SAMPLE_REGS = [
+  { id: 'r1', form_id: 'season-baseball', entry_no: 566900, status: 'completed', team_name: 'Blacksox', sport: 'baseball', division: 'Minors', age_class: '7U', town: 'Brownwood, TX', coach_name: 'Tanir Horton', coach_email: 'tanirhorton426@yahoo.com', coach_phone: '972-921-1760', waiver_agreed: true, payment_status: 'paid', amount_cents: 0, card_last4: '4242', clover_order_id: 'ORD-5566', paid_at: '2025-07-10T10:26:00', team_id: 'blacksox', team_code: 'BLK7X', created_at: '2025-07-10T10:26:00' },
+  { id: 'r2', form_id: 'season-baseball', entry_no: 566904, status: 'completed', team_name: 'BTX Vice', sport: 'baseball', division: 'Minors', age_class: '10U', town: 'Belton, TX', coach_name: 'Randy Bates', coach_email: 'randybates@jimcosales.net', coach_phone: '817-874-9202', waiver_agreed: true, payment_status: 'paid', amount_cents: 0, card_last4: '1881', clover_order_id: 'ORD-5567', paid_at: '2025-07-10T10:48:00', team_id: 'btx-vice', team_code: 'VICE0', created_at: '2025-07-10T10:48:00' },
+  { id: 'r3', form_id: 'brownwood-summer-slam', entry_no: 566929, status: 'completed', team_name: 'CTX Wolfpack', sport: 'baseball', division: 'Triple-A', age_class: '12U', town: 'Waco, TX', coach_name: 'Dan Chiappe', coach_email: 'wolfpackbaseballctx@gmail.com', coach_phone: '512-626-2921', waiver_agreed: true, payment_status: 'paid', amount_cents: 12800, card_last4: '0199', clover_order_id: 'ORD-5571', paid_at: '2025-07-10T12:08:00', team_id: 'ctx-wolfpack', team_code: 'WOLF2', created_at: '2025-07-10T12:08:00' },
+  { id: 'r4', form_id: 'iowa-park-heat-wave', entry_no: 566980, status: 'completed', team_name: 'DTX Rangers', sport: 'baseball', division: 'Majors', age_class: '13U', town: 'Dallas, TX', coach_name: 'Emanuel Mercado', coach_email: 'lilerat@yahoo.com', coach_phone: '972-804-5982', waiver_agreed: true, payment_status: 'pending', amount_cents: 12800, card_last4: '', clover_order_id: '', paid_at: '', team_id: '', team_code: 'RNGR1', created_at: '2025-07-11T09:15:00' },
+  { id: 'r5', form_id: 'hill-county-bash', entry_no: 567001, status: 'completed', team_name: 'Lady Heat', sport: 'softball', division: 'Class B', age_class: '12U', town: 'Hillsboro, TX', coach_name: 'Jared Carey', coach_email: 'jaredcarey@yahoo.com', coach_phone: '806-778-5237', waiver_agreed: true, payment_status: 'unpaid', amount_cents: 12800, card_last4: '', clover_order_id: '', paid_at: '', team_id: '', team_code: 'HEAT9', created_at: '2025-07-11T14:02:00' },
+  { id: 'r6', form_id: 'season-baseball', entry_no: 567002, status: 'completed', team_name: 'Comanche Bears', sport: 'baseball', division: 'Triple-A', age_class: '11U', town: 'Comanche, TX', coach_name: 'Will Rhodes', coach_email: 'wrhodes@example.com', coach_phone: '325-555-0148', waiver_agreed: true, payment_status: 'free', amount_cents: 0, card_last4: '', clover_order_id: '', paid_at: '', team_id: 'comanche-bears', team_code: 'BEAR4', created_at: '2025-07-11T16:20:00' }
+];
+
+// session-local mutable copies for sample mode
+var _forms = SAMPLE_FORMS.map(function (f) { return Object.assign({}, f); });
+var _teams = SAMPLE_TEAMS.map(function (t) { return Object.assign({}, t); });
+var _regs = SAMPLE_REGS.map(function (r) { return Object.assign({}, r); });
+var _entrySeq = 567100;
+
+// ── Admins / directors (Season Admins) — doc id === Firebase Auth UID ─
+var SAMPLE_ADMINS = [
+  { id: 'uid-keith', email: 'keithphilips34@gmail.com', name: 'Keith Philips', role: 'super',    events: [], active: true },
+  { id: 'uid-carl',  email: 'carl@example.com',  name: 'Carl Moore',  role: 'director', events: ['brownwood-summer-slam'], active: true },
+  { id: 'uid-sonny', email: 'sonny@example.com', name: 'Sonny Wilson', role: 'director', events: ['iowa-park-heat-wave', 'hill-county-bash'], active: true }
+];
+var _admins = SAMPLE_ADMINS.map(function (a) { return Object.assign({}, a); });
+// Sample mode has no Auth — the admin page picks a "preview as" identity (default super).
+var _sampleScope = _admins[0];
+export function _setSampleScope(adminId) {
+  if (isConfigured) return _sampleScope;   // identity comes from Firebase Auth in prod
+  var a = _admins.find(function (x) { return x.id === adminId; });
+  if (a) _sampleScope = a;
+  return _sampleScope;
+}
+
+// ── Games (schedule + scores) — form_id is the event/scoping key ─────
+var SAMPLE_GAMES = [
+  { id: 'g1', form_id: 'brownwood-summer-slam', sport: 'baseball', division: 'Triple-A', away: 'CTX Wolfpack', home: 'Blacksox', date: '2026-06-13', time: '09:00', field: 'Field 1', away_score: 7, home_score: 4, done: true },
+  { id: 'g2', form_id: 'brownwood-summer-slam', sport: 'baseball', division: 'Triple-A', away: 'Blacksox', home: 'Brownwood Bombers', date: '2026-06-13', time: '11:30', field: 'Field 1', away_score: 5, home_score: 5, done: true },
+  { id: 'g3', form_id: 'brownwood-summer-slam', sport: 'baseball', division: 'Triple-A', away: 'CTX Wolfpack', home: 'Brownwood Bombers', date: '2026-06-13', time: '14:00', field: 'Field 2', away_score: null, home_score: null, done: false },
+  { id: 'g4', form_id: 'brownwood-summer-slam', sport: 'baseball', division: 'Triple-A', away: 'Blacksox', home: 'CTX Wolfpack', date: '2026-06-14', time: '10:00', field: 'Field 1', away_score: null, home_score: null, done: false },
+  { id: 'g5', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', away: 'DTX Rangers', home: 'BTX Vice', date: '2026-06-13', time: '09:00', field: 'North', away_score: 10, home_score: 2, done: true },
+  { id: 'g6', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', away: 'BTX Vice', home: 'DTX Rangers', date: '2026-06-14', time: '12:00', field: 'North', away_score: null, home_score: null, done: false },
+  { id: 'g7', form_id: 'hill-county-bash', sport: 'softball', division: 'Class B', away: 'Lady Heat', home: 'Hill County Storm', date: '2026-06-13', time: '10:00', field: 'Field A', away_score: 8, home_score: 3, done: true },
+  { id: 'g8', form_id: 'hill-county-bash', sport: 'softball', division: 'Class B', away: 'Hill County Storm', home: 'Lady Heat', date: '2026-06-13', time: '13:00', field: 'Field A', away_score: null, home_score: null, done: false },
+  // a sample single-elim bracket on the Brownwood event (g = bracket game number; away/home may be WG-n refs)
+  { id: 'b1', form_id: 'brownwood-summer-slam', sport: 'baseball', division: 'Triple-A', g: 1, away: 'CTX Wolfpack', home: 'Lonestar Reds', date: '2026-06-14', time: '13:00', field: 'Field 1', away_score: 11, home_score: 1, done: true },
+  { id: 'b2', form_id: 'brownwood-summer-slam', sport: 'baseball', division: 'Triple-A', g: 2, away: 'Blacksox', home: 'Brownwood Bombers', date: '2026-06-14', time: '15:30', field: 'Field 1', away_score: 4, home_score: 7, done: true },
+  { id: 'b3', form_id: 'brownwood-summer-slam', sport: 'baseball', division: 'Triple-A', g: 3, away: 'WG-1', home: 'WG-2', date: '2026-06-14', time: '18:00', field: 'Field 1', away_score: null, home_score: null, done: false },
+  // a sample DOUBLE-elim bracket on Iowa Park (winners + losers + grand final), played out → champion
+  { id: 'ip-b1', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', g: 1, away: 'DTX Rangers', home: 'Hill Hawks',    date: '2026-06-13', time: '09:00', field: 'North', away_score: 8, home_score: 3, done: true },
+  { id: 'ip-b2', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', g: 2, away: 'BTX Vice',    home: 'Lonestar Reds', date: '2026-06-13', time: '11:30', field: 'North', away_score: 5, home_score: 4, done: true },
+  { id: 'ip-b3', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', g: 3, away: 'WG-1', home: 'WG-2', date: '2026-06-13', time: '14:00', field: 'North', away_score: 6, home_score: 5, done: true },
+  { id: 'ip-b4', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', g: 4, away: 'LG-1', home: 'LG-2', date: '2026-06-13', time: '14:00', field: 'South', away_score: 7, home_score: 2, done: true },
+  { id: 'ip-b5', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', g: 5, away: 'WG-4', home: 'LG-3', date: '2026-06-14', time: '10:00', field: 'North', away_score: 1, home_score: 9, done: true },
+  { id: 'ip-b6', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', g: 6, away: 'WG-3', home: 'WG-5', date: '2026-06-14', time: '13:00', field: 'North', away_score: 4, home_score: 2, done: true },
+  { id: 'ip-b7', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', g: 7, away: 'WG-6', home: 'LG-6', date: '2026-06-14', time: '15:30', field: 'North', away_score: null, home_score: null, done: false }
+];
+var _games = SAMPLE_GAMES.map(function (g) { return Object.assign({}, g); });
+var _gameSeq = 9000;   // unique sample-mode ids for batch-created games
+
+// ── Firestore plumbing ───────────────────────────────────────────────
+async function fsAll(col) {
+  var snap = await getDocs(collection(db, col));
+  return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+}
+async function fsOne(col, id) {
+  var s = await getDoc(doc(db, col, id));
+  return s.exists() ? Object.assign({ id: s.id }, s.data()) : null;
+}
+
+// ── FORMS ────────────────────────────────────────────────────────────
+export async function loadForms(opts) {
+  opts = opts || {};
+  var all = isConfigured ? await fsAll('forms') : _forms.slice();
+  if (!opts.includeInactive) all = all.filter(function (f) { return f.active && !f.archived; });
+  return all.sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+}
+export async function getForm(id) {
+  if (isConfigured) return fsOne('forms', id);
+  return _forms.find(function (f) { return f.id === id; }) || null;
+}
+export async function saveForm(form) {
+  if (isConfigured) {
+    if (form.id) { await setDoc(doc(db, 'forms', form.id), form, { merge: true }); return form.id; }
+    var ref = await addDoc(collection(db, 'forms'), form); return ref.id;
+  }
+  if (form.id) { var i = _forms.findIndex(function (f) { return f.id === form.id; }); if (i >= 0) _forms[i] = Object.assign(_forms[i], form); else _forms.push(form); return form.id; }
+  form.id = slugify(form.title) || ('form-' + Date.now()); _forms.push(form); return form.id;
+}
+
+// ── REGISTRATIONS (entries) ──────────────────────────────────────────
+export async function createRegistration(data) {
+  var rec = Object.assign({
+    status: 'completed', payment_status: (Number(data.amount_cents) > 0 ? 'unpaid' : 'free'),
+    team_code: genTeamCode(), created_at: (isConfigured ? null : new Date().toISOString())
+  }, data);
+  rec.team_code = data.team_code || rec.team_code;
+  if (isConfigured) {
+    rec.created_at = serverTimestamp();
+    // sequential-ish entry number via a counter doc (best-effort)
+    rec.entry_no = await nextEntryNo();
+    var ref = await addDoc(collection(db, 'registrations'), rec);
+    return { id: ref.id, entry_no: rec.entry_no, team_code: rec.team_code };
+  }
+  rec.id = 'r' + (_regs.length + 1); rec.entry_no = ++_entrySeq; _regs.push(rec);
+  return { id: rec.id, entry_no: rec.entry_no, team_code: rec.team_code };
+}
+async function nextEntryNo() {
+  try {
+    var snap = await getCountFromServer(collection(db, 'registrations'));
+    return 566900 + (snap.data().count || 0) + 1;
+  } catch (e) { return 566900 + Math.floor(Math.random() * 9000); }
+}
+export async function loadRegistrations(opts) {
+  opts = opts || {};
+  var all = isConfigured ? await fsAll('registrations') : _regs.slice();
+  if (opts.status) all = all.filter(function (r) { return (r.status || 'completed') === opts.status; });
+  if (opts.formId) all = all.filter(function (r) { return r.form_id === opts.formId; });
+  return all.sort(function (a, b) { return (b.entry_no || 0) - (a.entry_no || 0); });
+}
+export async function updateRegistration(id, fields) {
+  if (isConfigured) { await updateDoc(doc(db, 'registrations', id), fields); return; }
+  var r = _regs.find(function (x) { return x.id === id; }); if (r) Object.assign(r, fields);
+}
+export async function getRegistrationBySession(sessionId) {
+  if (isConfigured) {
+    var snap = await getDocs(query(collection(db, 'registrations'), where('clover_session_id', '==', sessionId)));
+    return snap.empty ? null : Object.assign({ id: snap.docs[0].id }, snap.docs[0].data());
+  }
+  return _regs.find(function (r) { return r.clover_session_id === sessionId; }) || null;
+}
+
+// ── TEAMS ────────────────────────────────────────────────────────────
+export async function loadTeams(opts) {
+  opts = opts || {};
+  var all = isConfigured ? await fsAll('teams') : _teams.slice();
+  if (!opts.includeHidden) all = all.filter(function (t) { return t.live && t.status !== 'archived'; });
+  if (opts.sport) all = all.filter(function (t) { return t.sport === opts.sport; });
+  return all.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+}
+export async function getTeam(id) {
+  if (isConfigured) {
+    var byId = await fsOne('teams', id); if (byId) return byId;
+    var snap = await getDocs(query(collection(db, 'teams'), where('slug', '==', id)));
+    return snap.empty ? null : Object.assign({ id: snap.docs[0].id }, snap.docs[0].data());
+  }
+  return _teams.find(function (t) { return t.id === id || t.slug === id; }) || null;
+}
+export async function saveTeamRoster(teamId, roster, code) {
+  // In production this routes through /api/roster-save.js (server re-checks the code).
+  if (isConfigured) {
+    var res = await fetch('/api/roster-save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teamId: teamId, roster: roster, code: code }) });
+    if (!res.ok) throw new Error('Save failed'); return;
+  }
+  var t = _teams.find(function (x) { return x.id === teamId || x.slug === teamId; });
+  if (!t) throw new Error('Team not found');
+  if (String(t.team_code) !== String(code)) throw new Error('Wrong team code');
+  t.roster = roster;
+}
+// Auto-create the public team page from a registration. The Clover webhook does
+// this for PAID entries; this is the client-side path for FREE ($0) team entries
+// (and any future server endpoint can call the same shape). Idempotent per
+// REGISTRATION (re-submitting the same reg reuses its team) and collision-safe:
+// two different registrations that share a team name get distinct team docs
+// (slug, slug-2, slug-3…) so neither orphans the other. Returns the team slug.
+function buildTeamDoc(reg, slug) {
+  return {
+    name: reg.team_name, slug: slug, sport: reg.sport || '', division: reg.division || '',
+    age_class: reg.age_class || '', town: reg.town || '', reg_id: reg.id || '', team_code: reg.team_code || '',
+    roster: Array.isArray(reg.roster) ? reg.roster : [],
+    tournaments: reg.form_title ? [reg.form_title] : [],
+    live: true, status: 'active', w: 0, l: 0, t: 0, rs: 0, ra: 0
+  };
+}
+export async function createTeamFromRegistration(reg) {
+  if (!reg || !reg.team_name) return null;
+  var base = slugify(reg.team_name) || ('team-' + (reg.id || Date.now()));
+  if (isConfigured) {
+    // already created for THIS registration? reuse it (idempotent on resubmit)
+    if (reg.id) {
+      var mine = await getDocs(query(collection(db, 'teams'), where('reg_id', '==', reg.id)));
+      if (!mine.empty) return mine.docs[0].id;
+    }
+    // find a free slug so we never clobber a different team with the same name
+    var slug = base, i = 2;
+    while (await fsOne('teams', slug)) { slug = base + '-' + i; i++; }
+    await setDoc(doc(db, 'teams', slug), buildTeamDoc(reg, slug));
+    if (reg.id) { try { await updateDoc(doc(db, 'registrations', reg.id), { team_id: slug }); } catch (e) {} }
+    return slug;
+  }
+  var mineS = _teams.find(function (x) { return reg.id && x.reg_id === reg.id; });
+  if (mineS) return mineS.slug || mineS.id;
+  var s = base, k = 2;
+  while (_teams.some(function (x) { return (x.slug || x.id) === s; })) { s = base + '-' + k; k++; }
+  var td = buildTeamDoc(reg, s); td.id = s; _teams.push(td);
+  var r = _regs.find(function (x) { return x.id === reg.id; }); if (r) r.team_id = s;
+  return s;
+}
+
+// ── CHAMPIONS (admin-uploaded winner photos; merged with live bracket
+// champions + the static data/champions-photos.json archive on champions.html) ──
+var SAMPLE_CHAMPIONS = [];
+var _champions = SAMPLE_CHAMPIONS.map(function (c) { return Object.assign({}, c); });
+export async function loadChampions() {
+  if (isConfigured) {
+    var snap = await getDocs(collection(db, 'champions'));
+    return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+  }
+  return _champions.slice();
+}
+export async function saveChampion(rec) {
+  rec = Object.assign({ created_at: (isConfigured ? serverTimestamp() : new Date().toISOString()) }, rec);
+  if (isConfigured) { var ref = await addDoc(collection(db, 'champions'), rec); return ref.id; }
+  rec.id = 'champ-' + (_champions.length + 1); _champions.push(rec); return rec.id;
+}
+export async function deleteChampion(id) {
+  if (isConfigured) { await deleteDoc(doc(db, 'champions', id)); return; }
+  var i = _champions.findIndex(function (c) { return c.id === id; }); if (i >= 0) _champions.splice(i, 1);
+}
+
+// ── ADMINS / scope ───────────────────────────────────────────────────
+// Returns { id, role, events[], name, email, active } or null (no access).
+export async function getCurrentAdmin(uid) {
+  if (!isConfigured) return _sampleScope || null;
+  if (!uid) return null;
+  var a = await fsOne('admins', uid);
+  if (!a || a.active === false) return null;
+  a.events = Array.isArray(a.events) ? a.events : [];
+  return a;
+}
+export function adminOwns(admin, formId) {
+  if (!admin) return false;
+  if (admin.role === 'super') return true;
+  return (admin.events || []).indexOf(formId) >= 0;
+}
+// Super → all forms; director → only owned (events[] = form_ids).
+export async function loadFormsScoped(admin, opts) {
+  var all = await loadForms(Object.assign({ includeInactive: true }, opts || {}));
+  if (!admin || admin.role === 'super') return all;
+  var own = admin.events || [];
+  return all.filter(function (f) { return own.indexOf(f.id) >= 0; });
+}
+// Super → full read; director → per-event query (each form_id-scoped so rules pass).
+export async function loadRegistrationsScoped(admin, opts) {
+  opts = opts || {};
+  if (!admin || admin.role === 'super') return loadRegistrations(opts);
+  var own = admin.events || [];
+  if (!own.length) return [];
+  var rows;
+  if (isConfigured) {
+    var batches = await Promise.all(own.map(function (fid) {
+      return getDocs(query(collection(db, 'registrations'), where('form_id', '==', fid)))
+        .then(function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); });
+    }));
+    rows = batches.reduce(function (a, b) { return a.concat(b); }, []);
+  } else {
+    rows = _regs.filter(function (r) { return own.indexOf(r.form_id) >= 0; });
+  }
+  if (opts.status) rows = rows.filter(function (r) { return (r.status || 'completed') === opts.status; });
+  return rows.sort(function (a, b) { return (b.entry_no || 0) - (a.entry_no || 0); });
+}
+// Directors panel (super-only; rules enforce server-side).
+export async function loadAdmins() {
+  if (isConfigured) return fsAll('admins');
+  return _admins.slice();
+}
+export async function saveAdmin(admin) {
+  var rec = {
+    email: String(admin.email || '').toLowerCase().trim(),
+    name: admin.name || '', role: (admin.role === 'super' ? 'super' : 'director'),
+    events: Array.isArray(admin.events) ? admin.events.slice(0, 10) : [],   // ≤10 (kept small for the rules' membership check)
+    active: admin.active !== false
+  };
+  if (isConfigured) {
+    if (!admin.id) throw new Error('admin uid required (the director\'s Firebase Auth UID)');
+    await setDoc(doc(db, 'admins', admin.id), rec, { merge: true });
+    return admin.id;
+  }
+  var i = _admins.findIndex(function (x) { return x.id === admin.id; });
+  if (i >= 0) _admins[i] = Object.assign(_admins[i], rec);
+  else _admins.push(Object.assign({ id: admin.id || ('uid-' + slugify(rec.email)) }, rec));
+  return admin.id;
+}
+export async function deleteAdmin(uid) {   // soft-disable (kill-switch), never hard-delete
+  if (isConfigured) { await updateDoc(doc(db, 'admins', uid), { active: false }); return; }
+  var a = _admins.find(function (x) { return x.id === uid; }); if (a) a.active = false;
+}
+
+// ── GAMES (schedule + scores) ────────────────────────────────────────
+function sortGames(rows) {
+  return rows.sort(function (a, b) {
+    var d = String(a.date || '').localeCompare(String(b.date || '')); if (d) return d;
+    return String(a.time || '').localeCompare(String(b.time || ''));
+  });
+}
+function numScore(v) { if (v === '' || v == null) return null; var n = Number(v); return isFinite(n) ? n : null; }
+export async function loadGames(opts) {
+  opts = opts || {};
+  var all = isConfigured ? await fsAll('games') : _games.slice();
+  if (opts.formId) all = all.filter(function (g) { return g.form_id === opts.formId; });
+  if (opts.sport) all = all.filter(function (g) { return g.sport === opts.sport; });
+  return sortGames(all);
+}
+// Super → all; director → only their events' games (per-event query so rules pass).
+export async function loadGamesScoped(admin, opts) {
+  opts = opts || {};
+  if (!admin || admin.role === 'super') return loadGames(opts);
+  var own = admin.events || [];
+  if (!own.length) return [];
+  var rows;
+  if (isConfigured) {
+    var batches = await Promise.all(own.map(function (fid) {
+      return getDocs(query(collection(db, 'games'), where('form_id', '==', fid)))
+        .then(function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); });
+    }));
+    rows = batches.reduce(function (a, b) { return a.concat(b); }, []);
+  } else {
+    rows = _games.filter(function (g) { return own.indexOf(g.form_id) >= 0; });
+  }
+  return sortGames(rows);
+}
+export async function saveGame(game) {
+  if (!game.form_id) throw new Error('a game needs a form_id (its event)');
+  var rec = {
+    form_id: game.form_id, sport: game.sport || '', division: game.division || '',
+    away: game.away || '', home: game.home || '',
+    date: game.date || '', time: game.time || '', field: game.field || '',
+    away_score: numScore(game.away_score),
+    home_score: numScore(game.home_score),
+    done: !!game.done
+  };
+  if (game.g != null) rec.g = game.g;   // bracket game number (kept on score edits)
+  if (isConfigured) {
+    if (game.id) { await setDoc(doc(db, 'games', game.id), rec, { merge: true }); return game.id; }
+    var ref = await addDoc(collection(db, 'games'), rec); return ref.id;
+  }
+  if (game.id) { var i = _games.findIndex(function (g) { return g.id === game.id; }); if (i >= 0) _games[i] = Object.assign(_games[i], rec); return game.id; }
+  rec.id = 'g' + (++_gameSeq); _games.push(rec); return rec.id;
+}
+// Save a batch of round-robin pool games (regular games, no bracket `g`).
+export async function savePool(formId, meta, matchups) {
+  meta = meta || {};
+  for (var i = 0; i < matchups.length; i++) {
+    var m = matchups[i];
+    await saveGame({ form_id: formId, sport: meta.sport || '', division: meta.division || '',
+      away: m.away, home: m.home, date: m.date || '', time: m.time || '', field: m.field || '',
+      away_score: null, home_score: null, done: false });
+  }
+  return matchups.length;
+}
+export async function deleteGame(id) {
+  if (isConfigured) { await deleteDoc(doc(db, 'games', id)); return; }
+  var i = _games.findIndex(function (g) { return g.id === id; }); if (i >= 0) _games.splice(i, 1);
+}
+
+// Delete every bracket game (those carrying a `g` number) for an event.
+export async function clearBracket(formId) {
+  if (isConfigured) {
+    var snap = await getDocs(query(collection(db, 'games'), where('form_id', '==', formId)));
+    await Promise.all(snap.docs.filter(function (d) { return d.data().g != null; }).map(function (d) { return deleteDoc(d.ref); }));
+    return;
+  }
+  _games = _games.filter(function (g) { return !(g.form_id === formId && g.g != null); });
+}
+// Persist a generated bracket: `gen` = STSgen output [{g, away, home, date, time, field}].
+export async function saveBracket(formId, meta, gen) {
+  await clearBracket(formId);   // replace any existing bracket for this event
+  meta = meta || {};
+  for (var i = 0; i < gen.length; i++) {
+    var s = gen[i];
+    var rec = {
+      form_id: formId, sport: meta.sport || '', division: meta.division || '', g: s.g,
+      away: String(s.away == null ? '' : s.away), home: String(s.home == null ? '' : s.home),
+      date: s.date || '', time: s.time || '', field: s.field || '',
+      away_score: null, home_score: null, done: false
+    };
+    if (isConfigured) { await addDoc(collection(db, 'games'), rec); }
+    else { rec.id = 'b' + formId + '-' + s.g; _games.push(rec); }
+  }
+  return gen.length;
+}
+
+// Pure: derive standings rows from a games array (only finished games count).
+export function computeStandings(games) {
+  var t = {};
+  function row(name) { if (!t[name]) t[name] = { team: name, w: 0, l: 0, ties: 0, rs: 0, ra: 0, gp: 0 }; return t[name]; }
+  (games || []).forEach(function (g) {
+    if (!g.done || g.away_score == null || g.home_score == null) return;
+    if (!g.away || !g.home) return;
+    var as = Number(g.away_score), hs = Number(g.home_score);
+    if (!isFinite(as) || !isFinite(hs)) return;   // a hand-edited non-numeric score can't poison standings
+    var a = row(g.away), h = row(g.home);
+    a.gp++; h.gp++; a.rs += as; a.ra += hs; h.rs += hs; h.ra += as;
+    if (as > hs) { a.w++; h.l++; } else if (hs > as) { h.w++; a.l++; } else { a.ties++; h.ties++; }
+  });
+  return Object.keys(t).map(function (k) {
+    var r = t[k]; r.pct = (r.w + r.l + r.ties) ? (r.w + r.ties * 0.5) / (r.w + r.l + r.ties) : 0; r.diff = r.rs - r.ra; return r;
+  }).sort(function (a, b) { return b.pct - a.pct || b.diff - a.diff || b.w - a.w; });
+}
+
+// ── Site content / settings (homepage text, default prices) ──────────
+export async function loadSiteContent(docId) {
+  docId = docId || 'homepage';
+  if (isConfigured) { var d = await fsOne('site_content', docId); return d || {}; }
+  try { return JSON.parse(localStorage.getItem('sts-content-' + docId) || '{}'); } catch (e) { return {}; }
+}
+export async function saveSiteContent(docId, obj) {
+  docId = docId || 'homepage';
+  if (isConfigured) { await setDoc(doc(db, 'site_content', docId), obj, { merge: true }); return; }
+  try { localStorage.setItem('sts-content-' + docId, JSON.stringify(obj)); } catch (e) {}
+}
+
+// convenience global (non-module consumers)
+if (typeof window !== 'undefined') {
+  window.STS = { money: money, abbr: abbr, slugify: slugify, isConfigured: isConfigured };
+}

@@ -1,0 +1,11 @@
+{
+  "name": "stsbt-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Small Town Select Tournaments — team registration, rosters, schedules, brackets.",
+  "engines": { "node": "20.x" },
+  "scripts": {
+    "dev": "npx serve -l 8011 ."
+  }
+}

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Standings · Small Town Select Tournaments</title>
+<meta name="description" content="Standings for Small Town Select Tournaments, by event and division." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  .ev-head { margin: var(--space-6) 0 var(--space-3); }
+  .ev-head h2 { margin: 0; color: var(--sts-navy); }
+  .div-sub { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .05em; color: var(--sts-red); font-size: var(--text-sm); margin: var(--space-4) 0 6px; }
+  table.tbl td.team-cell { white-space: normal; font-weight: 600; color: var(--sts-navy); }
+  table.tbl .rank { color: var(--muted); width: 36px; }
+</style>
+</head>
+<body>
+
+<div id="sts-nav"></div>
+
+<header class="hero" style="min-height:32vh;background:linear-gradient(180deg,#00224f,#001a3d)">
+  <div class="container">
+    <div class="eyebrow" style="color:var(--gold)">Where Teams Stand</div>
+    <h1>Standings</h1>
+    <p>Updated automatically from finished games.</p>
+  </div>
+</header>
+
+<main class="container section">
+  <div class="toolbar">
+    <div class="pill-tabs" id="sportPills">
+      <button class="pill active" data-sport="">All</button>
+      <button class="pill" data-sport="baseball">Baseball</button>
+      <button class="pill" data-sport="softball">Softball</button>
+    </div>
+    <select class="input" id="eventSel" style="max-width:280px"><option value="">All events</option></select>
+  </div>
+  <div id="standingsOut"><div class="empty">Loading standings…</div></div>
+</main>
+
+<div id="sts-footer"></div>
+
+<script src="js/sts-chrome.js"></script>
+<script type="module">
+  import * as STS from './js/sts-data.js';
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  var GAMES=[], FORMS=[], filt={sport:'',event:''};
+  function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
+  function sportFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.sport:''; }
+
+  function table(rows){
+    return '<div class="table-wrap"><table class="tbl"><thead><tr><th class="rank">#</th><th>Team</th><th>W</th><th>L</th><th>T</th><th>PCT</th><th>RS</th><th>RA</th><th>Diff</th></tr></thead><tbody>'+
+      rows.map(function(r,i){ return '<tr><td class="rank">'+(i+1)+'</td><td class="team-cell">'+esc(r.team)+'</td><td>'+r.w+'</td><td>'+r.l+'</td><td>'+r.ties+'</td><td class="num">'+r.pct.toFixed(3).replace(/^0/,'')+'</td><td>'+r.rs+'</td><td>'+r.ra+'</td><td>'+(r.diff>0?'+':'')+r.diff+'</td></tr>'; }).join('')+
+      '</tbody></table></div>';
+  }
+  function render(){
+    var out=document.getElementById('standingsOut');
+    var rows=GAMES.filter(function(g){ if(g.g!=null) return false; if(filt.sport&&g.sport!==filt.sport) return false; if(filt.event&&g.form_id!==filt.event) return false; return true; });
+    var played=rows.filter(function(g){ return g.done && g.away_score!=null && g.home_score!=null; });
+    if(!played.length){ out.innerHTML='<div class="empty">No finished games yet — standings appear once scores are posted.</div>'; return; }
+    var byEvent={}; rows.forEach(function(g){ (byEvent[g.form_id]=byEvent[g.form_id]||[]).push(g); });
+    out.innerHTML = Object.keys(byEvent).map(function(fid){
+      var gs=byEvent[fid];
+      // split by division within the event
+      var byDiv={}; gs.forEach(function(g){ (byDiv[g.division||'']=byDiv[g.division||'']||[]).push(g); });
+      var divs=Object.keys(byDiv);
+      var inner = divs.map(function(dv){
+        var st=STS.computeStandings(byDiv[dv]);
+        if(!st.length) return '';
+        return (divs.length>1||dv ? '<div class="div-sub">'+(esc(dv)||'Division')+'</div>' : '')+table(st);
+      }).join('');
+      if(!inner.trim()) return '';
+      return '<div class="ev-head"><h2>'+esc(titleFor(fid))+'</h2></div>'+inner;
+    }).join('') || '<div class="empty">No finished games yet.</div>';
+  }
+  document.getElementById('sportPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.sport=b.dataset.sport; document.querySelectorAll('#sportPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); render(); });
+  document.getElementById('eventSel').addEventListener('change', function(e){ filt.event=e.target.value; render(); });
+
+  (async function(){
+    try {
+      FORMS = await STS.loadForms();
+      GAMES = await STS.loadGames();
+      GAMES.forEach(function(g){ if(!g.sport) g.sport=sportFor(g.form_id); });
+      var tf = FORMS.filter(function(f){ return f.type==='tournament'; });
+      document.getElementById('eventSel').innerHTML='<option value="">All events</option>'+tf.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
+      render();
+    } catch(e){ document.getElementById('standingsOut').innerHTML='<div class="empty">Could not load standings.</div>'; }
+  })();
+</script>
+
+</body>
+</html>

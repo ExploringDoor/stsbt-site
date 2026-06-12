@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Teams · Small Town Select Tournaments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  .team-card { display: flex; align-items: center; gap: var(--space-4); background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-4); text-decoration: none; color: var(--fg); transition: transform .15s ease, box-shadow .15s ease; }
+  .team-card:hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(0,45,114,.14); text-decoration: none; }
+  .team-card .sts-logo { width: 54px; height: 54px; font-size: 18px; }
+  .team-card .tc-name { font-family: var(--font-display); font-weight: 600; color: var(--sts-navy); font-size: var(--text-lg); }
+  .team-card .tc-meta { font-size: var(--text-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+</style>
+</head>
+<body>
+
+<div id="sts-nav"></div>
+
+<header class="page-banner"><img src="assets/headers/teams.png" alt="Teams — Small Town Select Tournaments" style="object-position:center 49%" /><h1 class="sr-only">Teams</h1></header>
+
+<main class="container section">
+  <div class="toolbar">
+    <input class="input grow" id="teamSearch" placeholder="Search teams…" />
+    <div class="pill-tabs" id="sportPills">
+      <button class="pill active" data-sport="">All</button>
+      <button class="pill" data-sport="baseball">Baseball</button>
+      <button class="pill" data-sport="softball">Softball</button>
+    </div>
+  </div>
+  <div id="teamGrid" class="card-grid"><div class="empty">Loading teams…</div></div>
+</main>
+
+<div id="sts-footer"></div>
+
+<script src="js/sts-logos.js"></script>
+<script src="js/sts-chrome.js"></script>
+<script type="module">
+  import * as STS from './js/sts-data.js';
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  var ALL = [], filt = { q:'', sport:'' };
+
+  function render(){
+    var grid = document.getElementById('teamGrid');
+    var rows = ALL.filter(function(t){
+      if (filt.sport && t.sport!==filt.sport) return false;
+      if (filt.q && (t.name+' '+(t.town||'')).toLowerCase().indexOf(filt.q.toLowerCase())<0) return false;
+      return true;
+    });
+    if (!rows.length){ grid.innerHTML = '<div class="empty">No teams match.</div>'; return; }
+    grid.innerHTML = rows.map(function(t){
+      var meta = [t.division, t.age_class, t.town].filter(Boolean).join(' · ');
+      var logo = window.STSlogos ? STSlogos.html(t.name, 54, t.slug||t.id) : '<span class="sts-logo">'+esc(STS.abbr(t.name))+'</span>';
+      return '<a class="team-card" href="team.html?id='+esc(t.slug||t.id)+'">'+
+        logo+
+        '<span><span class="tc-name">'+esc(t.name)+'</span><br><span class="tc-meta">'+esc(meta)+'</span></span></a>';
+    }).join('');
+    if (window.STSfx) STSfx.arm(document);
+  }
+  document.getElementById('teamSearch').addEventListener('input', function(e){ filt.q=e.target.value; render(); });
+  document.getElementById('sportPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.sport=b.dataset.sport; document.querySelectorAll('#sportPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); render(); });
+  (async function(){ try { ALL = await STS.loadTeams(); render(); } catch(e){ document.getElementById('teamGrid').innerHTML = '<div class="empty">Could not load teams.</div>'; } })();
+</script>
+
+</body>
+</html>

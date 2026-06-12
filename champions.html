@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Champions · Small Town Select Tournaments</title>
+<meta name="description" content="Tournament champions — crowned automatically as brackets finish, with winners' photos." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Saira+Condensed:wght@600;700;800&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  .ch-sec { margin-bottom: var(--space-7); }
+  .ch-sec-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 var(--space-4); }
+  .ch-sec-head h2 { margin: 0; color: var(--sts-navy); }
+  .ch-sec-head .cnt { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-size: var(--text-xs); color: var(--muted); }
+  .champ-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-4); }
+  .champ-card { display: flex; align-items: center; gap: 14px; text-align: left; width: 100%; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--gold); border-radius: 14px; padding: 16px 18px; font: inherit; color: inherit; }
+  button.champ-card { cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+  button.champ-card:hover { transform: translateY(-3px); box-shadow: 0 10px 26px rgba(0,45,114,.16); }
+  .champ-card .trophy { font-size: 40px; line-height: 1; flex-shrink: 0; }
+  .champ-card .champ-logo { flex-shrink: 0; }
+  .champ-card .info { flex: 1; min-width: 0; }
+  .champ-card .info .tourney { font-family: var(--font-display); font-weight: 700; color: var(--sts-navy); font-size: var(--text-base); line-height: 1.15; }
+  .champ-card .info .team { font-family: 'Saira Condensed','Oswald',sans-serif; font-weight: 700; font-size: var(--text-xl); color: var(--sts-ink); line-height: 1.1; margin-top: 2px; }
+  .champ-card .info .note { font-size: var(--text-xs); color: var(--muted); margin-top: 4px; }
+  .champ-card .info .cg-view { color: var(--sts-navy); font-weight: 600; }
+  .champ-card .sport { align-self: flex-start; flex-shrink: 0; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .champ-card .sport.bb { background: rgba(0,45,114,.1); color: var(--sts-navy); }
+  .champ-card .sport.sb { background: rgba(191,10,48,.1); color: var(--sts-red); }
+  .ch-empty { text-align: center; padding: var(--space-6); border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); }
+  .ch-empty .trophy { font-size: 48px; display: block; margin-bottom: 10px; }
+  /* lightbox */
+  .cg-lb { position: fixed; inset: 0; z-index: 1000; background: rgba(4,12,28,.82); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; opacity: 0; visibility: hidden; transition: opacity .2s ease, visibility .2s ease; }
+  .cg-lb.open { opacity: 1; visibility: visible; }
+  .cg-lb img { max-width: min(900px, 94vw); max-height: 78vh; border-radius: 10px; box-shadow: 0 24px 70px rgba(0,0,0,.5); background: #fff; }
+  .cg-lb figcaption { color: #fff; font-family: var(--font-display); letter-spacing: .02em; text-align: center; max-width: 90vw; }
+  .cg-lb .cg-x { position: absolute; top: 18px; right: 22px; width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255,255,255,.14); color: #fff; font-size: 18px; cursor: pointer; }
+  .cg-lb .cg-x:hover { background: rgba(255,255,255,.28); }
+</style>
+</head>
+<body>
+
+<div id="sts-nav"></div>
+
+<header class="hero" style="min-height:32vh;background:linear-gradient(180deg,#00224f,#001a3d)">
+  <div class="container"><div class="eyebrow" style="color:var(--gold)">★ Hall of Champions ★</div><h1>Champions</h1><p>Every tournament winner — crowned automatically the moment a bracket finishes.</p></div>
+</header>
+
+<main class="container section">
+  <div id="championsOut"><div class="ch-empty"><span class="trophy">🏆</span>Loading champions…</div></div>
+</main>
+
+<figure class="cg-lb" id="cgLb"><button type="button" class="cg-x" aria-label="Close">✕</button><img id="cgLbImg" alt="" /><figcaption id="cgLbCap"></figcaption></figure>
+
+<div id="sts-footer"></div>
+
+<script src="js/sts-bracket.js"></script>
+<script src="js/sts-logos.js"></script>
+<script src="js/sts-chrome.js"></script>
+<script src="js/sts-fx.js"></script>
+<script type="module">
+  import * as STS from './js/sts-data.js';
+  var CFG = window.LEAGUE_CONFIG || {};
+  var CURRENT_SEASON = String((CFG.season && CFG.season.year) || 2026);
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function norm(s){ return String(s==null?'':s).toLowerCase().replace(/\s+/g,' ').trim(); }
+  function sportLabel(s){ return /soft/i.test(s||'') ? 'Softball' : 'Baseball'; }
+
+  function card(c){
+    var icon = '<span class="trophy">🏆</span>';
+    var clickable = !!c.src;
+    var tourney = esc(c.tournament) + (c.division ? ' <span class="muted" style="font-weight:400">· '+esc(c.division)+'</span>' : '');
+    var info = '<div class="info"><div class="tourney">'+tourney+'</div><div class="team">'+esc(c.team)+'</div>'+
+      (clickable ? '<div class="note cg-view">📷 Click to view photo</div>' : '<div class="note">Champion — photo coming soon</div>')+'</div>';
+    var sport = '<span class="sport '+(c.sport==='Softball'?'sb':'bb')+'">'+esc(c.sport||'Baseball')+'</span>';
+    if (clickable) return '<button type="button" class="champ-card cg-card" data-src="'+esc(c.src)+'" data-cap="'+esc(c.caption||'')+'">'+icon+info+sport+'</button>';
+    return '<div class="champ-card">'+icon+info+sport+'</div>';
+  }
+
+  (async function(){
+    var out = document.getElementById('championsOut');
+    var FORMS=[], GAMES=[], uploaded=[], staticPhotos=[];
+    try { FORMS = await STS.loadForms(); GAMES = await STS.loadGames(); } catch(e){}
+    try { uploaded = await STS.loadChampions(); } catch(e){}
+    try { staticPhotos = ((await (await fetch('data/champions-photos.json')).json()).photos) || []; } catch(e){}
+
+    // live champions, derived from each event's completed bracket
+    var live = [];
+    if (window.STSbracket) {
+      // group by event AND division — a form can run a separate bracket per division
+      var byKey = {};
+      GAMES.forEach(function(g){ if (g.g!=null){ var k=g.form_id+'||'+(g.division||''); (byKey[k]=byKey[k]||[]).push(g); } });
+      Object.keys(byKey).forEach(function(k){
+        var t = { games: byKey[k] }, champ = null;
+        try { champ = STSbracket.championOutcome(t, STSbracket.classify(t)).champion; } catch(e){}
+        if (champ) {
+          var parts = k.split('||'), fid = parts[0], dv = parts[1] || '';
+          var f = FORMS.find(function(x){ return x.id===fid; }) || {};
+          live.push({ team: champ, tournament: f.title || fid, division: dv, sport: sportLabel(f.sport), year: CURRENT_SEASON });
+        }
+      });
+    }
+
+    // unify photos (static files + uploaded base64) and attach to live champs
+    var photos = staticPhotos.map(function(p){ return { year:String(p.year), team:p.team, title:p.title, caption:p.caption, sport:sportLabel(p.sport||p.title), src:p.file, pid:'file:'+p.file }; })
+      .concat(uploaded.map(function(u){ return { year:String(u.year), team:u.team, title:u.title, caption:u.caption, sport:sportLabel(u.sport||u.title), src:u.img, pid:'fs:'+(u.id||u.team) }; }));
+    var attached = {};
+    live.forEach(function(c){
+      // match on year + team + tournament (prefix either way, so a "… — Majors"
+      // photo title still matches the bare tournament). title-less legacy photos
+      // fall back to team+year. Stops one team's photo attaching to a second event.
+      var ph = photos.find(function(p){
+        if (p.year!==c.year || norm(p.team)!==norm(c.team)) return false;
+        var pt = norm(p.title), ct = norm(c.tournament);
+        return !pt || !ct || pt.indexOf(ct)===0 || ct.indexOf(pt)===0;
+      });
+      if (ph){ c.src = ph.src; c.caption = ph.caption || ('Congrats to '+c.team+' on winning the '+c.year+' '+c.tournament+'!'); attached[ph.pid]=1; }
+    });
+
+    var html = '';
+    // ── This season ──
+    if (live.length) {
+      live.sort(function(a,b){ return String(a.tournament).localeCompare(String(b.tournament)); });
+      html += '<div class="ch-sec"><div class="ch-sec-head"><h2>'+CURRENT_SEASON+' Champions</h2><span class="cnt">'+live.length+' crowned</span></div><div class="champ-grid">'+live.map(card).join('')+'</div></div>';
+    }
+    // ── Through the years (photos not already shown on a live card) ──
+    var seen = {}, gallery = [];
+    photos.forEach(function(p){
+      if (attached[p.pid]) return;
+      var k = p.year+'|'+norm(p.team)+'|'+norm(p.title);
+      if (seen[k]) return; seen[k] = 1;
+      gallery.push(p);
+    });
+    if (gallery.length) {
+      var byYear = {};
+      gallery.forEach(function(p){ (byYear[p.year]=byYear[p.year]||[]).push(p); });
+      var years = Object.keys(byYear).sort(function(a,b){ return b.localeCompare(a); });
+      html += '<div class="ch-sec"><div class="ch-sec-head"><h2>📸 Through the Years</h2></div>';
+      years.forEach(function(y){
+        html += '<div class="ch-sec-head" style="margin-top:var(--space-4)"><h2 style="font-size:var(--text-xl)">'+esc(y)+'</h2><span class="cnt">'+byYear[y].length+' champion'+(byYear[y].length>1?'s':'')+'</span></div>';
+        html += '<div class="champ-grid">'+byYear[y].map(function(p){ return card({ team:p.team, tournament:p.title, sport:p.sport, year:p.year, caption:p.caption, src:p.src }); }).join('')+'</div>';
+      });
+      html += '</div>';
+    }
+
+    if (!html) {
+      html = '<div class="ch-empty"><span class="trophy">🏆</span><h2 style="color:var(--sts-navy);margin:0 0 8px">No champions crowned yet</h2><p class="muted" style="text-transform:none;letter-spacing:0">As soon as a tournament bracket finishes, its champion appears here automatically.</p></div>';
+    }
+    out.innerHTML = html;
+    if (window.STSfx) STSfx.arm(document);
+  })();
+
+  // lightbox
+  (function(){
+    var lb = document.getElementById('cgLb'), img = document.getElementById('cgLbImg'), cap = document.getElementById('cgLbCap');
+    function close(){ lb.classList.remove('open'); document.body.style.overflow=''; img.removeAttribute('src'); }
+    document.addEventListener('click', function(e){
+      var it = e.target.closest('.cg-card'); if (!it) return;
+      cap.textContent = it.getAttribute('data-cap') || ''; img.alt = cap.textContent;
+      img.src = it.getAttribute('data-src') || '';
+      lb.classList.add('open'); document.body.style.overflow='hidden';
+    });
+    lb.addEventListener('click', function(e){ if (e.target===lb || e.target.closest('.cg-x')) close(); });
+    document.addEventListener('keydown', function(e){ if (e.key==='Escape') close(); });
+  })();
+</script>
+
+</body>
+</html>
