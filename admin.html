@@ -245,6 +245,12 @@
   <div class="modal-foot"><button class="btn btn-outline btn-sm danger" id="gmDelete" style="color:var(--sts-red)">Delete</button><div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" data-close>Cancel</button><button class="btn btn-navy btn-sm" id="gmSave">Save Game</button></div></div>
 </div></div>
 
+<!-- Roster view modal (admin can see DOB/ages for eligibility) -->
+<div class="modal-bg" id="rosterViewModal"><div class="modal"><div class="modal-head"><h3 id="rvTitle">Roster</h3><button class="x-close" data-close aria-label="Close">✕</button></div>
+  <div class="modal-body" id="rvBody"></div>
+  <div class="modal-foot"><span class="muted" id="rvCount" style="font-size:var(--text-xs)"></span><button class="btn btn-outline btn-sm" data-close>Close</button></div>
+</div></div>
+
 <!-- Bracket modal -->
 <div class="modal-bg" id="bracketModal"><div class="modal"><div class="modal-head"><h3>Create Bracket or Pool</h3><button class="x-close" data-close aria-label="Close">✕</button></div>
   <div class="modal-body" id="bkBody"></div>
@@ -762,9 +768,31 @@
       return '<tr'+(t.status==='archived'?' style="opacity:.55"':'')+'>'+
         '<td><b>'+esc(t.name)+'</b></td><td>'+esc(t.sport||'')+'</td><td>'+esc(t.division||'')+'</td><td>'+esc(t.age_class||'')+'</td>'+
         '<td>'+esc(t.town||'')+'</td><td>'+esc(t.team_code||'')+'</td><td>'+(t.live?'🟢':'⚪')+'</td>'+
-        '<td><div class="actions"><a class="icon-btn" href="team.html?id='+esc(t.slug||t.id)+'" target="_blank">View ↗</a></div></td></tr>';
+        '<td><div class="actions"><button class="icon-btn" data-roster="'+esc(t.slug||t.id)+'">👁 Roster</button><a class="icon-btn" href="team.html?id='+esc(t.slug||t.id)+'" target="_blank">View ↗</a></div></td></tr>';
     }).join('') || '<tr><td colspan="8" class="muted" style="padding:var(--space-5)">No teams yet — they appear here once a registration is paid.</td></tr>';
   }
+  // age as of May 1 of the season year (Keith's eligibility cutoff)
+  function ageAsOfMay1(dob){
+    if(!dob) return '';
+    var d=new Date(dob+'T12:00:00'); if(isNaN(d)) return '';
+    var yr=(window.LEAGUE_CONFIG&&LEAGUE_CONFIG.season&&LEAGUE_CONFIG.season.year)||2026;
+    var cut=new Date(yr+'-05-01T12:00:00');
+    var age=cut.getFullYear()-d.getFullYear(), m=cut.getMonth()-d.getMonth();
+    if(m<0||(m===0&&cut.getDate()<d.getDate())) age--;
+    return age>=0?age:'';
+  }
+  function openRosterView(t){
+    var r=t.roster||[];
+    document.getElementById('rvTitle').textContent=t.name+' — Roster';
+    document.getElementById('rvCount').textContent=r.length+' player'+(r.length===1?'':'s')+(t.coach_name?' · Coach '+t.coach_name:'');
+    document.getElementById('rvBody').innerHTML = r.length
+      ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>#</th><th>Player</th><th>DOB</th><th title="Age as of May 1">Age 5/1</th><th>Grade</th></tr></thead><tbody>'+
+        r.map(function(p){ return '<tr><td>'+esc(p.num||'')+'</td><td><b>'+esc(p.name||'')+'</b></td><td>'+esc(p.dob||'—')+'</td><td>'+esc(ageAsOfMay1(p.dob))+'</td><td>'+esc(p.grade||'')+'</td></tr>'; }).join('')+
+        '</tbody></table></div>'
+      : '<div class="empty">No roster submitted yet.</div>';
+    openModal('rosterViewModal');
+  }
+  document.getElementById('teamsBody').addEventListener('click', function(e){ var b=e.target.closest('button[data-roster]'); if(!b) return; var t=TEAMS.find(function(x){ return (x.slug||x.id)===b.dataset.roster; }); if(t) openRosterView(t); });
 
   // ── PRICES / CONTENT (Firestore site_content when live; localStorage in demo) ──
   async function loadPrices(){

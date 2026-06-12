@@ -54,7 +54,7 @@
     var bg = GAMES.filter(function(g){ return g.g!=null && g.form_id===cur; });
     CURBG = bg;
     if(!bg.length){ out.innerHTML='<div class="bk-empty">No bracket posted for this event yet.</div>'; return; }
-    out.innerHTML = '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: titleFor(cur) })+'</div>';
+    out.innerHTML = '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: titleFor(cur), teamLinks: true })+'</div>';
     STSbracketRender.wireHover(out);
     ZOOM=1; applyZoom();
     if (window.STSfx) STSfx.arm(document);
