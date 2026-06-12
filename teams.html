@@ -16,6 +16,10 @@
   .team-card .sts-logo { width: 54px; height: 54px; font-size: 18px; }
   .team-card .tc-name { font-family: var(--font-display); font-weight: 600; color: var(--sts-navy); font-size: var(--text-lg); }
   .team-card .tc-meta { font-size: var(--text-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+  .tm-class { margin-bottom: var(--space-6); }
+  .tm-class-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 var(--space-3); border-bottom: 2px solid var(--sts-navy); padding-bottom: 6px; }
+  .tm-class-head h2 { margin: 0; color: var(--sts-navy); font-size: var(--text-xl); }
+  .tm-class-head .cnt { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-size: var(--text-xs); color: var(--muted); }
 </style>
 </head>
 <body>
@@ -33,7 +37,7 @@
       <button class="pill" data-sport="softball">Softball</button>
     </div>
   </div>
-  <div id="teamGrid" class="card-grid"><div class="empty">Loading teams…</div></div>
+  <div id="teamGrid"><div class="empty">Loading teams…</div></div>
 </main>
 
 <div id="sts-footer"></div>
@@ -45,6 +49,14 @@
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   var ALL = [], filt = { q:'', sport:'' };
 
+  function classOf(t){ return t.division || t.age_class || 'Other'; }
+  function classOrder(){ var D=(window.LEAGUE_CONFIG&&LEAGUE_CONFIG.divisions)||{}, out=[]; ['baseball','softball'].forEach(function(s){ (D[s]||[]).forEach(function(d){ out.push(d.name); }); }); return out; }
+  function teamCard(t){
+    var meta = [t.age_class, t.town, (t.coach_name?'Coach '+t.coach_name:'')].filter(Boolean).join(' · ');
+    var logo = window.STSlogos ? STSlogos.html(t.name, 54, t.slug||t.id) : '<span class="sts-logo">'+esc(STS.abbr(t.name))+'</span>';
+    return '<a class="team-card" href="team.html?id='+esc(t.slug||t.id)+'">'+logo+
+      '<span><span class="tc-name">'+esc(t.name)+'</span><br><span class="tc-meta">'+esc(meta)+'</span></span></a>';
+  }
   function render(){
     var grid = document.getElementById('teamGrid');
     var rows = ALL.filter(function(t){
@@ -53,12 +65,19 @@
       return true;
     });
     if (!rows.length){ grid.innerHTML = '<div class="empty">No teams match.</div>'; return; }
-    grid.innerHTML = rows.map(function(t){
-      var meta = [t.division, t.age_class, t.town].filter(Boolean).join(' · ');
-      var logo = window.STSlogos ? STSlogos.html(t.name, 54, t.slug||t.id) : '<span class="sts-logo">'+esc(STS.abbr(t.name))+'</span>';
-      return '<a class="team-card" href="team.html?id='+esc(t.slug||t.id)+'">'+
-        logo+
-        '<span><span class="tc-name">'+esc(t.name)+'</span><br><span class="tc-meta">'+esc(meta)+'</span></span></a>';
+    // group by classification
+    var groups = {};
+    rows.forEach(function(t){ var c=classOf(t); (groups[c]=groups[c]||[]).push(t); });
+    var order = classOrder();
+    var keys = Object.keys(groups).sort(function(a,b){
+      var ia=order.indexOf(a), ib=order.indexOf(b);
+      if (ia<0 && ib<0){ if(a==='Other') return 1; if(b==='Other') return -1; return a.localeCompare(b); }
+      if (ia<0) return 1; if (ib<0) return -1; return ia-ib;
+    });
+    grid.innerHTML = keys.map(function(c){
+      var teams = groups[c].slice().sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
+      return '<div class="tm-class"><div class="tm-class-head"><h2>'+esc(c)+'</h2><span class="cnt">'+teams.length+' team'+(teams.length===1?'':'s')+'</span></div>'+
+        '<div class="card-grid">'+teams.map(teamCard).join('')+'</div></div>';
     }).join('');
     if (window.STSfx) STSfx.arm(document);
   }

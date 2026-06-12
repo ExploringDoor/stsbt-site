@@ -11,9 +11,14 @@
 <script src="config.js"></script>
 <link rel="stylesheet" href="css/styles.css" />
 <style>
-  .roster-row { display: grid; grid-template-columns: 70px 1fr 90px 44px; gap: 10px; margin-bottom: 10px; align-items: center; }
+  .roster-head, .roster-row { display: grid; grid-template-columns: 58px 1fr 150px 92px 42px; gap: 8px; align-items: center; }
+  .roster-row { margin-bottom: 10px; }
   .roster-row .del { background: none; border: 1px solid var(--line); border-radius: 8px; color: var(--sts-red); cursor: pointer; height: 44px; }
-  @media (max-width: 540px){ .roster-row { grid-template-columns: 56px 1fr 70px 40px; } }
+  @media (max-width: 640px){
+    .roster-head { display: none; }
+    .roster-row { grid-template-columns: 58px 1fr 42px; grid-template-areas: "j n x" "d d g"; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+    .roster-row .rj { grid-area: j; } .roster-row .rn { grid-area: n; } .roster-row .rd { grid-area: d; } .roster-row .rg { grid-area: g; } .roster-row .rx { grid-area: x; }
+  }
 </style>
 </head>
 <body>
@@ -43,9 +48,10 @@
   <div id="editor" class="form-wrap hidden">
     <div class="card">
       <div class="spread" style="margin-bottom:var(--space-4)"><h3 style="margin:0" id="edTeam">Roster</h3><a class="muted" id="viewTeamLink" style="font-size:var(--text-sm)" href="#">View team page ↗</a></div>
-      <div class="roster-row" style="font-family:var(--font-display);text-transform:uppercase;letter-spacing:.04em;font-size:var(--text-xs);color:var(--muted)"><span>#</span><span>Player Name</span><span>Pos</span><span></span></div>
+      <div class="roster-head" style="font-family:var(--font-display);text-transform:uppercase;letter-spacing:.04em;font-size:var(--text-xs);color:var(--muted)"><span>Jersey&nbsp;#</span><span>Player Name</span><span>Date of Birth</span><span>Grade</span><span></span></div>
       <div id="rosterRows"></div>
       <button class="btn btn-outline btn-sm" id="addRow">+ Add Player</button>
+      <p class="form-note mt-4" style="font-size:var(--text-xs)">Date of birth is used for age/eligibility checks only — it is <b>not</b> shown on your public team page.</p>
       <div class="total-line" style="border:0"><span></span><button class="btn btn-red" id="saveRoster">Save Roster</button></div>
       <div id="saveMsg" class="notice notice-ok hidden"></div>
     </div>
@@ -82,7 +88,7 @@
     if (String(TEAM.team_code).toUpperCase() !== code){ err.textContent='That code doesn\'t match this team. Check your confirmation email.'; err.classList.remove('hidden'); return; }
     localStorage.setItem('sts-code-'+teamId, code);
     roster = (TEAM.roster||[]).slice();
-    if (!roster.length) roster.push({ num:'', name:'', pos:'' });
+    if (!roster.length) roster.push({ num:'', name:'', dob:'', grade:'' });
     document.getElementById('gate').classList.add('hidden');
     document.getElementById('editor').classList.remove('hidden');
     document.getElementById('reTitle').textContent = TEAM.name + ' — Roster';
@@ -92,18 +98,25 @@
     renderRows();
   }
 
+  function gradeSelect(i, val){
+    var grades=['K','1','2','3','4','5','6','7','8','9','10','11','12'];
+    return '<select class="input rg" data-i="'+i+'" data-f="grade" aria-label="Grade"><option value="">Grade</option>'+grades.map(function(g){ return '<option'+(String(val||'')===g?' selected':'')+'>'+g+'</option>'; }).join('')+'</select>';
+  }
   function renderRows(){
     document.getElementById('rosterRows').innerHTML = roster.map(function(p,i){
       return '<div class="roster-row">'+
-        '<input class="input" data-i="'+i+'" data-f="num" value="'+esc(p.num||'')+'" placeholder="#">'+
-        '<input class="input" data-i="'+i+'" data-f="name" value="'+esc(p.name||'')+'" placeholder="Full name">'+
-        '<input class="input" data-i="'+i+'" data-f="pos" value="'+esc(p.pos||'')+'" placeholder="Pos">'+
-        '<button class="del" data-del="'+i+'" title="Remove">✕</button></div>';
+        '<input class="input rj" data-i="'+i+'" data-f="num" value="'+esc(p.num||'')+'" placeholder="#" inputmode="numeric">'+
+        '<input class="input rn" data-i="'+i+'" data-f="name" value="'+esc(p.name||'')+'" placeholder="Player full name">'+
+        '<input class="input rd" type="date" data-i="'+i+'" data-f="dob" value="'+esc(p.dob||'')+'" aria-label="Date of birth">'+
+        gradeSelect(i, p.grade)+
+        '<button class="del rx" data-del="'+i+'" title="Remove" aria-label="Remove player">✕</button></div>';
     }).join('');
   }
-  document.getElementById('rosterRows').addEventListener('input', function(e){ var t=e.target; if(t.dataset.i!=null){ roster[+t.dataset.i][t.dataset.f]=t.value; } });
-  document.getElementById('rosterRows').addEventListener('click', function(e){ var b=e.target.closest('[data-del]'); if(!b) return; roster.splice(+b.dataset.del,1); if(!roster.length) roster.push({num:'',name:'',pos:''}); renderRows(); });
-  document.getElementById('addRow').addEventListener('click', function(){ roster.push({num:'',name:'',pos:''}); renderRows(); });
+  function onField(e){ var t=e.target; if(t.dataset && t.dataset.i!=null){ roster[+t.dataset.i][t.dataset.f]=t.value; } }
+  document.getElementById('rosterRows').addEventListener('input', onField);
+  document.getElementById('rosterRows').addEventListener('change', onField);   // date + grade select
+  document.getElementById('rosterRows').addEventListener('click', function(e){ var b=e.target.closest('[data-del]'); if(!b) return; roster.splice(+b.dataset.del,1); if(!roster.length) roster.push({num:'',name:'',dob:'',grade:''}); renderRows(); });
+  document.getElementById('addRow').addEventListener('click', function(){ roster.push({num:'',name:'',dob:'',grade:''}); renderRows(); });
   document.getElementById('saveRoster').addEventListener('click', async function(){
     var clean = roster.filter(function(p){ return (p.name||'').trim(); });
     var msg = document.getElementById('saveMsg');

@@ -56,11 +56,11 @@ var SAMPLE_FORMS = [
 ];
 
 var SAMPLE_TEAMS = [
-  { id: 'blacksox', name: 'Blacksox', slug: 'blacksox', sport: 'baseball', division: 'Minors', age_class: '7U', town: 'Brownwood, TX', live: true, status: 'active', team_code: 'BLK7X', tournaments: ['Brownwood "Summer Slam Series"'], roster: [{ name: 'Tanir Horton', num: '1', pos: 'P' }, { name: 'C. Horton', num: '7', pos: 'SS' }], w: 0, l: 0 },
-  { id: 'btx-vice', name: 'BTX Vice', slug: 'btx-vice', sport: 'baseball', division: 'Minors', age_class: '10U', town: 'Belton, TX', live: true, status: 'active', team_code: 'VICE0', tournaments: ['Iowa Park "Heat Wave"'], roster: [{ name: 'Randy Bates', num: '3', pos: 'C' }], w: 0, l: 0 },
-  { id: 'ctx-wolfpack', name: 'CTX Wolfpack', slug: 'ctx-wolfpack', sport: 'baseball', division: 'Triple-A', age_class: '12U', town: 'Waco, TX', live: true, status: 'active', team_code: 'WOLF2', tournaments: ['Brownwood "Summer Slam Series"', 'Iowa Park "Heat Wave"'], roster: [{ name: 'Dan Chiappe', num: '24', pos: 'CF' }], w: 0, l: 0 },
+  { id: 'blacksox', name: 'Blacksox', slug: 'blacksox', sport: 'baseball', division: 'Minors', age_class: '7U', town: 'Brownwood, TX', coach_name: 'Tanir Horton', live: true, status: 'active', team_code: 'BLK7X', tournaments: ['Brownwood "Summer Slam Series"'], roster: [{ name: 'Tanir Horton', num: '1', dob: '2015-04-10', grade: '4' }, { name: 'C. Horton', num: '7', dob: '2015-09-02', grade: '4' }], w: 0, l: 0 },
+  { id: 'btx-vice', name: 'BTX Vice', slug: 'btx-vice', sport: 'baseball', division: 'Minors', age_class: '10U', town: 'Belton, TX', coach_name: 'Randy Bates', live: true, status: 'active', team_code: 'VICE0', tournaments: ['Iowa Park "Heat Wave"'], roster: [{ name: 'Randy Bates', num: '3', dob: '2014-06-20', grade: '5' }], w: 0, l: 0 },
+  { id: 'ctx-wolfpack', name: 'CTX Wolfpack', slug: 'ctx-wolfpack', sport: 'baseball', division: 'Triple-A', age_class: '12U', town: 'Waco, TX', coach_name: 'Dan Chiappe', live: true, status: 'active', team_code: 'WOLF2', tournaments: ['Brownwood "Summer Slam Series"', 'Iowa Park "Heat Wave"'], roster: [{ name: 'Dan Chiappe', num: '24', dob: '2013-03-15', grade: '6' }], w: 0, l: 0 },
   // auto-created from a FREE ($0) season registration (reg r6) — see createTeamFromRegistration
-  { id: 'comanche-bears', name: 'Comanche Bears', slug: 'comanche-bears', sport: 'baseball', division: 'Triple-A', age_class: '11U', town: 'Comanche, TX', live: true, status: 'active', team_code: 'BEAR4', reg_id: 'r6', tournaments: ['2026 Fall/Spring Baseball Team Registration'], roster: [], w: 0, l: 0 }
+  { id: 'comanche-bears', name: 'Comanche Bears', slug: 'comanche-bears', sport: 'baseball', division: 'Triple-A', age_class: '11U', town: 'Comanche, TX', coach_name: 'Will Rhodes', live: true, status: 'active', team_code: 'BEAR4', reg_id: 'r6', tournaments: ['2026 Fall/Spring Baseball Team Registration'], roster: [], w: 0, l: 0 }
 ];
 
 var SAMPLE_REGS = [
@@ -235,6 +235,7 @@ function buildTeamDoc(reg, slug) {
   return {
     name: reg.team_name, slug: slug, sport: reg.sport || '', division: reg.division || '',
     age_class: reg.age_class || '', town: reg.town || '', reg_id: reg.id || '', team_code: reg.team_code || '',
+    coach_name: reg.coach_name || '',   // NAME ONLY — never email/phone on a public team doc
     roster: Array.isArray(reg.roster) ? reg.roster : [],
     tournaments: reg.form_title ? [reg.form_title] : [],
     live: true, status: 'active', w: 0, l: 0, t: 0, rs: 0, ra: 0

@@ -98,6 +98,7 @@ export default async function handler(req, res) {
         await fsCreate('teams', {
           name: reg.team_name || 'Team', slug, sport: reg.sport || '', division: reg.division || '',
           age_class: reg.age_class || '', town: reg.town || '', reg_id: reg.id, team_code: reg.team_code || '',
+          coach_name: reg.coach_name || '',
           roster: reg.roster || [], tournaments: reg.form_title ? [reg.form_title] : [], live: true,
           status: 'active', w: 0, l: 0, created_at: new Date().toISOString(),
         }, slug);
