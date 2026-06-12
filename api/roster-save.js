@@ -27,7 +27,13 @@ export default async function handler(req, res) {
     const clean = roster
       .filter(p => p && (p.name || '').trim())
       .slice(0, 40)
-      .map(p => ({ num: String(p.num || '').slice(0, 4), name: String(p.name || '').slice(0, 60), pos: String(p.pos || '').slice(0, 12) }));
+      .map(p => ({
+        num: String(p.num || '').slice(0, 4),
+        name: String(p.name || '').slice(0, 60),
+        dob: String(p.dob || '').slice(0, 10),
+        grade: String(p.grade || '').slice(0, 4),
+        guest: !!p.guest
+      }));
 
     await fsPatch(`teams/${team.id}`, { roster: clean });
     return res.status(200).json({ ok: true, count: clean.length });

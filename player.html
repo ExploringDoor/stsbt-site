@@ -25,6 +25,11 @@
   .pl-card .tn { display: block; font-family: var(--font-display); font-weight: 700; color: var(--sts-navy); line-height: 1.15; }
   .pl-card .td { display: block; font-size: var(--text-xs); color: var(--muted); margin-top: 3px; }
   .pl-jersey { margin-left: auto; font-family: var(--font-display); font-weight: 700; color: var(--muted); font-size: var(--text-sm); }
+  .pl-guest { display: inline-block; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-size: 9px; font-weight: 700; color: var(--sts-red); border: 1px solid var(--sts-red); border-radius: 4px; padding: 1px 5px; vertical-align: middle; margin-left: 5px; }
+  .tbl td.gw b { color: #047857; }
+  .tbl td.gl b { color: var(--sts-red); }
+  .tbl td.gt b { color: var(--muted); }
+  .pl-note { color: var(--muted); font-size: var(--text-xs); margin-top: 18px; }
 </style>
 </head>
 <body>
@@ -37,13 +42,17 @@
 
 <div id="sts-footer"></div>
 
+<script src="js/sts-bracket.js"></script>
 <script src="js/sts-chrome.js"></script>
 <script type="module">
   import * as STS from './js/sts-data.js';
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function qs(k){ return new URLSearchParams(location.search).get(k); }
   function norm(s){ return String(s==null?'':s).toLowerCase().trim(); }
-  function initials(name){ var p=String(name||'').trim().split(/\s+/); return ((p[0]||'')[0]||'')+((p[1]||'')[0]||'')||'?'; }
+  function slugify(s){ return String(s==null?'':s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+  function initials(name){ var p=String(name||'').trim().split(/\s+/); return (((p[0]||'')[0]||'')+((p[1]||'')[0]||'')||'?').toUpperCase(); }
+  var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtDate(s){ if(!s) return 'TBD'; var d=new Date(s+'T12:00:00'); if(isNaN(d)) return s; return MON[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear(); }
 
   (async function(){
     var root = document.getElementById('plRoot');
@@ -59,10 +68,13 @@
     var pname = (p.name||'').trim(), pdob = (p.dob||'').trim();
     document.title = pname + ' · Small Town Select';
 
-    // ── aggregate this player's appearances across every team ──
-    // Match by name + date of birth. If we have no DOB on file we only show the
-    // team they were clicked from (so two different same-named players never merge).
-    var all = []; try { all = await STS.loadTeams(); } catch(e){}
+    var all = [], ALL = [], FORMS = [];
+    try { all = await STS.loadTeams(); } catch(e){}
+    try { ALL = await STS.loadGames(); FORMS = await STS.loadForms(); } catch(e){}
+
+    // ── this player's appearances across every team (rostered + guest), matched
+    //    by name + date of birth. No DOB on file → only the clicked team, so two
+    //    different same-named players never merge. ──
     var seen = {}, appearances = [];
     all.forEach(function(tm){
       (tm.roster||[]).forEach(function(rp){
@@ -71,36 +83,91 @@
         else { if ((tm.slug||tm.id) !== (team.slug||team.id)) return; }
         var key = tm.slug || tm.id;
         if (seen[key]) return; seen[key] = 1;
-        appearances.push({ team: tm, rp: rp });
+        appearances.push({ team: tm, rp: rp, guest: !!rp.guest });
       });
     });
-    if (!appearances.length) appearances.push({ team: team, rp: p });
+    if (!appearances.length) appearances.push({ team: team, rp: p, guest: !!p.guest });
 
+    // ── game resolution (mirrors team.html: completed + schedule-published +
+    //    bracket side resolution) computed per team the player appears on ──
+    function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
+    function schedPub(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return !f || f.schedule_published!==false; }
+    var brk={};
+    function bt(fid){ return brk[fid] || (brk[fid]={ games: ALL.filter(function(x){ return x.form_id===fid && x.g!=null; }) }); }
+    function sideName(g, raw){ if(g.g==null || !window.STSbracket) return raw==null?'':String(raw); var sd=STSbracket.sideDisplay(bt(g.form_id), raw); return sd.tbd?'':sd.name; }
+    function isChamp(g){ if(g.g==null || !window.STSbracket) return false; try{ return STSbracket.classify(bt(g.form_id))[g.g]==='f'; }catch(e){ return false; } }
+    function resultsForTeam(tname){
+      var TN=norm(tname), out=[];
+      ALL.forEach(function(g){
+        if(!(g.done && g.away_score!=null && g.home_score!=null)) return;
+        if(!schedPub(g.form_id)) return;
+        var aN=sideName(g,g.away), hN=sideName(g,g.home);
+        var isAway=norm(aN)===TN, isHome=norm(hN)===TN;
+        if(!isAway && !isHome) return;
+        var my=isAway?g.away_score:g.home_score, op=isAway?g.home_score:g.away_score, opp=isAway?hN:aN;
+        out.push({ date:g.date||'', event:titleFor(g.form_id), opp:opp, my:my, op:op, res:(my>op?'W':(op>my?'L':'T')), champ:isChamp(g) });
+      });
+      return out;
+    }
+
+    // player game log = union of every team's games (tagged with the team + guest)
+    var games = [], gseen = {};
+    appearances.forEach(function(a){
+      resultsForTeam(a.team.name).forEach(function(r){
+        var k = a.team.name + '|' + r.date + '|' + r.opp + '|' + r.my + '-' + r.op;
+        if (gseen[k]) return; gseen[k] = 1;
+        games.push(Object.assign({}, r, { teamName:a.team.name, teamSlug:(a.team.slug||a.team.id), guest:a.guest }));
+      });
+    });
+    games.sort(function(x,y){ return (y.date||'').localeCompare(x.date||''); });
+
+    // ── render ──
+    var rostered = appearances.filter(function(a){ return !a.guest; });
+    var guests = appearances.filter(function(a){ return a.guest; });
     var grade = (p.grade||'').trim();
-    var sub = [ grade ? 'Grade ' + esc(grade) : '', appearances.length + ' team' + (appearances.length===1?'':'s') ].filter(Boolean)
-      .map(function(s){ return '<span>'+s+'</span>'; }).join('');
+    var sub = [ grade ? 'Grade ' + esc(grade) : '',
+                appearances.length + ' team' + (appearances.length===1?'':'s'),
+                games.length ? (games.length + ' game' + (games.length===1?'':'s')) : '' ]
+      .filter(Boolean).map(function(s){ return '<span>'+s+'</span>'; }).join('');
 
-    var cards = appearances.map(function(a){
+    function teamCard(a){
       var tm = a.team, slug = tm.slug || tm.id;
       var logo = '<img src="assets/logos/'+esc(slug)+'.png" alt="" loading="lazy" onerror="this.remove()">'+esc(STS.abbr(tm.name));
       var line2 = [tm.division, tm.age_class, tm.town].filter(Boolean).join(' · ');
       var jersey = (a.rp.num||'').toString().trim();
       return '<a class="pl-card" href="team.html?id='+esc(slug)+'">'+
         '<span class="lg">'+logo+'</span>'+
-        '<span><span class="tn">'+esc(tm.name)+'</span><span class="td">'+esc(line2)+'</span></span>'+
+        '<span><span class="tn">'+esc(tm.name)+(a.guest?' <span class="pl-guest">Guest</span>':'')+'</span><span class="td">'+esc(line2)+'</span></span>'+
         (jersey ? '<span class="pl-jersey">#'+esc(jersey)+'</span>' : '')+
       '</a>';
-    }).join('');
+    }
+
+    var gamesHTML = games.length
+      ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Team</th><th>Opponent</th><th>Result</th></tr></thead><tbody>'+
+        games.map(function(r){ var rc=r.res==='W'?'gw':(r.res==='L'?'gl':'gt');
+          var oppCell = r.opp ? '<a href="team.html?id='+esc(slugify(r.opp))+'">'+esc(r.opp)+'</a>' : '<span class="muted">TBD</span>';
+          var teamCell = '<a href="team.html?id='+esc(r.teamSlug)+'">'+esc(r.teamName)+'</a>'+(r.guest?' <span class="pl-guest">Guest</span>':'')+(r.champ?' <span title="Championship game">🏆</span>':'');
+          return '<tr><td>'+esc(fmtDate(r.date))+'</td><td>'+teamCell+'</td><td>'+oppCell+'</td><td class="'+rc+'"><b>'+r.res+'</b> '+r.my+'–'+r.op+'</td></tr>'; }).join('')+
+        '</tbody></table></div>'
+      : '<div class="empty">No games played yet — games show here as scores are posted for this player\'s teams.</div>';
+
+    var teamsHTML = rostered.length
+      ? '<div class="pl-teams">'+rostered.map(teamCard).join('')+'</div>'
+      : '<div class="empty">No rostered team on file.</div>';
+    var guestHTML = guests.length
+      ? '<div class="sec-head mt-7"><h2>Guest Appearances</h2><span class="muted" style="font-size:var(--text-sm)">Pickup / guest player</span></div><div class="pl-teams">'+guests.map(teamCard).join('')+'</div>'
+      : '';
 
     root.innerHTML =
       '<div class="pl-hero"><div class="container">'+
-        '<div class="pl-head-row"><span class="pl-avatar">'+esc(initials(pname).toUpperCase())+'</span>'+
+        '<div class="pl-head-row"><span class="pl-avatar">'+esc(initials(pname))+'</span>'+
         '<div><h1>'+esc(pname)+'</h1><div class="pl-sub">'+sub+'</div></div></div>'+
       '</div></div>'+
       '<main class="container section">'+
-        '<div class="sec-head"><h2>Teams</h2></div>'+
-        '<div class="pl-teams">'+cards+'</div>'+
-        '<p class="muted" style="font-size:var(--text-xs);margin-top:18px">Player pages group a player\'s team appearances by name and date of birth. Birthdates are never shown publicly.</p>'+
+        '<div class="sec-head"><h2>Games</h2><span class="muted" style="font-size:var(--text-sm)">'+(games.length?games.length+' played':'')+'</span></div>'+gamesHTML+
+        '<div class="sec-head mt-7"><h2>Teams</h2></div>'+teamsHTML+
+        guestHTML+
+        '<p class="pl-note">Player pages group a player\'s appearances by name and date of birth. Games shown are those played by this player\'s teams. Birthdates are never shown publicly.</p>'+
       '</main>';
     if (window.STSfx) STSfx.arm(document);
   })();

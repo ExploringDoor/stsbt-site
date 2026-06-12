@@ -11,13 +11,16 @@
 <script src="config.js"></script>
 <link rel="stylesheet" href="css/styles.css" />
 <style>
-  .roster-head, .roster-row { display: grid; grid-template-columns: 58px 1fr 150px 92px 42px; gap: 8px; align-items: center; }
+  .roster-head, .roster-row { display: grid; grid-template-columns: 58px 1fr 150px 92px 64px 42px; gap: 8px; align-items: center; }
   .roster-row { margin-bottom: 10px; }
   .roster-row .del { background: none; border: 1px solid var(--line); border-radius: 8px; color: var(--sts-red); cursor: pointer; height: 44px; }
+  .rgu { display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: var(--text-xs); color: var(--muted); cursor: pointer; user-select: none; }
+  .rgu input { width: 16px; height: 16px; accent-color: var(--sts-red); cursor: pointer; }
   @media (max-width: 640px){
     .roster-head { display: none; }
-    .roster-row { grid-template-columns: 58px 1fr 42px; grid-template-areas: "j n x" "d d g"; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+    .roster-row { grid-template-columns: 58px 1fr 42px; grid-template-areas: "j n x" "d d g" "u u u"; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
     .roster-row .rj { grid-area: j; } .roster-row .rn { grid-area: n; } .roster-row .rd { grid-area: d; } .roster-row .rg { grid-area: g; } .roster-row .rx { grid-area: x; }
+    .roster-row .rgu { grid-area: u; justify-content: flex-start; padding-top: 2px; }
   }
 </style>
 </head>
@@ -48,7 +51,7 @@
   <div id="editor" class="form-wrap hidden">
     <div class="card">
       <div class="spread" style="margin-bottom:var(--space-4)"><h3 style="margin:0" id="edTeam">Roster</h3><a class="muted" id="viewTeamLink" style="font-size:var(--text-sm)" href="#">View team page ↗</a></div>
-      <div class="roster-head" style="font-family:var(--font-display);text-transform:uppercase;letter-spacing:.04em;font-size:var(--text-xs);color:var(--muted)"><span>Jersey&nbsp;#</span><span>Player Name</span><span>Date of Birth</span><span>Grade</span><span></span></div>
+      <div class="roster-head" style="font-family:var(--font-display);text-transform:uppercase;letter-spacing:.04em;font-size:var(--text-xs);color:var(--muted)"><span>Jersey&nbsp;#</span><span>Player Name</span><span>Date of Birth</span><span>Grade</span><span>Guest</span><span></span></div>
       <div id="rosterRows"></div>
       <button class="btn btn-outline btn-sm" id="addRow">+ Add Player</button>
       <p class="form-note mt-4" style="font-size:var(--text-xs)">Date of birth is used for age/eligibility checks only — it is <b>not</b> shown on your public team page.</p>
@@ -109,10 +112,11 @@
         '<input class="input rn" data-i="'+i+'" data-f="name" value="'+esc(p.name||'')+'" placeholder="Player full name">'+
         '<input class="input rd" type="date" data-i="'+i+'" data-f="dob" value="'+esc(p.dob||'')+'" aria-label="Date of birth">'+
         gradeSelect(i, p.grade)+
+        '<label class="rgu" title="Guest / pickup player for this team"><input type="checkbox" data-i="'+i+'" data-f="guest"'+(p.guest?' checked':'')+'><span>Guest</span></label>'+
         '<button class="del rx" data-del="'+i+'" title="Remove" aria-label="Remove player">✕</button></div>';
     }).join('');
   }
-  function onField(e){ var t=e.target; if(t.dataset && t.dataset.i!=null){ roster[+t.dataset.i][t.dataset.f]=t.value; } }
+  function onField(e){ var t=e.target; if(t.dataset && t.dataset.i!=null){ roster[+t.dataset.i][t.dataset.f] = (t.type==='checkbox') ? t.checked : t.value; } }
   document.getElementById('rosterRows').addEventListener('input', onField);
   document.getElementById('rosterRows').addEventListener('change', onField);   // date + grade select
   document.getElementById('rosterRows').addEventListener('click', function(e){ var b=e.target.closest('[data-del]'); if(!b) return; roster.splice(+b.dataset.del,1); if(!roster.length) roster.push({num:'',name:'',dob:'',grade:''}); renderRows(); });
