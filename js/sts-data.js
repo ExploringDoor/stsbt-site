@@ -237,6 +237,57 @@ var _gameSeq = 9000;   // unique sample-mode ids for batch-created games
       });
     }
   }
+
+  // ── GAMES: fully populate every tournament that has none ──────────────
+  // Powers schedule, standings, brackets, champions, and team records — all
+  // derive from games. Pool round-robin (g==null) + a 4-team double-elim bracket
+  // mirroring the proven iowa-park sample structure (champion = first seed).
+  try {
+    var FIELDS = ['Field 1', 'Field 2', 'North', 'South', 'Field A', 'Field B'];
+    var gid = 70000;
+    function emit(g) { g.id = 'scg' + (gid++); _games.push(g); }
+    function poolGames(fid, sport, division, names, date) {
+      for (var a = 0; a < names.length; a++) for (var b = a + 1; b < names.length; b++) {
+        var s = a * 7 + b * 3;
+        emit({ form_id: fid, sport: sport, division: division, g: null, away: names[a], home: names[b],
+          date: date, time: ['09:00', '11:30', '14:00', '16:30'][(a + b) % 4], field: FIELDS[(a + b) % FIELDS.length],
+          away_score: 3 + (s % 9), home_score: 2 + ((s * 2) % 8), done: true });
+      }
+    }
+    function bracketGames(fid, sport, division, t, date) {
+      // proven structure: champion resolves to t[0]. g7 is the if-necessary game (unplayed).
+      var rows = [
+        { g: 1, away: t[0], home: t[3], as: 8, hs: 3 },
+        { g: 2, away: t[1], home: t[2], as: 5, hs: 4 },
+        { g: 3, away: 'WG-1', home: 'WG-2', as: 6, hs: 5 },
+        { g: 4, away: 'LG-1', home: 'LG-2', as: 7, hs: 2 },
+        { g: 5, away: 'WG-4', home: 'LG-3', as: 1, hs: 9 },
+        { g: 6, away: 'WG-3', home: 'WG-5', as: 4, hs: 2 },
+        { g: 7, away: 'WG-6', home: 'LG-6', as: null, hs: null, open: true }
+      ];
+      rows.forEach(function (r) {
+        emit({ form_id: fid, sport: sport, division: division, g: r.g, away: r.away, home: r.home,
+          date: date, time: ['09:00', '11:30', '14:00', '16:30'][r.g % 4], field: FIELDS[r.g % FIELDS.length],
+          away_score: r.as, home_score: r.hs, done: !r.open });
+      });
+    }
+    var liveBB = _teams.filter(function (t) { return t.live && t.sport === 'baseball'; }).map(function (t) { return t.name; });
+    var liveSB = _teams.filter(function (t) { return t.live && t.sport === 'softball'; }).map(function (t) { return t.name; });
+    var emptyTourneys = _forms.filter(function (f) {
+      return f.type === 'tournament' && !_games.some(function (g) { return g.form_id === f.id; });
+    });
+    emptyTourneys.forEach(function (f, idx) {
+      var sport = f.sport === 'softball' ? 'softball' : 'baseball';
+      var src = sport === 'softball' ? liveSB : liveBB;
+      if (src.length < 6) return;
+      var div = (f.divisions && f.divisions[0]) || 'Minors';
+      var picks = [];
+      for (var p = 0; p < 6; p++) picks.push(src[(idx * 6 + p) % src.length]);
+      var date = '2026-0' + (6 + (idx % 2)) + '-' + String(13 + (idx % 14)).padStart(2, '0');
+      poolGames(f.id, sport, div, picks, date);
+      bracketGames(f.id, sport, div, picks.slice(0, 4), date);
+    });
+  } catch (e) { /* demo-only; never break the data module */ }
 })();
 
 // ── Firestore plumbing ───────────────────────────────────────────────
