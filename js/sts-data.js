@@ -497,6 +497,26 @@ export async function loadActivity() {
   var all = isConfigured ? await fsAll('activity').catch(function () { return []; }) : _activity.slice();
   return all.sort(function (a, b) { return String(b.at || '').localeCompare(String(a.at || '')); });
 }
+
+// ── VENUES / FIELDS (admin-managed master list) ──────────────────────
+// Editable list of host cities + their fields. Stored in site_content/venues;
+// falls back to config.js venues (the seed). Powers the Locations page + the
+// tournament creator's field picker.
+var _venuesOverride = null;
+function cloneCity(v) { return { city: v.city || '', places: (v.places || []).slice() }; }
+export async function loadVenues() {
+  if (_venuesOverride) return _venuesOverride.map(cloneCity);
+  if (isConfigured) {
+    try { var d = await fsOne('site_content', 'venues'); if (d && Array.isArray(d.venues) && d.venues.length) return d.venues.map(cloneCity); } catch (e) {}
+  }
+  return ((typeof window !== 'undefined' && window.LEAGUE_CONFIG && LEAGUE_CONFIG.venues) || []).map(cloneCity);
+}
+export async function saveVenues(venues) {
+  var clean = (venues || []).map(cloneCity).filter(function (v) { return v.city; });
+  if (isConfigured) { await setDoc(doc(db, 'site_content', 'venues'), { venues: clean }, { merge: true }); }
+  else { _venuesOverride = clean; }
+  return clean.length;
+}
 // Auto-create the public team page from a registration. The Clover webhook does
 // this for PAID entries; this is the client-side path for FREE ($0) team entries
 // (and any future server endpoint can call the same shape). Idempotent per

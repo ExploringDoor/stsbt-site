@@ -70,6 +70,7 @@
       <li><button data-panel="champions">🏆 Champions</button></li>
       <li><button data-panel="content">🏠 Homepage</button></li>
       <li><button data-panel="prices">💲 Prices</button></li>
+      <li><button data-panel="locations">📍 Locations</button></li>
       <li><button data-panel="users">👥 Directors</button></li>
     </ul>
   </aside>
@@ -189,6 +190,13 @@
         <table class="tbl"><thead><tr><th>Team</th><th>Status</th><th>Source</th><th>Carrier</th><th>Policy #</th><th>Coverage</th><th>Submitted</th><th>Reviewed</th><th>Document</th></tr></thead>
         <tbody id="insAllBody"></tbody></table>
       </div>
+    </section>
+
+    <!-- LOCATIONS -->
+    <section class="panel" id="panel-locations">
+      <p class="muted">Your host cities and their fields. These power the public <a href="locations.html" target="_blank">Locations page</a> and the field picker when you build a tournament schedule. Edit, then <b>Save</b>.</p>
+      <div id="venuesEditor"></div>
+      <div style="display:flex;gap:8px;margin-top:var(--space-4);align-items:center"><button class="btn btn-outline btn-sm" id="venueAddCity">+ Add a city</button><button class="btn btn-red" id="venuesSave">Save Locations</button><span class="muted" id="venuesMsg"></span></div>
     </section>
 
     <!-- CONTENT -->
@@ -554,6 +562,7 @@
     TEAMS = isSuper() ? await STS.loadTeams({ includeHidden: true }) : [];   // teams panel is super-only
     INS = isSuper() ? await STS.loadInsurance() : [];
     ACT = isSuper() ? await STS.loadActivity() : [];
+    VENUES = isSuper() ? await STS.loadVenues() : [];
     // form filter dropdown (scoped label for directors)
     document.getElementById('entryForm').innerHTML = '<option value="">' + (isSuper() ? 'All tournaments / forms' : 'All my events') + '</option>' + FORMS.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
     // age + division filter options, derived from the actual entries
@@ -562,9 +571,35 @@
     var ageSort = function(a,b){ return (parseInt(a,10)||99)-(parseInt(b,10)||99) || a.localeCompare(b); };
     document.getElementById('entryAge').innerHTML = '<option value="">All ages</option>' + Object.keys(ages).sort(ageSort).map(function(a){ return '<option value="'+esc(a)+'">'+esc(a)+'</option>'; }).join('');
     document.getElementById('entryDiv').innerHTML = '<option value="">All divisions</option>' + Object.keys(divs).sort().map(function(d){ return '<option value="'+esc(d)+'">'+esc(d)+'</option>'; }).join('');
-    renderEntries(); renderForms(); renderTeams(); loadPrices(); renderSchedule(); renderInsurance(); renderActivity(); updateActBadge();
+    renderEntries(); renderForms(); renderTeams(); loadPrices(); renderSchedule(); renderInsurance(); renderActivity(); updateActBadge(); renderVenues();
     if (isSuper()) renderAdmins();
   }
+
+  // ── LOCATIONS (venue/field manager) ─────────────────────────────────
+  var VENUES = [];
+  function renderVenues(){
+    var ed = document.getElementById('venuesEditor'); if(!ed) return;
+    ed.innerHTML = VENUES.length ? VENUES.map(function(v,ci){
+      var flds = (v.places||[]).map(function(p,fi){ return '<div style="display:flex;gap:6px;margin-bottom:5px"><input class="input ven-field" data-c="'+ci+'" data-f="'+fi+'" value="'+esc(p)+'" placeholder="Field name" style="flex:1"><button type="button" class="icon-btn danger ven-rmfield" data-c="'+ci+'" data-f="'+fi+'" title="Remove field">✕</button></div>'; }).join('');
+      return '<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><input class="input ven-city" data-c="'+ci+'" value="'+esc(v.city||'')+'" placeholder="City" style="flex:1;font-family:var(--font-display);font-weight:700"><button type="button" class="btn btn-outline btn-sm ven-rmcity" data-c="'+ci+'">Remove city</button></div>'+flds+'<button type="button" class="btn btn-outline btn-sm ven-addfield" data-c="'+ci+'">+ Add field</button></div>';
+    }).join('') : '<div class="empty">No locations yet — add a city.</div>';
+  }
+  (function(){
+    var ed = document.getElementById('venuesEditor');
+    ed.addEventListener('input', function(e){ var t=e.target; if(t.classList.contains('ven-city')) VENUES[+t.dataset.c].city=t.value; else if(t.classList.contains('ven-field')) VENUES[+t.dataset.c].places[+t.dataset.f]=t.value; });
+    ed.addEventListener('click', function(e){ var b=e.target.closest('button'); if(!b) return;
+      if(b.classList.contains('ven-rmfield')){ VENUES[+b.dataset.c].places.splice(+b.dataset.f,1); renderVenues(); }
+      else if(b.classList.contains('ven-addfield')){ VENUES[+b.dataset.c].places.push(''); renderVenues(); }
+      else if(b.classList.contains('ven-rmcity')){ if(confirm('Remove '+(VENUES[+b.dataset.c].city||'this city')+' and its fields?')){ VENUES.splice(+b.dataset.c,1); renderVenues(); } }
+    });
+    document.getElementById('venueAddCity').addEventListener('click', function(){ VENUES.push({city:'',places:['']}); renderVenues(); var inputs=document.querySelectorAll('.ven-city'); if(inputs.length) inputs[inputs.length-1].focus(); });
+    document.getElementById('venuesSave').addEventListener('click', async function(){
+      var clean = VENUES.map(function(v){ return { city:(v.city||'').trim(), places:(v.places||[]).map(function(p){return (p||'').trim();}).filter(Boolean) }; }).filter(function(v){ return v.city; });
+      var msg=document.getElementById('venuesMsg'); msg.textContent='Saving…';
+      try { await STS.saveVenues(clean); VENUES=clean; renderVenues(); msg.textContent = isConfigured ? '✓ Saved — live on the Locations page + field picker.' : '✓ Saved (demo).'; }
+      catch(e){ msg.textContent='Could not save: '+(e.message||'try again'); }
+    });
+  })();
 
   // ── ACTIVITY FEED ───────────────────────────────────────────────────
   var ACT = [], actFilt = '';
@@ -1277,12 +1312,14 @@
     games.forEach(function(g){ if(place(g,0)) return; if(place(g,1)){ fallback++; return; } if(place(g,2)){ fallback++; return; } unplaced++; });
     return { fallback:fallback, unplaced:unplaced, slots:slots.length };
   }
-  function openBracketModal(){
+  async function openBracketModal(){
     var tf = TOURNEY_FORMS(), fid0 = schedFilt || tf[0].id;
     var format='roundrobin', fields=['Field 1','Field 2'], days=[], slots=[], custom=[], ordered=null;
     for(var _m=8*60;_m<=18*60;_m+=120) slots.push(hhmm(_m));   // sensible default: 8a–6p, 2h games
-    // your saved fields, grouped by city (from config venues) — pick instead of typing
-    var venueOpts=(window.LEAGUE_CONFIG&&LEAGUE_CONFIG.venues||[]).map(function(v){ return '<optgroup label="'+esc(v.city)+'">'+(v.places||[]).map(function(p){ return '<option>'+esc(p)+'</option>'; }).join('')+'</optgroup>'; }).join('');
+    // Keith's saved venues (admin-managed) — pick fields from these, scoped by host city
+    var venues = await STS.loadVenues();
+    var cityOpts = venues.map(function(v){ return '<option>'+esc(v.city)+'</option>'; }).join('');
+    function cityFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); var loc=(f&&f.location||'').toLowerCase(); var hit=venues.find(function(v){ return loc.indexOf(v.city.toLowerCase())>=0; }); return hit?hit.city:''; }
     document.getElementById('bkBody').innerHTML =
       '<div class="field"><label for="bk_form">Tournament</label><select class="input" id="bk_form">'+tf.map(function(f){return '<option value="'+esc(f.id)+'"'+(f.id===fid0?' selected':'')+'>'+esc(f.title)+'</option>';}).join('')+'</select></div>'+
       '<div class="field"><label>Format</label><div class="pill-tabs" id="bk_fmt"><button type="button" class="pill active" data-fmt="roundrobin">Round robin (pool)</button><button type="button" class="pill" data-fmt="single">Single elim</button><button type="button" class="pill" data-fmt="double">Double elim</button></div></div>'+
@@ -1291,7 +1328,8 @@
         '<div id="bk_teamList" style="max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin-top:8px"></div>'+
         '<div style="display:flex;gap:6px;margin-top:8px"><input class="input" id="bk_addTeam" placeholder="Add a team that isn’t registered…" style="flex:1"><button type="button" class="btn btn-outline btn-sm" id="bk_addTeamBtn">+ Add</button></div></div>'+
       '<div class="field"><label for="bk_dayPick">Tournament days</label><div style="display:flex;gap:6px;align-items:center"><input class="input" id="bk_dayPick" type="date" style="max-width:185px"><button type="button" class="btn btn-outline btn-sm" id="bk_addDay">+ Add day</button></div><div id="bk_dayChips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div></div>'+
-      '<div class="field"><label for="bk_fieldSel">Fields <span class="muted">(pick from your venues, or type a new one)</span></label><select class="input" id="bk_fieldSel" style="margin-bottom:6px"><option value="">＋ Add a field from your locations…</option>'+venueOpts+'</select><div style="display:flex;gap:6px;align-items:center"><input class="input" id="bk_fieldPick" placeholder="…or type a custom field name" style="flex:1"><button type="button" class="btn btn-outline btn-sm" id="bk_addField">+ Add</button></div><div id="bk_fieldChips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div></div>'+
+      '<div class="field"><label for="bk_city">Host city <span class="muted">(scopes the field list)</span></label><div style="display:flex;gap:6px;align-items:center"><select class="input" id="bk_city" style="flex:1"><option value="">All cities</option>'+cityOpts+'</select><button type="button" class="btn btn-outline btn-sm" id="bk_addAllCity">+ Add all its fields</button></div></div>'+
+      '<div class="field"><label for="bk_fieldSel">Fields <span class="muted">(pick from your venues, or type a new one)</span></label><select class="input" id="bk_fieldSel" style="margin-bottom:6px"></select><div style="display:flex;gap:6px;align-items:center"><input class="input" id="bk_fieldPick" placeholder="…or type a custom field name" style="flex:1"><button type="button" class="btn btn-outline btn-sm" id="bk_addField">+ Add</button></div><div id="bk_fieldChips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div></div>'+
       '<div class="field"><label>Game time slots</label><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="muted">First</span><input class="input" id="bk_first" type="time" value="08:00" style="max-width:118px"><span class="muted">to</span><input class="input" id="bk_last" type="time" value="18:00" style="max-width:118px"><span class="muted">·</span><input class="input" id="bk_glen" type="number" value="120" min="30" step="15" style="max-width:70px"><span class="muted">min</span><button type="button" class="btn btn-navy btn-sm" id="bk_autofill">Build slots</button></div><div id="bk_timeChips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div></div>'+
       '<div class="field"><label for="bk_rest">Min rest between a team’s games <span class="muted">(optional)</span></label><div style="display:flex;align-items:center;gap:8px"><input class="input" id="bk_rest" type="number" value="0" min="0" step="15" style="max-width:95px"><span class="muted">minutes — avoids back-to-back</span></div></div>'+
       '<details id="bk_availWrap" style="margin-bottom:var(--space-4)"><summary style="cursor:pointer;font-weight:600;color:var(--sts-navy)">⏱ Team availability &amp; blackouts <span class="muted" style="font-weight:400">(optional)</span></summary><div id="bk_availBody" style="margin-top:10px"></div></details>'+
@@ -1309,10 +1347,20 @@
       updateCount(); }
     function selected(){ return Array.prototype.map.call($('bk_teamList').querySelectorAll('.bk-team:checked'), function(c){ return c.value; }); }
     function updateCount(){ $('bk_teamCount').textContent='('+selected().length+' selected)'; }
+    function placesForCity(c){ var v=venues.find(function(x){return x.city===c;}); return v?v.places:[]; }
+    function renderFieldOptions(){
+      var city=$('bk_city').value, opts;
+      if(city){ opts=placesForCity(city).map(function(p){ return '<option>'+esc(p)+'</option>'; }).join(''); }
+      else { opts=venues.map(function(v){ return '<optgroup label="'+esc(v.city)+'">'+v.places.map(function(p){ return '<option>'+esc(p)+'</option>'; }).join('')+'</optgroup>'; }).join(''); }
+      $('bk_fieldSel').innerHTML='<option value="">＋ Add a field…</option>'+opts;
+    }
     renderDays(); renderFields(); renderSlots(); renderTeams();
+    $('bk_city').value = cityFor(fid0); renderFieldOptions();
 
     $('bk_fmt').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b)return; format=b.dataset.fmt; $('bk_fmt').querySelectorAll('.pill').forEach(function(p){p.classList.toggle('active',p===b);}); $('bk_gppWrap').style.display=(format==='roundrobin')?'':'none'; });
-    $('bk_form').addEventListener('change', function(){ ordered=null; custom=[]; renderTeams(); });
+    $('bk_form').addEventListener('change', function(){ ordered=null; custom=[]; renderTeams(); $('bk_city').value=cityFor($('bk_form').value); renderFieldOptions(); });
+    $('bk_city').addEventListener('change', renderFieldOptions);
+    $('bk_addAllCity').onclick=function(){ var c=$('bk_city').value; if(!c){ $('bkNote').textContent='Pick a host city first.'; return; } placesForCity(c).forEach(function(p){ if(fields.indexOf(p)<0) fields.push(p); }); renderFields(); };
     $('bk_teamList').addEventListener('change', updateCount);
     $('bk_addTeamBtn').onclick=function(){ var v=$('bk_addTeam').value.trim(); if(!v)return; custom.push(v); if(ordered)ordered.push(v); $('bk_addTeam').value=''; renderTeams(); };
     $('bk_addTeam').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); $('bk_addTeamBtn').click(); } });
