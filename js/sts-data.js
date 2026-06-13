@@ -436,6 +436,33 @@ export async function updateRegistration(id, fields) {
   if (isConfigured) { await updateDoc(doc(db, 'registrations', id), fields); return; }
   var r = _regs.find(function (x) { return x.id === id; }); if (r) Object.assign(r, fields);
 }
+function normName(s) { return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+// Has this team completed a SEASON registration (the prerequisite for entering
+// tournaments)? Looks for a completed (paid/free) entry on any season-type form for
+// the matching sport, keyed by team name (or coach email). Returns the matching
+// registration, or null. If no season form exists for the sport at all, returns
+// the sentinel { noSeasonForm:true } so callers can choose not to block.
+export async function findSeasonRegistration(opts) {
+  opts = opts || {};
+  var sport = opts.sport, teamName = normName(opts.teamName), email = normName(opts.coachEmail);
+  var forms = await loadForms();
+  var seasonForms = forms.filter(function (f) {
+    if (f.type !== 'season') return false;
+    return !sport || sport === 'both' || f.sport === 'both' || f.sport === sport;
+  });
+  if (!seasonForms.length) return { noSeasonForm: true };
+  var ids = {}; seasonForms.forEach(function (f) { ids[f.id] = true; });
+  var regs = await loadRegistrations();
+  var match = regs.find(function (r) {
+    if (!ids[r.form_id]) return false;
+    var ps = r.payment_status || '';
+    if (ps !== 'paid' && ps !== 'free') return false;
+    if (teamName && normName(r.team_name) === teamName) return true;
+    if (email && normName(r.coach_email) === email) return true;
+    return false;
+  });
+  return match || null;
+}
 export async function getRegistrationBySession(sessionId) {
   if (isConfigured) {
     var snap = await getDocs(query(collection(db, 'registrations'), where('clover_session_id', '==', sessionId)));

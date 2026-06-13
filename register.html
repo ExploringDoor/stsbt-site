@@ -44,7 +44,21 @@
     <a href="register.html" class="muted" style="font-size:var(--text-sm)">← All registrations</a>
     <div class="card mt-5" id="formMeta" style="border-left:4px solid var(--sts-red)"></div>
 
-    <form id="regForm" class="mt-5" novalidate>
+    <!-- Season-registration gate (tournament forms only) -->
+    <div id="seasonGate" class="card mt-5 hidden" style="border-left:4px solid var(--sts-navy)">
+      <h3 style="margin:0 0 6px;color:var(--sts-navy)">First, confirm your season registration</h3>
+      <p class="muted" style="margin:0 0 var(--space-3);font-size:var(--text-sm)">Teams must complete their <strong id="gateSport">season</strong> Team Registration before entering tournaments. Enter your team name to verify.</p>
+      <div class="field-row" style="align-items:flex-end">
+        <div class="field" style="flex:1;margin:0">
+          <label for="gateTeam">Team Name <span class="req">*</span></label>
+          <input class="input" id="gateTeam" placeholder="e.g. Brownwood Bombers" autocomplete="off" />
+        </div>
+        <button type="button" class="btn btn-navy" id="gateCheck" style="white-space:nowrap">Verify team</button>
+      </div>
+      <div id="gateMsg" class="mt-3"></div>
+    </div>
+
+    <form id="regForm" class="mt-5 hidden" novalidate>
       <div class="field">
         <label for="f_team_name">Team Name <span class="req">*</span></label>
         <input class="input" id="f_team_name" name="team_name" required placeholder="e.g. Brownwood Bombers" />
@@ -219,6 +233,64 @@
     document.getElementById('waiverBox').innerHTML = FORM.waiver_text ? esc(FORM.waiver_text) : 'By registering you agree to Small Town Select tournament rules and policies.';
     ageSel.addEventListener('change', recalcTotal);
     recalcTotal();
+
+    // Tournament forms are gated behind a completed season registration.
+    if (FORM.type === 'tournament') setupSeasonGate();
+    else { document.getElementById('seasonGate').classList.add('hidden'); document.getElementById('regForm').classList.remove('hidden'); }
+  }
+
+  // ── SEASON-REGISTRATION GATE (tournament forms only) ────────────────
+  function setupSeasonGate(){
+    var gate = document.getElementById('seasonGate');
+    var form = document.getElementById('regForm');
+    var msg = document.getElementById('gateMsg');
+    var input = document.getElementById('gateTeam');
+    var btn = document.getElementById('gateCheck');
+    document.getElementById('gateSport').textContent = (FORM.sport === 'both' ? 'season' : FORM.sport + ' season');
+    gate.classList.remove('hidden'); form.classList.add('hidden');
+
+    function seasonFormLink(){
+      // a season form for this sport, so we can send unregistered teams there
+      return STS.loadForms().then(function(forms){
+        var sf = forms.filter(function(f){ return f.type==='season' && (FORM.sport==='both' || f.sport==='both' || f.sport===FORM.sport); })[0];
+        return sf ? 'register.html?form='+encodeURIComponent(sf.id) : 'register.html';
+      });
+    }
+
+    async function unlock(reg){
+      gate.classList.add('hidden'); form.classList.remove('hidden');
+      // pre-fill from the season registration so the tournament entry matches
+      var f = document.getElementById('regForm');
+      f.team_name.value = reg.team_name || input.value.trim();
+      f.team_name.readOnly = true;
+      if (reg.town && !f.town.value) f.town.value = reg.town;
+      if (reg.coach_name && !f.coach_name.value) f.coach_name.value = reg.coach_name;
+      if (reg.coach_email && !f.coach_email.value) f.coach_email.value = reg.coach_email;
+      if (reg.coach_phone && !f.coach_phone.value) f.coach_phone.value = reg.coach_phone;
+      f.scrollIntoView({ behavior:'smooth', block:'start' });
+    }
+
+    async function check(){
+      var name = input.value.trim();
+      if (!name){ msg.innerHTML = '<div class="notice notice-warn" style="text-transform:none;letter-spacing:0">Enter your team name.</div>'; return; }
+      btn.disabled = true; btn.textContent = 'Checking…';
+      try {
+        var res = await STS.findSeasonRegistration({ sport: FORM.sport, teamName: name });
+        if (res && res.noSeasonForm){ await unlock({ team_name: name }); return; } // nothing to gate against
+        if (res){
+          msg.innerHTML = '<div class="notice notice-ok" style="text-transform:none;letter-spacing:0">✓ <strong>'+esc(res.team_name)+'</strong> is registered for the season. You can enter this tournament.</div>';
+          setTimeout(function(){ unlock(res); }, 500);
+        } else {
+          var link = await seasonFormLink();
+          msg.innerHTML = '<div class="notice notice-warn" style="text-transform:none;letter-spacing:0">We couldn\'t find a completed season registration for <strong>'+esc(name)+'</strong>. Teams must register for the '+esc(FORM.sport==='both'?'':FORM.sport+' ')+'season before entering tournaments.<div class="mt-3"><a class="btn btn-red btn-sm" href="'+link+'">Register for the season first →</a></div></div>';
+        }
+      } catch(e){
+        msg.innerHTML = '<div class="notice notice-warn" style="text-transform:none;letter-spacing:0">Couldn\'t verify right now — please try again.</div>';
+      }
+      btn.disabled = false; btn.textContent = 'Verify team';
+    }
+    btn.onclick = check;
+    input.onkeydown = function(e){ if (e.key === 'Enter'){ e.preventDefault(); check(); } };
   }
 
   // ── SUBMIT ──────────────────────────────────────────────────────────
