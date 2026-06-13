@@ -42,13 +42,18 @@
     }
     var tag = cls==='f'?'<span class="tag f">🏆 Final</span>':cls==='l'?'<span class="tag l">Losers</span>':'<span class="tag w">Winners</span>';
     var cd = (g.date && !/^(n\/?a|tbd|tba)$/i.test(g.date)) ? new Date(g.date+'T12:00:00') : null;
-    var when = [(cd&&!isNaN(cd))?cd.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):null, g.time?fmtTime(g.time):null].filter(Boolean).join(' · ');
+    var dStr = (cd&&!isNaN(cd)) ? cd.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) : '';
+    var when = [dStr||null, g.time?fmtTime(g.time):null].filter(Boolean).join(' · ');
     var field = g.field?String(g.field):'';
+    // field name links to its map on the Locations page (don't trigger the card's modal)
+    var fieldHTML = field ? '<a class="bk-field" href="locations.html?find='+encodeURIComponent(field)+'" onclick="event.stopPropagation()">📍 '+esc(field)+'</a>' : '<span class="bk-field"></span>';
+    // show the date even after a game is final (was just "Final" before)
+    var whenHTML = played ? '<span class="fin">Final</span>'+(dStr?' · '+esc(dStr):'') : esc(when||'TBD');
     return '<div class="bk-match acc-'+cls+'" data-g="'+g.g+'" style="left:'+x+'px;top:'+y+'px">'+
       '<div class="bk-mtop"><span class="g">Game '+g.g+'</span>'+tag+'</div>'+
       side(A, g.away_score, aWin)+side(H, g.home_score, hWin)+
-      '<div class="bk-mfoot"><div class="bk-when">'+(played?'<span class="fin">Final</span>':esc(when||'TBD'))+'</div>'+
-      '<div class="bk-frow"><span class="bk-field">'+(field?'📍 '+esc(field):'')+'</span><span class="bk-cue">'+(played?'Recap':'Preview')+' ›</span></div></div></div>';
+      '<div class="bk-mfoot"><div class="bk-when">'+whenHTML+'</div>'+
+      '<div class="bk-frow">'+fieldHTML+'<span class="bk-cue">'+(played?'Recap':'Preview')+' ›</span></div></div></div>';
   }
 
   // columns by distance-to-final within a subset (play-ins get their own early column)

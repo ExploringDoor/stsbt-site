@@ -104,6 +104,29 @@
     out.addEventListener('click', function(e){ var b=e.target.closest('.venue-chip'); if(b) openMap(b.dataset.place, b.dataset.city); });
     ov.addEventListener('click', function(e){ if(e.target===ov || e.target.closest('#mapX')) closeMap(); });
     document.addEventListener('keydown', function(e){ if(e.key==='Escape' && ov.classList.contains('open')) closeMap(); });
+
+    // Deep link: locations.html?find=<field> — used by bracket field links.
+    // Pre-fills the search, filters to it, and auto-opens the best match's map.
+    try {
+      var find = new URLSearchParams(location.search).get('find');
+      if (find) {
+        find = find.trim();
+        var input = document.getElementById('locSearch');
+        input.value = find; render(find);
+        var needle = find.toLowerCase();
+        var match = null;
+        // exact place match first, then a contains match
+        VENUES.forEach(function(c){ (c.places||[]).forEach(function(p){
+          if (match) return;
+          if (p.toLowerCase() === needle) match = { place: p, city: c.city };
+        }); });
+        if (!match) VENUES.forEach(function(c){ (c.places||[]).forEach(function(p){
+          if (match) return;
+          if (p.toLowerCase().indexOf(needle) >= 0 || needle.indexOf(p.toLowerCase()) >= 0) match = { place: p, city: c.city };
+        }); });
+        if (match) openMap(match.place, match.city);
+      }
+    } catch (e) {}
   })();
 </script>
 </body>
