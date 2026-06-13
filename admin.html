@@ -1142,11 +1142,16 @@
       '<div class="field"><label for="bk_format">Format</label><select class="input" id="bk_format">'+
         '<option value="single">Single elimination</option><option value="double">Double elimination</option><option value="roundrobin">Round robin (pool play)</option></select></div>'+
       '<div class="field hidden" id="bk_gppWrap"><label for="bk_gpp">Pool games per team <span class="muted">(1–3 typical · 4 for World Series)</span></label><input class="input" id="bk_gpp" type="number" inputmode="numeric" value="3" min="1" max="10"></div>'+
-      '<div class="field"><div class="spread"><label for="bk_teams" style="margin:0">Teams &amp; Seeds <span class="muted">(one per line, best seed first)</span></label><button type="button" class="btn btn-outline btn-sm" id="bk_seed">↻ Seed from standings</button></div><textarea class="input" id="bk_teams" style="min-height:150px;margin-top:8px"></textarea></div>'+
-      '<div class="field"><label for="bk_dates">Dates <span class="muted">(optional, comma-separated)</span></label><input class="input" id="bk_dates" placeholder="2026-06-13, 2026-06-14"></div>'+
-      '<div class="notice notice-warn" style="font-size:var(--text-xs)">Typical flow: <b>Round robin</b> creates pool games (these feed standings) → post scores → reopen here, click <b>Seed from standings</b>, and generate a <b>bracket</b>. Generating a bracket replaces any existing one and advances teams automatically. <a href="bracket-preview.html" target="_blank" rel="noopener" style="color:var(--sts-navy);font-weight:600">See example brackets ↗</a></div>';
+      '<div class="field"><div class="spread"><label for="bk_teams" style="margin:0">Teams &amp; Seeds <span class="muted">(one per line, best seed first — type ANY team, signed up or not)</span></label><button type="button" class="btn btn-outline btn-sm" id="bk_seed">↻ Seed from standings</button></div><textarea class="input" id="bk_teams" style="min-height:140px;margin-top:8px"></textarea><div style="margin-top:6px"><button type="button" class="btn btn-outline btn-sm" id="bk_pull">↧ Pull registered teams</button></div></div>'+
+      '<div class="field"><label for="bk_dates">Tournament days <span class="muted">(comma-separated)</span></label><input class="input" id="bk_dates" placeholder="2026-06-13, 2026-06-14"></div>'+
+      '<div class="field-row"><div class="field"><label for="bk_fields">Fields <span class="muted">(comma-separated)</span></label><input class="input" id="bk_fields" placeholder="Field 1, Field 2, Field 3" value="Field 1, Field 2"></div>'+
+      '<div class="field"><label for="bk_times">Game times each day <span class="muted">(comma-separated)</span></label><input class="input" id="bk_times" placeholder="09:00, 11:00, 13:00, 15:00" value="09:00, 11:00, 13:00, 15:00, 17:00"></div></div>'+
+      '<div class="notice notice-warn" style="font-size:var(--text-xs)">Games are auto-assigned across your <b>fields</b> and <b>time slots</b> — then you can move any single game to a different field/time by clicking <b>Edit</b> on it. Typical flow: <b>Round robin</b> → post scores → reopen → <b>Seed from standings</b> → generate a <b>bracket</b>. <a href="bracket-preview.html" target="_blank" rel="noopener" style="color:var(--sts-navy);font-weight:600">See example brackets ↗</a></div>';
     function fillTeams(){ var fid=document.getElementById('bk_form').value, s={}; REGS.forEach(function(r){ if(r.form_id===fid && r.team_name) s[r.team_name]=1; }); document.getElementById('bk_teams').value=Object.keys(s).join('\n'); }
-    document.getElementById('bk_form').addEventListener('change', fillTeams); fillTeams();
+    // pre-fill from registered teams only if the box is empty (so manual edits survive a form switch)
+    function maybeFill(){ if(!document.getElementById('bk_teams').value.trim()) fillTeams(); }
+    document.getElementById('bk_form').addEventListener('change', maybeFill); maybeFill();
+    document.getElementById('bk_pull').onclick = fillTeams;
     function syncFmt(){ document.getElementById('bk_gppWrap').classList.toggle('hidden', document.getElementById('bk_format').value!=='roundrobin'); }
     document.getElementById('bk_format').addEventListener('change', syncFmt); syncFmt();
     document.getElementById('bk_seed').onclick = function(){
@@ -1165,16 +1170,20 @@
       if(!window.STSgen){ document.getElementById('bkNote').textContent='Generator not loaded.'; return; }
       var format=document.getElementById('bk_format').value;
       var dates=document.getElementById('bk_dates').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+      var csv=function(id,fb){ var a=(document.getElementById(id).value||'').split(',').map(function(s){return s.trim();}).filter(Boolean); return a.length?a:fb; };
+      var fields=csv('bk_fields',['Field 1','Field 2']);
+      var times=csv('bk_times',['09:00','11:00','13:00','15:00']);
       var meta={sport:(f&&f.sport)||'baseball', division:''};
       if(format==='roundrobin'){
         var gpp=parseInt(document.getElementById('bk_gpp').value,10)||3;
         var pool=window.STSgen.generatePool(teams, {gamesPerTeam:gpp});
-        var times=['09:00','11:00','13:00','15:00','17:00'], fields=['Field 1','Field 2'];
-        pool.forEach(function(m,i){ m.date=dates.length?dates[Math.floor(i/times.length)%dates.length]:''; m.time=times[i%times.length]; m.field=fields[i%fields.length]; });
+        // spread games across the entered fields + time slots (each day = fields×times slots)
+        var perDay=Math.max(1, fields.length*times.length);
+        pool.forEach(function(m,i){ var slot=i%perDay; m.date=dates.length?dates[Math.floor(i/perDay)%dates.length]:''; m.time=times[slot%times.length]; m.field=fields[Math.floor(slot/times.length)%fields.length]; });
         await STS.savePool(fid, meta, pool);
       } else {
         var games=window.STSgen.generateBracket({format:format, teams:teams, startGame:1});
-        window.STSgen.scheduleGames(games, {dates:dates, times:['09:00','12:00','15:00','18:00'], fields:['Field 1','Field 2']});
+        window.STSgen.scheduleGames(games, {dates:dates, times:times, fields:fields});
         await STS.saveBracket(fid, meta, games);
       }
       GAMES=await STS.loadGamesScoped(ME, {}); schedFilt=fid; renderSchedule(); closeModal('bracketModal');
