@@ -145,8 +145,18 @@ var _gameSeq = 9000;   // unique sample-mode ids for batch-created games
 // same data. Try admin.html?scale=1163 or show Keith ?demo=1&scale=1163.
 (function () {
   if (isConfigured) return;
-  var n = 0;
-  try { n = parseInt(new URLSearchParams(location.search).get('scale'), 10) || 0; } catch (e) {}
+  // Read ?scale=N from the URL; persist it in localStorage (like demo mode) so the
+  // fake teams stay populated as you click around. ?scale=0 clears it.
+  var n = 0, fromUrl = null;
+  try { var sp = new URLSearchParams(location.search); if (sp.has('scale')) fromUrl = sp.get('scale'); } catch (e) {}
+  try {
+    if (fromUrl !== null) {
+      n = parseInt(fromUrl, 10) || 0;
+      if (n > 0) localStorage.setItem('sts-scale', String(n)); else localStorage.removeItem('sts-scale');
+    } else {
+      n = parseInt(localStorage.getItem('sts-scale'), 10) || 0;
+    }
+  } catch (e) { n = parseInt(fromUrl, 10) || 0; }
   if (n < 1) return;
   n = Math.min(n, 5000);
   var TOWNS = ['Brownwood', 'Early', 'Clyde', 'Abilene', 'San Angelo', 'Georgetown', 'Iowa Park', 'Hillsboro', 'Comanche', 'Stephenville', 'Belton', 'Waco', 'Killeen', 'Temple', 'Burnet', 'Llano', 'Goldthwaite', 'Hamilton', 'Dublin', 'Cisco'];
@@ -159,6 +169,31 @@ var _gameSeq = 9000;   // unique sample-mode ids for batch-created games
   var SB_AGES = ['10U', '12U', '14U', '16U'];
   var BB_DIVS = ['Minors', 'Triple-A', 'Majors'], SB_DIVS = ['Class C', 'Class B', 'Class A'];
   var PAY_MIX = ['paid', 'paid', 'paid', 'paid', 'unpaid', 'pending', 'free'];
+  // Deterministic fake roster for a team: 10–13 players, ages clustered just under
+  // the age cap, a couple of guests. dob is included so the admin view + age math
+  // look real; the public pages derive "Age (5/1)" from it via STS.playerAge.
+  var P_FIRST = ['Mason', 'Liam', 'Noah', 'Ethan', 'Caleb', 'Hunter', 'Wyatt', 'Brody', 'Carson', 'Landon', 'Jaxon', 'Easton', 'Bryce', 'Tate', 'Kade', 'Riley', 'Parker', 'Aiden', 'Gage', 'Brooks', 'Knox', 'Ryder', 'Beau', 'Cooper'];
+  var P_LAST = ['Henderson', 'McCoy', 'Whitfield', 'Drummond', 'Sparks', 'Holloway', 'Reyes', 'Tucker', 'Boyd', 'Lambert', 'Vaughn', 'Carter', 'Briggs', 'Mathis', 'Pope', 'Galloway', 'Hardin', 'Sutton', 'Means', 'Crowley'];
+  function fakeRoster(ageClass, seed) {
+    var cap = parseInt(String(ageClass), 10) || 12;   // "12U" → 12, "8U Coach Pitch" → 8
+    var seasonYr = (window.LEAGUE_CONFIG && LEAGUE_CONFIG.season && LEAGUE_CONFIG.season.year) || 2026;
+    var size = 10 + (seed % 4), roster = [], usedNums = {};
+    for (var k = 0; k < size; k++) {
+      var s = seed * 17 + k * 7;
+      var age = cap - (k % 3); if (age < 4) age = cap;   // cluster just under the cap
+      var by = seasonYr - age, mo = 1 + (s % 12), day = 1 + (s % 27);
+      var num = 1 + (s % 45); while (usedNums[num]) num++; usedNums[num] = 1;
+      var grade = age - 6; grade = grade <= 0 ? 'K' : String(grade);
+      roster.push({
+        num: String(num),
+        name: P_FIRST[s % P_FIRST.length] + ' ' + P_LAST[(s * 3) % P_LAST.length],
+        grade: grade,
+        dob: by + '-' + String(mo).padStart(2, '0') + '-' + String(day).padStart(2, '0'),
+        guest: (k > 0 && k % 9 === 0)
+      });
+    }
+    return roster;
+  }
   for (var i = 0; i < n; i++) {
     var fid = FORM_MIX[i % FORM_MIX.length];
     var form = _forms.find(function (f) { return f.id === fid; }) || _forms[0];
@@ -196,7 +231,9 @@ var _gameSeq = 9000;   // unique sample-mode ids for batch-created games
         age_class: sport === 'softball' ? SB_AGES[i % SB_AGES.length] : BB_AGES[i % BB_AGES.length],
         town: town + ', TX', coach_name: coach, live: true, status: 'active',
         team_code: 'SC' + String(100 + (i % 900)), reg_id: 'sc' + i,
-        tournaments: [form.title], roster: [], w: 0, l: 0
+        tournaments: [form.title],
+        roster: fakeRoster(sport === 'softball' ? SB_AGES[i % SB_AGES.length] : BB_AGES[i % BB_AGES.length], i),
+        w: 0, l: 0
       });
     }
   }
