@@ -106,10 +106,13 @@ service cloud.firestore {
     // ── TEAM ROSTERS (minors' dob for eligibility — PII) ─────────────
     // The PUBLIC teams doc carries a dob-free roster ({num,name,grade,guest,pid}).
     // Full rosters WITH birthdates live here, readable only by active admins.
-    // Writes are Admin-SDK only (the server bypasses rules); no client may write.
+    // The server (api/roster-save.js) writes this by signing in as the dedicated
+    // super-admin user, so writes are gated to isSuper() — NOT `if false`. (We use
+    // an authed admin token, not a downloaded service-account key, so the server
+    // is subject to these rules rather than bypassing them.) No coach can write it.
     match /team_rosters/{id} {
       allow read:  if isAdmin();
-      allow write: if false;
+      allow write: if isSuper();
     }
 
     // ── Public-read collections with admin writes ────────────────────
@@ -140,20 +143,31 @@ service cloud.firestore {
 //    locks everyone out (break-glass: edit admins/* in the console anytime).
 //
 // 2) SERVER WRITES — these rules limit request.auth==null to registration
-//    CREATE only. The serverless functions that write via the Firestore REST
-//    API + API key are unauthenticated and will now be DENIED:
-//      • api/create-checkout.js  (patches the registration → pending)
-//      • api/clover-webhook.js   (marks paid + creates the team)
-//      • api/roster-save.js      (saves the team roster — now writes BOTH the
-//                                 dob-free public teams doc AND the gated
-//                                 team_rosters/{id} doc, which is write:if false
-//                                 so ONLY the Admin SDK can write it)
-//    Migrate all three (+ api/_firestore.js) to the Firebase Admin SDK with a
-//    service account (FIREBASE_SERVICE_ACCOUNT env) BEFORE payments go live.
-//    While doing #26 ALSO: (a) add a coach roster-LOAD endpoint (code-checked,
-//    Admin SDK) so roster-edit.html can prefill existing dobs without a public
-//    read; (b) move team_code off the public teams doc (look it up from the
-//    gated registration); (c) set ROSTER_PID_SALT env to a real secret.
-//    Also: backfill a `form_id` on any existing games/tournaments docs, and
-//    keep saveAdmin always writing events:[] + active:true.
+//    CREATE only. The serverless functions that write more than that
+//    (create-checkout → pending, clover-webhook → paid+team, roster-save →
+//    teams + team_rosters) must therefore be AUTHENTICATED.
+//
+//    APPROACH (no downloaded key — the org policy iam.disableServiceAccountKey-
+//    Creation blocks those): api/_firestore.js signs in as ONE dedicated Firebase
+//    Auth admin user (FB_ADMIN_EMAIL / FB_ADMIN_PASSWORD env) and sends its ID
+//    token as Bearer auth on every write. That user's uid has an admins/{uid} doc
+//    with role:'super', so writes satisfy isSuper(). The server is SUBJECT TO
+//    these rules (it does not bypass them like a service-account key would) — so
+//    every collection it writes is gated to isSuper(), incl. team_rosters above.
+//
+//    ONE-TIME SETUP before payments go live:
+//      (a) Firebase console → Authentication → enable Email/Password;
+//      (b) add a user, e.g. server@<domain>  (strong random password);
+//      (c) copy its UID → create admins/{UID} = {role:'super', active:true,
+//          events:[], name:'Server', email:'server@<domain>'};
+//      (d) in Vercel set FB_ADMIN_EMAIL, FB_ADMIN_PASSWORD, FIREBASE_PROJECT_ID,
+//          FIREBASE_API_KEY, ROSTER_PID_SALT.
+//    NOTE: none of (a)-(c) touch IAM / the org policy — Firebase Auth users are a
+//    separate system. This is why the no-key approach sidesteps the policy.
+//
+//    While finishing #26 ALSO: (a) add a coach roster-LOAD endpoint (code-checked)
+//    so roster-edit.html can prefill existing dobs without a public read;
+//    (b) move team_code off the public teams doc (look it up from the gated
+//    registration); (c) backfill a `form_id` on any existing games/tournaments
+//    docs; keep saveAdmin always writing events:[] + active:true.
 // ════════════════════════════════════════════════════════════════════
