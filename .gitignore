@@ -6,3 +6,5 @@ node_modules/
 .claude/
 design-refs/
 keith-screenshots/
+private/
+quickscores-export/
