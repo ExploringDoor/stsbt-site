@@ -45,9 +45,11 @@
     return '<li><a href="' + n[0] + '"' + attrs + '>' + n[1] + '</a></li>';
   }
 
-  var crestHTML = USE_CREST_IMG
-    ? '<img class="nav-crest" src="assets/sts-crest.png" alt="Small Town Select crest" />'
-    : '<span class="nav-crest mono" aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--sts-navy)">STS</span>';
+  // Real logo (assets/sts-logo.png). If it's missing, fall back to the STS monogram.
+  window.__stsMonoCrest = '<span class="nav-crest mono" aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--sts-navy)">STS</span>';
+  var crestHTML = '<img class="nav-crest" src="assets/sts-logo.png" alt="Small Town Select" onerror="this.outerHTML=window.__stsMonoCrest" />';
+  // favicon (tab icon) — same logo
+  (function () { try { var l = document.createElement('link'); l.rel = 'icon'; l.href = 'assets/sts-logo.png'; document.head.appendChild(l); } catch (e) {} })();
 
   var topLinks = NAV.map(function (n) { return navItem(n); }).join('') +
     navItem(['register.html', 'Register'], 'nav-cta');

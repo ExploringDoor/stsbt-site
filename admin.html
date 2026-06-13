@@ -5,16 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#002D72" />
 <title>Admin · Small Town Select Tournaments</title>
+<link rel="icon" href="assets/sts-logo.png" />
 <meta name="robots" content="noindex" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script src="config.js"></script>
 <link rel="stylesheet" href="css/styles.css" />
+<script>
+  // Show the real logo where a crest is needed; if the file is missing, fall back to an "STS" circle.
+  function stsLogoFallback(img, size){ var d=document.createElement('div'); d.className='nav-crest mono'; d.textContent='STS'; d.setAttribute('style','width:'+size+'px;height:'+size+'px;font-size:'+(size>50?22:13)+'px;color:var(--sts-navy);display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:#fff;box-shadow:0 0 0 2px var(--line);'+(size>50?'margin:0 auto var(--space-4)':'')); img.replaceWith(d); }
+</script>
 <style>
   .modal-bg { position: fixed; inset: 0; background: rgba(0,18,48,.55); display: none; align-items: flex-start; justify-content: center; padding: var(--space-6) var(--space-4); z-index: 100; overflow-y: auto; }
   .modal-bg.open { display: flex; }
   .modal { background: #fff; border-radius: var(--radius-lg); width: 100%; max-width: 620px; box-shadow: var(--shadow-lg); }
+  /* the tournament builder is dense — give it room on desktop so nothing's cut off */
+  @media (min-width: 900px){ #bracketModal .modal { max-width: 980px; } }
   .modal-head { display: flex; align-items: center; justify-content: space-between; padding: var(--space-5); border-bottom: 1px solid var(--line); }
   .modal-head h3 { margin: 0; }
   .modal-body { padding: var(--space-5); }
@@ -35,7 +42,7 @@
 <!-- Login gate (only when Firebase configured) -->
 <div class="login-gate hidden" id="loginGate">
   <form class="login-card" id="loginForm">
-    <div class="nav-crest mono" style="margin:0 auto var(--space-4);width:64px;height:64px;font-size:22px;color:var(--sts-navy);display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:#fff;box-shadow:0 0 0 2px var(--line)">STS</div>
+    <img src="assets/sts-logo.png" alt="Small Town Select" style="margin:0 auto var(--space-4);width:64px;height:64px;border-radius:50%;display:block;object-fit:cover;background:#fff;box-shadow:0 0 0 2px var(--line)" onerror="stsLogoFallback(this,64)" />
     <h2 style="margin:0 0 6px">Admin Sign In</h2>
     <p class="muted" style="font-size:var(--text-sm);margin-bottom:var(--space-5)">Small Town Select Tournaments</p>
     <div class="field"><input class="input" type="email" id="loginEmail" placeholder="Email" autocomplete="username" required /></div>
@@ -48,7 +55,7 @@
 <!-- Signed in but not an enabled admin -->
 <div class="login-gate hidden" id="noAccess">
   <div class="login-card">
-    <div class="nav-crest mono" style="margin:0 auto var(--space-4);width:64px;height:64px;font-size:22px;color:var(--sts-navy);display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:#fff;box-shadow:0 0 0 2px var(--line)">STS</div>
+    <img src="assets/sts-logo.png" alt="Small Town Select" style="margin:0 auto var(--space-4);width:64px;height:64px;border-radius:50%;display:block;object-fit:cover;background:#fff;box-shadow:0 0 0 2px var(--line)" onerror="stsLogoFallback(this,64)" />
     <h2 style="margin:0 0 6px">Not enabled yet</h2>
     <p class="muted" style="font-size:var(--text-sm)">Your account (<b data-who></b>) isn't set up as an administrator. Ask Keith to add you as a director.</p>
     <button class="btn btn-outline" id="noAccessOut" style="width:100%">Sign Out</button>
@@ -58,7 +65,7 @@
 <!-- Admin app -->
 <div class="admin-wrap hidden" id="adminApp">
   <aside class="admin-side">
-    <div class="brand"><span class="nav-crest mono" style="width:38px;height:38px;font-size:13px;color:var(--sts-navy);display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:#fff">STS</span><b>STS Admin</b></div>
+    <div class="brand"><img src="assets/sts-logo.png" alt="STS" style="width:38px;height:38px;border-radius:50%;object-fit:cover;background:#fff" onerror="stsLogoFallback(this,38)" /><b>STS Admin</b></div>
     <ul class="admin-nav" id="adminNav">
       <li><button data-panel="entries" class="active">📋 Entries</button></li>
       <li><button data-panel="activity">🔔 Activity</button></li>
