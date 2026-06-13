@@ -147,7 +147,7 @@
   }
 
   function championBanner(champ, tourn){
-    return '<div class="bk-champion"><span class="trophy"><img src="assets/trophy.png" alt="Trophy" style="height:68px;width:auto;vertical-align:middle;display:block" onerror="this.outerHTML=\'🏆\'"></span><div class="ct">'+
+    return '<div class="bk-champion"><span class="trophy"><img src="assets/trophy.png" alt="Trophy" style="height:clamp(104px,16vw,132px);width:auto;vertical-align:middle;display:block" onerror="this.outerHTML=\'🏆\'"></span><div class="ct">'+
       (tourn?'<div class="tourn">'+esc(tourn)+'</div>':'')+
       '<div class="lbl">★ Tournament Champion ★</div>'+
       '<div class="team">'+esc(champ)+'</div></div></div>';
