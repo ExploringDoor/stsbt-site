@@ -1197,6 +1197,40 @@
     if (!TOURNEY_FORMS().length){ alert('Create a tournament form first (Forms tab).'); return; }
     openBracketModal();
   });
+  // Availability for the teams in the modal: from the editor if opened, else
+  // derived from each team's registration (avail_earliest/avail_latest).
+  function getAvail(fid){
+    if (document.querySelectorAll('#bk_availBody .av-e').length){
+      var av={};
+      document.querySelectorAll('#bk_availBody .av-e').forEach(function(i){ var t=i.dataset.team.toLowerCase(); (av[t]=av[t]||{}).earliest=i.value||''; });
+      document.querySelectorAll('#bk_availBody .av-l').forEach(function(i){ var t=i.dataset.team.toLowerCase(); (av[t]=av[t]||{}).latest=i.value||''; });
+      document.querySelectorAll('#bk_availBody .av-bl:checked').forEach(function(i){ var t=i.dataset.team.toLowerCase(); (av[t]=av[t]||{}); (av[t].blackout=av[t].blackout||{})[i.dataset.date]=true; });
+      return av;
+    }
+    var av2={}; REGS.forEach(function(r){ if(r.form_id===fid && r.team_name && (r.avail_earliest||r.avail_latest)) av2[r.team_name.toLowerCase()]={earliest:r.avail_earliest||'', latest:r.avail_latest||''}; });
+    return av2;
+  }
+  // Constraint-aware slot assignment: place each game in the first slot where the
+  // slot is free, neither team is already playing at that date+time, and (when
+  // possible) both teams are AVAILABLE. Falls back to ignoring availability rather
+  // than leaving a game unscheduled. Returns {fallback, unplaced} counts.
+  function assignSlots(games, dates, times, fields, avail){
+    if(!dates.length) dates=[''];
+    var slots=[]; dates.forEach(function(d){ times.forEach(function(tm){ fields.forEach(function(f){ slots.push({date:d,time:tm,field:f}); }); }); });
+    var usedSlot={}, teamBusy={}, fallback=0, unplaced=0;
+    function ok(tlc,s){ var a=avail[tlc]; if(!a) return true; if(a.blackout && a.blackout[s.date]) return false; if(a.earliest && s.time && s.time<a.earliest) return false; if(a.latest && s.time && s.time>a.latest) return false; return true; }
+    function place(g,respect){
+      var a=(g.away||'').toLowerCase(), h=(g.home||'').toLowerCase();
+      for(var i=0;i<slots.length;i++){ var s=slots[i], sk=s.date+'|'+s.time+'|'+s.field, bk1=a+'@'+s.date+'|'+s.time, bk2=h+'@'+s.date+'|'+s.time;
+        if(usedSlot[sk]||teamBusy[bk1]||teamBusy[bk2]) continue;
+        if(respect && (!ok(a,s)||!ok(h,s))) continue;
+        usedSlot[sk]=true; teamBusy[bk1]=true; teamBusy[bk2]=true; g.date=s.date; g.time=s.time; g.field=s.field; return true;
+      }
+      return false;
+    }
+    games.forEach(function(g){ if(place(g,true)) return; if(place(g,false)){ fallback++; return; } unplaced++; });
+    return { fallback:fallback, unplaced:unplaced, slots:slots.length };
+  }
   function openBracketModal(){
     var tf = TOURNEY_FORMS(), fid0 = schedFilt || tf[0].id;
     document.getElementById('bkBody').innerHTML =
@@ -1208,12 +1242,32 @@
       '<div class="field"><label for="bk_dates">Tournament days <span class="muted">(comma-separated)</span></label><input class="input" id="bk_dates" placeholder="2026-06-13, 2026-06-14"></div>'+
       '<div class="field-row"><div class="field"><label for="bk_fields">Fields <span class="muted">(comma-separated)</span></label><input class="input" id="bk_fields" placeholder="Field 1, Field 2, Field 3" value="Field 1, Field 2"></div>'+
       '<div class="field"><label for="bk_times">Game times each day <span class="muted">(comma-separated)</span></label><input class="input" id="bk_times" placeholder="09:00, 11:00, 13:00, 15:00" value="09:00, 11:00, 13:00, 15:00, 17:00"></div></div>'+
-      '<div class="notice notice-warn" style="font-size:var(--text-xs)">Games are auto-assigned across your <b>fields</b> and <b>time slots</b> — then you can move any single game to a different field/time by clicking <b>Edit</b> on it. Typical flow: <b>Round robin</b> → post scores → reopen → <b>Seed from standings</b> → generate a <b>bracket</b>. <a href="bracket-preview.html" target="_blank" rel="noopener" style="color:var(--sts-navy);font-weight:600">See example brackets ↗</a></div>';
+      '<details id="bk_availWrap" style="margin-bottom:var(--space-4)"><summary style="cursor:pointer;font-weight:600;color:var(--sts-navy)">⏱ Team availability &amp; blackouts <span class="muted" style="font-weight:400">(optional — the schedule will honor these)</span></summary><div id="bk_availBody" style="margin-top:10px"></div></details>'+
+      '<div class="notice notice-warn" style="font-size:var(--text-xs)">Games are auto-assigned across your <b>fields</b> and <b>time slots</b>, honoring any team availability you set — then drag any game in <b>Grid</b> view or click <b>Edit</b> to fine-tune. Typical flow: <b>Round robin</b> → post scores → reopen → <b>Seed from standings</b> → generate a <b>bracket</b>. <a href="bracket-preview.html" target="_blank" rel="noopener" style="color:var(--sts-navy);font-weight:600">See example brackets ↗</a></div>';
     function fillTeams(){ var fid=document.getElementById('bk_form').value, s={}; REGS.forEach(function(r){ if(r.form_id===fid && r.team_name) s[r.team_name]=1; }); document.getElementById('bk_teams').value=Object.keys(s).join('\n'); }
     // pre-fill from registered teams only if the box is empty (so manual edits survive a form switch)
     function maybeFill(){ if(!document.getElementById('bk_teams').value.trim()) fillTeams(); }
     document.getElementById('bk_form').addEventListener('change', maybeFill); maybeFill();
     document.getElementById('bk_pull').onclick = fillTeams;
+    // availability editor: per-team earliest/latest + a "can't play" box per day
+    function buildAvailEditor(){
+      var teams=document.getElementById('bk_teams').value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+      var dates=document.getElementById('bk_dates').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+      var fid=document.getElementById('bk_form').value, body=document.getElementById('bk_availBody');
+      if(!teams.length){ body.innerHTML='<div class="muted" style="font-size:var(--text-sm)">Add teams first, then reopen this.</div>'; return; }
+      var regByTeam={}; REGS.forEach(function(r){ if(r.form_id===fid && r.team_name) regByTeam[r.team_name.toLowerCase()]=r; });
+      var dayHeads=dates.map(function(d){ var dt=new Date(d+'T12:00:00'); var lbl=isNaN(dt)?d:dt.toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'}); return '<th style="font-size:10px;white-space:nowrap">'+esc(lbl)+'</th>'; }).join('');
+      var rows=teams.map(function(t){
+        var reg=regByTeam[t.toLowerCase()]||{};
+        var cells=dates.map(function(d){ return '<td style="text-align:center"><input type="checkbox" class="av-bl" data-team="'+esc(t)+'" data-date="'+esc(d)+'" style="width:16px;height:16px"></td>'; }).join('');
+        return '<tr><td style="font-weight:600;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis">'+esc(t)+'</td>'+
+          '<td><input class="input av-e" type="time" data-team="'+esc(t)+'" value="'+esc(reg.avail_earliest||'')+'" style="min-width:115px"></td>'+
+          '<td><input class="input av-l" type="time" data-team="'+esc(t)+'" value="'+esc(reg.avail_latest||'')+'" style="min-width:115px"></td>'+cells+'</tr>';
+      }).join('');
+      body.innerHTML='<div class="muted" style="font-size:var(--text-xs);margin-bottom:6px">Earliest / latest start per team (pre-filled from registration). Check a day a team <b>can’t</b> play — the generator avoids it.</div>'+
+        '<div class="table-wrap"><table class="tbl" style="font-size:var(--text-sm)"><thead><tr><th>Team</th><th>No earlier</th><th>No later</th>'+dayHeads+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
+    }
+    document.getElementById('bk_availWrap').addEventListener('toggle', function(e){ if(e.target.open) buildAvailEditor(); });
     function syncFmt(){ document.getElementById('bk_gppWrap').classList.toggle('hidden', document.getElementById('bk_format').value!=='roundrobin'); }
     document.getElementById('bk_format').addEventListener('change', syncFmt); syncFmt();
     document.getElementById('bk_seed').onclick = function(){
@@ -1236,19 +1290,24 @@
       var fields=csv('bk_fields',['Field 1','Field 2']);
       var times=csv('bk_times',['09:00','11:00','13:00','15:00']);
       var meta={sport:(f&&f.sport)||'baseball', division:''};
+      var avail=getAvail(fid), res;
       if(format==='roundrobin'){
         var gpp=parseInt(document.getElementById('bk_gpp').value,10)||3;
         var pool=window.STSgen.generatePool(teams, {gamesPerTeam:gpp});
-        // spread games across the entered fields + time slots (each day = fields×times slots)
-        var perDay=Math.max(1, fields.length*times.length);
-        pool.forEach(function(m,i){ var slot=i%perDay; m.date=dates.length?dates[Math.floor(i/perDay)%dates.length]:''; m.time=times[slot%times.length]; m.field=fields[Math.floor(slot/times.length)%fields.length]; });
+        res=assignSlots(pool, dates, times, fields, avail);   // honors team availability
         await STS.savePool(fid, meta, pool);
       } else {
         var games=window.STSgen.generateBracket({format:format, teams:teams, startGame:1});
-        window.STSgen.scheduleGames(games, {dates:dates, times:times, fields:fields});
+        res=assignSlots(games, dates, times, fields, avail);
         await STS.saveBracket(fid, meta, games);
       }
-      GAMES=await STS.loadGamesScoped(ME, {}); schedFilt=fid; renderSchedule(); closeModal('bracketModal');
+      // tell Keith if availability couldn't be fully honored / ran out of slots
+      if(res && (res.fallback || res.unplaced)){
+        var msgs=[]; if(res.fallback) msgs.push(res.fallback+' game'+(res.fallback===1?'':'s')+' couldn’t honor a team’s availability'); if(res.unplaced) msgs.push(res.unplaced+' game'+(res.unplaced===1?'':'s')+' had no open slot — add more fields/times/days');
+        document.getElementById('bkNote').textContent='⚠ '+msgs.join('; ')+'.';
+      }
+      GAMES=await STS.loadGamesScoped(ME, {}); schedFilt=fid; renderSchedule();
+      if(!res || (!res.fallback && !res.unplaced)) closeModal('bracketModal');
     };
     openModal('bracketModal');
   }
