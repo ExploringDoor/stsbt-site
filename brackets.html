@@ -32,6 +32,7 @@
       </div>
     </div>
   </div>
+  <div class="pill-tabs" id="tierBar" style="display:none;margin:0 0 var(--space-4)"></div>
   <div id="bracketOut"><div class="bk-empty">Loading brackets…</div></div>
   <div class="notice notice-info mt-5"><b>Live bracket.</b> When a score is posted, the winner advances automatically — “Winner of Game 5” becomes the actual team, and the line carries them to the next round.</div>
 </main>
@@ -45,20 +46,30 @@
 <script type="module">
   import * as STS from './js/sts-data.js';
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-  var GAMES=[], FORMS=[], cur='', ZOOM=1, CURBG=[];
+  var GAMES=[], FORMS=[], cur='', curDiv='', ZOOM=1, CURBG=[];
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
 
   function applyZoom(){ var z=document.querySelector('#bracketOut .bk-zoomable'); if(z) z.style.zoom=ZOOM; document.getElementById('zoomLabel').textContent=Math.round(ZOOM*100)+'%'; }
   function render(){
-    var out=document.getElementById('bracketOut');
-    var bg = GAMES.filter(function(g){ return g.g!=null && g.form_id===cur; });
+    var out=document.getElementById('bracketOut'), tierBar=document.getElementById('tierBar');
+    var all = GAMES.filter(function(g){ return g.g!=null && g.form_id===cur; });
+    // distinct tiers/divisions in this event (Diamond/Platinum/Gold, or 8U/10U…)
+    var divs=[], seen={}; all.forEach(function(g){ var d=g.division||''; if(!seen[d]){ seen[d]=1; divs.push(d); } });
+    if(divs.length>1 || (divs.length===1 && divs[0])){
+      if(divs.indexOf(curDiv)<0) curDiv=divs[0];
+      tierBar.style.display='';
+      tierBar.innerHTML = divs.map(function(d){ return '<button class="pill'+(d===curDiv?' active':'')+'" data-div="'+esc(d)+'">'+esc(d||'Bracket')+'</button>'; }).join('');
+    } else { tierBar.style.display='none'; tierBar.innerHTML=''; curDiv=divs[0]||''; }
+    var bg = all.filter(function(g){ return (g.division||'')===curDiv; });
     CURBG = bg;
     if(!bg.length){ out.innerHTML='<div class="bk-empty">No bracket posted for this event yet.</div>'; return; }
-    out.innerHTML = '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: titleFor(cur), teamLinks: true })+'</div>';
+    var name = titleFor(cur) + (curDiv ? ' — '+curDiv : '');
+    out.innerHTML = '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: name, teamLinks: true })+'</div>';
     STSbracketRender.wireHover(out);
     ZOOM=1; applyZoom();
     if (window.STSfx) STSfx.arm(document);
   }
+  document.getElementById('tierBar').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; curDiv=b.getAttribute('data-div'); render(); });
   // click a bracket card → preview (upcoming) / recap (final) modal
   document.getElementById('bracketOut').addEventListener('click', function(e){
     var card = e.target.closest('.bk-match[data-g]'); if(!card) return;
@@ -66,7 +77,7 @@
     var g = CURBG.find(function(x){ return String(x.g)===gn; });
     if(g && window.STSgameModal) STSgameModal.open(titleFor(cur), CURBG, g);
   });
-  document.getElementById('eventSel').addEventListener('change', function(e){ cur=e.target.value; render(); location.hash=cur; });
+  document.getElementById('eventSel').addEventListener('change', function(e){ cur=e.target.value; curDiv=''; render(); location.hash=cur; });
   document.getElementById('zoomIn').addEventListener('click', function(){ ZOOM=Math.min(1.4,Math.round((ZOOM+0.1)*10)/10); applyZoom(); });
   document.getElementById('zoomOut').addEventListener('click', function(){ ZOOM=Math.max(0.4,Math.round((ZOOM-0.1)*10)/10); applyZoom(); });
   document.getElementById('zoomFit').addEventListener('click', function(){

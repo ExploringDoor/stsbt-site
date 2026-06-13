@@ -353,7 +353,15 @@ var _activity = SAMPLE_ACTIVITY.map(function (x) { return Object.assign({}, x); 
       for (var p = 0; p < 6; p++) picks.push(src[(idx * 6 + p) % src.length]);
       var date = '2026-0' + (6 + (idx % 2)) + '-' + String(13 + (idx % 14)).padStart(2, '0');
       poolGames(f.id, sport, div, picks, date);
-      bracketGames(f.id, sport, div, picks.slice(0, 4), date);
+      if (idx === 0) {
+        // NCS-style TIERED championship: 3 tiers, each its own bracket + champion
+        ['Diamond', 'Platinum', 'Gold'].forEach(function (tier, ti) {
+          var slice = [picks[ti % 6], picks[(ti + 1) % 6], picks[(ti + 2) % 6], picks[(ti + 3) % 6]];
+          bracketGames(f.id, sport, tier, slice, date);
+        });
+      } else {
+        bracketGames(f.id, sport, div, picks.slice(0, 4), date);
+      }
     });
   } catch (e) { /* demo-only; never break the data module */ }
 })();
@@ -705,17 +713,19 @@ export async function saveGame(game) {
 // Save a batch of round-robin pool games (regular games, no bracket `g`).
 // Remove this event's existing POOL games (g==null) so a regenerate REPLACES
 // rather than stacking duplicates. (Bracket games are left alone — see clearBracket.)
-export async function clearPool(formId) {
+export async function clearPool(formId, division) {
+  var matchDiv = function (d) { return division === undefined || division === null || (d || '') === division; };
   if (isConfigured) {
     var snap = await getDocs(query(collection(db, 'games'), where('form_id', '==', formId)));
-    await Promise.all(snap.docs.filter(function (d) { return d.data().g == null; }).map(function (d) { return deleteDoc(d.ref); }));
+    await Promise.all(snap.docs.filter(function (d) { var x = d.data(); return x.g == null && matchDiv(x.division); }).map(function (d) { return deleteDoc(d.ref); }));
     return;
   }
-  _games = _games.filter(function (g) { return !(g.form_id === formId && g.g == null); });
+  _games = _games.filter(function (g) { return !(g.form_id === formId && g.g == null && matchDiv(g.division)); });
 }
 export async function savePool(formId, meta, matchups) {
-  await clearPool(formId);   // replace any existing pool for this event
   meta = meta || {};
+  await clearPool(formId, meta.division || '');   // replace just this division's pool
+
   for (var i = 0; i < matchups.length; i++) {
     var m = matchups[i];
     await saveGame({ form_id: formId, sport: meta.sport || '', division: meta.division || '',
@@ -729,29 +739,36 @@ export async function deleteGame(id) {
   var i = _games.findIndex(function (g) { return g.id === id; }); if (i >= 0) _games.splice(i, 1);
 }
 
-// Delete every bracket game (those carrying a `g` number) for an event.
-export async function clearBracket(formId) {
+// Delete bracket games (those carrying a `g` number) for an event. If `division`
+// is passed, only that tier/division's bracket is cleared (so tiered events —
+// Diamond/Platinum/Gold, or 8U/10U — can coexist); omit it to clear ALL brackets.
+export async function clearBracket(formId, division) {
+  var matchDiv = function (d) { return division === undefined || division === null || (d || '') === division; };
   if (isConfigured) {
     var snap = await getDocs(query(collection(db, 'games'), where('form_id', '==', formId)));
-    await Promise.all(snap.docs.filter(function (d) { return d.data().g != null; }).map(function (d) { return deleteDoc(d.ref); }));
+    await Promise.all(snap.docs.filter(function (d) { var x = d.data(); return x.g != null && matchDiv(x.division); }).map(function (d) { return deleteDoc(d.ref); }));
     return;
   }
-  _games = _games.filter(function (g) { return !(g.form_id === formId && g.g != null); });
+  _games = _games.filter(function (g) { return !(g.form_id === formId && g.g != null && matchDiv(g.division)); });
 }
 // Persist a generated bracket: `gen` = STSgen output [{g, away, home, date, time, field}].
-export async function saveBracket(formId, meta, gen) {
-  await clearBracket(formId);   // replace any existing bracket for this event
-  meta = meta || {};
+// meta.division = the tier/division label. opts.replace===false skips clearing
+// (used when saving several tiers in one event). Game ids include the division so
+// two tiers numbered g:1..7 don't collide.
+export async function saveBracket(formId, meta, gen, opts) {
+  meta = meta || {}; opts = opts || {};
+  var dv = meta.division || '';
+  if (opts.replace !== false) await clearBracket(formId, dv);   // replace just this tier
   for (var i = 0; i < gen.length; i++) {
     var s = gen[i];
     var rec = {
-      form_id: formId, sport: meta.sport || '', division: meta.division || '', g: s.g,
+      form_id: formId, sport: meta.sport || '', division: dv, g: s.g,
       away: String(s.away == null ? '' : s.away), home: String(s.home == null ? '' : s.home),
       date: s.date || '', time: s.time || '', field: s.field || '',
       away_score: null, home_score: null, done: false
     };
     if (isConfigured) { await addDoc(collection(db, 'games'), rec); }
-    else { rec.id = 'b' + formId + '-' + s.g; _games.push(rec); }
+    else { rec.id = 'b' + formId + '-' + (dv ? slugify(dv) + '-' : '') + s.g; _games.push(rec); }
   }
   return gen.length;
 }
