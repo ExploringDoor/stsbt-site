@@ -22,6 +22,31 @@
       return '<span class="gm-tn">'+n+'</span>';
     return '<a class="gm-tn gm-tlink" href="team.html?id='+esc(slug(raw))+'" onclick="event.stopPropagation()">'+n+'</a>';
   }
+  function isPlaceholder(name, tbd){ var raw=String(name==null?'':name).trim(); return !!(tbd || !clean(raw) || /^(tbd|bye)$/i.test(raw) || /^(winner|loser) of game/i.test(raw)); }
+  // deterministic team color from the name — vivid, jersey-like, stable per team (no manual logos)
+  function teamColor(name){ var h=0, s=String(name||''); for(var i=0;i<s.length;i++){ h=(h*31 + s.charCodeAt(i))>>>0; } var hue=h%360, sat=60+(h>>3)%20, lig=34+(h>>5)%12; return 'hsl('+hue+','+sat+'%,'+lig+'%)'; }
+  function monogram(name){ var w=String(name||'').replace(/[^A-Za-z0-9 ]/g,'').split(/\s+/).filter(function(x){ return x && !/^(the|of|a|an)$/i.test(x); }); if(!w.length) return '?'; return (w.length===1 ? w[0].slice(0,2) : (w[0][0]+w[w.length-1][0])).toUpperCase(); }
+  function badgeHTML(name, tbd){ if(isPlaceholder(name,tbd)) return '<span class="gm-badge2 ph">?</span>'; return '<span class="gm-badge2" style="background:'+teamColor(name)+'">'+esc(monogram(name))+'</span>'; }
+  // Scoreboard matchup header (navy) for previews
+  function matchupHeader(An, At, Hn, Ht){
+    return '<div class="gm-sb">'+
+      '<div class="gm-sb-row">'+badgeHTML(An,At)+tnHTML(An,At)+'</div>'+
+      '<div class="gm-sb-vs">VS</div>'+
+      '<div class="gm-sb-row">'+badgeHTML(Hn,Ht)+tnHTML(Hn,Ht)+'</div></div>';
+  }
+  // Scoreboard with scores (recaps) — winner's name + score go gold
+  function scoreboard(An, At, as, Hn, Ht, hs){
+    var aWin=as>hs, hWin=hs>as;
+    return '<div class="gm-sb">'+
+      '<div class="gm-sb-final">Final</div>'+
+      '<div class="gm-sb-srow'+(aWin?' win':'')+'">'+badgeHTML(An,At)+tnHTML(An,At)+'<span class="gm-sb-sc">'+as+'</span></div>'+
+      '<div class="gm-sb-srow'+(hWin?' win':'')+'">'+badgeHTML(Hn,Ht)+tnHTML(Hn,Ht)+'<span class="gm-sb-sc">'+hs+'</span></div></div>';
+  }
+  function metaBar(g){
+    var when=[fmtDate(g.date),fmtTime(g.time)].filter(Boolean).join(' · '), f=clean(g.field);
+    var bits=[when||'', f?fieldLink(f):''].filter(Boolean).join(' &nbsp;·&nbsp; ');
+    return '<div class="gm-sb-meta">'+(bits||'Date &amp; time TBD')+'</div>';
+  }
 
   function parseRef(s){ return SB.parseRef(s); }
   function gByNum(t,n){ return (t.games||[]).find(function(g){ return g.g===n; }); }
@@ -104,9 +129,7 @@
   }
   function previewHTML(t,g,cls){
     var A=sideDisplay(t,g.away), H=sideDisplay(t,g.home);
-    var when=[fmtDate(g.date),fmtTime(g.time)].filter(Boolean).join(' · '), field=clean(g.field);
-    return '<div class="gm-matchup"><div class="gm-team '+(A.tbd?'tbd':'')+'">'+tnHTML(A.name,A.tbd)+'</div><div class="gm-vs">vs</div><div class="gm-team '+(H.tbd?'tbd':'')+'">'+tnHTML(H.name,H.tbd)+'</div></div>'+
-      '<div class="gm-meta">'+(when||'Date &amp; time TBD')+(field?' &nbsp;·&nbsp; '+fieldLink(field):'')+'</div>'+
+    return matchupHeader(A.name,A.tbd,H.name,H.tbd)+metaBar(g)+
       '<div class="gm-sec"><h4>Preview</h4><p class="gm-recap">'+esc(previewBlurb(t,g,cls))+'</p></div>';
   }
   // ── plain (non-bracket) game text — no bracket stage/stakes, no advance/eliminate ──
@@ -127,22 +150,20 @@
   }
   function poolPreviewHTML(g){
     var A=clean(g.away)||'TBD', H=clean(g.home)||'TBD';
-    var when=[fmtDate(g.date),fmtTime(g.time)].filter(Boolean).join(' · '), field=clean(g.field);
-    return '<div class="gm-matchup"><div class="gm-team">'+tnHTML(A)+'</div><div class="gm-vs">vs</div><div class="gm-team">'+tnHTML(H)+'</div></div>'+
-      '<div class="gm-meta">'+(when||'Date &amp; time TBD')+(field?' &nbsp;·&nbsp; '+fieldLink(field):'')+'</div>'+
+    return matchupHeader(A,false,H,false)+metaBar(g)+
       '<div class="gm-sec"><h4>Preview</h4><p class="gm-recap">'+esc(poolText(g,false))+'</p></div>';
   }
   function poolRecapHTML(g){
-    var A=clean(g.away)||'TBD', H=clean(g.home)||'TBD', aWin=g.away_score>g.home_score, hWin=g.home_score>g.away_score;
-    return '<div class="gm-score"><div class="gm-srow '+(aWin?'win':'')+'"><span class="t">'+tnHTML(A)+'</span><span class="s">'+g.away_score+'</span></div><div class="gm-srow '+(hWin?'win':'')+'"><span class="t">'+tnHTML(H)+'</span><span class="s">'+g.home_score+'</span></div></div>'+
+    var A=clean(g.away)||'TBD', H=clean(g.home)||'TBD';
+    return scoreboard(A,false,g.away_score,H,false,g.home_score)+metaBar(g)+
       '<div class="gm-sec"><h4>Recap</h4><p class="gm-recap">'+esc(poolText(g,true))+'</p></div>';
   }
 
   function recapHTML(t,g,cls){
     var text=recapTemplate(t,g,cls);
     if(isByeSlot(g.away)||isByeSlot(g.home)){ var nm=sideDisplay(t,isByeSlot(g.away)?g.home:g.away).name; return '<div class="gm-byewrap"><div class="gm-team">'+tnHTML(nm)+'</div><div class="gm-meta">'+(nextGameOf(t,g.g)?'Advanced on a bye':'Champion')+'</div></div><div class="gm-sec"><h4>Recap</h4><p class="gm-recap">'+esc(text)+'</p></div>'; }
-    var A=sideDisplay(t,g.away), H=sideDisplay(t,g.home), aWin=g.away_score>g.home_score, hWin=g.home_score>g.away_score;
-    return '<div class="gm-score"><div class="gm-srow '+(aWin?'win':'')+'"><span class="t">'+tnHTML(A.name,A.tbd)+'</span><span class="s">'+g.away_score+'</span></div><div class="gm-srow '+(hWin?'win':'')+'"><span class="t">'+tnHTML(H.name,H.tbd)+'</span><span class="s">'+g.home_score+'</span></div></div>'+
+    var A=sideDisplay(t,g.away), H=sideDisplay(t,g.home);
+    return scoreboard(A.name,A.tbd,g.away_score,H.name,H.tbd,g.home_score)+metaBar(g)+
       '<div class="gm-sec"><h4>Recap</h4><p class="gm-recap">'+esc(text)+'</p></div>';
   }
 
