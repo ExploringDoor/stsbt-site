@@ -213,9 +213,12 @@
       </div>
       <div class="field"><label for="emlSubject">Subject</label><input class="input" id="emlSubject" placeholder="e.g. Saturday games — weather update" /></div>
       <div class="field"><label for="emlMessage">Message</label><textarea class="input" id="emlMessage" rows="8" placeholder="Type your message to coaches here…"></textarea></div>
-      <div class="field" style="max-width:320px"><label for="emlReply">Reply-to email <span class="muted">(optional)</span></label><input class="input" id="emlReply" type="email" placeholder="replies go here (e.g. your inbox)" /></div>
+      <div class="field-row" style="max-width:660px">
+        <div class="field" style="margin:0"><label for="emlReply">Reply-to email <span class="muted">(optional)</span></label><input class="input" id="emlReply" type="email" placeholder="replies go here (e.g. your inbox)" /></div>
+        <div class="field" style="margin:0"><label for="emlTestTo">Send a test to</label><input class="input" id="emlTestTo" type="email" placeholder="your real email address" /></div>
+      </div>
       <div class="spread" style="gap:10px;flex-wrap:wrap">
-        <button class="btn btn-outline btn-sm" id="emlTest">Send a test to myself</button>
+        <button class="btn btn-outline btn-sm" id="emlTest">Send test</button>
         <button class="btn btn-red" id="emlSend">Send to <span id="emlSendN">0</span> coaches</button>
       </div>
       <div id="emlErr" class="notice notice-warn hidden mt-3" style="text-transform:none;letter-spacing:0"></div>
@@ -652,7 +655,10 @@
     var replyTo = document.getElementById('emlReply').value.trim();
     if (!subject || !message){ err.textContent = 'Add a subject and a message first.'; err.classList.remove('hidden'); return; }
     if (!isConfigured || !auth.currentUser){ err.textContent = 'Mass email only works on the live site while signed in (not in this demo).'; err.classList.remove('hidden'); return; }
-    var recipients = testOnly ? [auth.currentUser.email] : emlRecipients();
+    var isEmail = function(e){ return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(e||'').trim()); };
+    var testAddr = document.getElementById('emlTestTo').value.trim();
+    if (testOnly && !isEmail(testAddr)){ err.textContent = 'Enter a real email address to send the test to.'; err.classList.remove('hidden'); return; }
+    var recipients = testOnly ? [testAddr] : emlRecipients();
     if (!recipients.length){ err.textContent = 'No coaches match that audience.'; err.classList.remove('hidden'); return; }
     if (!testOnly && !confirm('Send this email to '+recipients.length+' coaches? This cannot be undone.')) return;
     var btn = document.getElementById(testOnly?'emlTest':'emlSend'); btn.disabled = true; var was = btn.innerHTML; btn.textContent = 'Sending…';
