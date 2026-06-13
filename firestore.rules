@@ -115,6 +115,15 @@ service cloud.firestore {
       allow write: if isSuper();
     }
 
+    // ── TEAM INSURANCE (policy details + cert — admin-only) ──────────
+    // Carrier / policy # / PDF for each team. Never public. Coaches submit via a
+    // code-gated server endpoint (Admin SDK / the super server user), and admins
+    // approve/reject — so writes are isSuper(), reads are any active admin.
+    match /team_insurance/{id} {
+      allow read:  if isAdmin();
+      allow write: if isSuper();
+    }
+
     // ── Public-read collections with admin writes ────────────────────
     // NOTE: roster docs here must NEVER contain a child's dob (it ships to every
     // browser via this `read: if true` rule). DOB lives in team_rosters/ above.

@@ -65,6 +65,7 @@
       <li><button data-panel="analysis">📊 Analysis</button></li>
       <li><button data-panel="forms">📝 Forms</button></li>
       <li><button data-panel="teams">⚾ Teams</button></li>
+      <li><button data-panel="insurance">🛡️ Insurance</button></li>
       <li><button data-panel="champions">🏆 Champions</button></li>
       <li><button data-panel="content">🏠 Homepage</button></li>
       <li><button data-panel="prices">💲 Prices</button></li>
@@ -139,6 +140,19 @@
       <div class="table-wrap">
         <table class="tbl"><thead><tr><th>Team</th><th>Sport</th><th>Division</th><th>Age</th><th>Town</th><th>Code</th><th>Live</th><th>Actions</th></tr></thead>
         <tbody id="teamsBody"></tbody></table>
+      </div>
+    </section>
+
+    <!-- INSURANCE -->
+    <section class="panel" id="panel-insurance">
+      <p class="muted">Every team must carry insurance with Small Town Select listed as additionally insured. Teams bought through the site are auto-approved; uploaded policies need your review. <b>Not shown publicly.</b></p>
+      <div id="insStats" class="mini-stats" style="margin:0 0 var(--space-5)"></div>
+      <h3 style="margin:0 0 8px">Pending approval <span id="insPendCount" class="muted" style="font-weight:400"></span></h3>
+      <div id="insPending"></div>
+      <h3 style="margin:var(--space-6) 0 8px">All teams</h3>
+      <div class="table-wrap">
+        <table class="tbl"><thead><tr><th>Team</th><th>Status</th><th>Source</th><th>Carrier</th><th>Policy #</th><th>Coverage</th><th>Document</th></tr></thead>
+        <tbody id="insAllBody"></tbody></table>
       </div>
     </section>
 
@@ -497,11 +511,56 @@
     REGS = await STS.loadRegistrationsScoped(ME, {});
     GAMES = await STS.loadGamesScoped(ME, {});
     TEAMS = isSuper() ? await STS.loadTeams({ includeHidden: true }) : [];   // teams panel is super-only
+    INS = isSuper() ? await STS.loadInsurance() : [];
     // form filter dropdown (scoped label for directors)
     document.getElementById('entryForm').innerHTML = '<option value="">' + (isSuper() ? 'All forms' : 'All my events') + '</option>' + FORMS.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
-    renderEntries(); renderForms(); renderTeams(); loadPrices(); renderSchedule();
+    renderEntries(); renderForms(); renderTeams(); loadPrices(); renderSchedule(); renderInsurance();
     if (isSuper()) renderAdmins();
   }
+
+  // ── INSURANCE ───────────────────────────────────────────────────────
+  var INS = [];
+  function insBadge(s){
+    var map = { approved:['#166534','rgba(22,101,52,.12)','✓ Approved'], pending:['#9a3412','rgba(154,52,18,.12)','⏳ Pending'], rejected:['#bf0a30','rgba(191,10,48,.12)','✕ Rejected'] };
+    var m = map[s] || ['#64748b','rgba(100,116,139,.12)','— None'];
+    return '<span style="display:inline-block;font-size:11px;font-weight:700;color:'+m[0]+';background:'+m[1]+';padding:2px 9px;border-radius:999px">'+m[2]+'</span>';
+  }
+  function insDoc(r){
+    if (r.source==='purchased') return '<span class="muted">Bought via site</span>';
+    if (!r.doc_url) return '<span class="muted">—</span>';
+    return '<a href="'+esc(r.doc_url)+'" target="_blank" rel="noopener">📄 '+esc(r.doc_name||'View PDF')+'</a>';
+  }
+  function cov(r){ return (r.coverage_start||'').slice(0,4)+'–'+(r.coverage_end||'').slice(2,4); }
+  function renderInsurance(){
+    var pend = INS.filter(function(r){ return r.status==='pending'; });
+    var appr = INS.filter(function(r){ return r.status==='approved'; }).length;
+    var rej = INS.filter(function(r){ return r.status==='rejected'; }).length;
+    var teamsTotal = TEAMS.length;
+    document.getElementById('insStats').innerHTML =
+      '<div class="mini-stat"><div class="n">'+appr+'</div><div class="l">Approved</div></div>'+
+      '<div class="mini-stat"><div class="n">'+pend.length+'</div><div class="l">Pending review</div></div>'+
+      '<div class="mini-stat"><div class="n">'+rej+'</div><div class="l">Rejected</div></div>'+
+      '<div class="mini-stat"><div class="n">'+Math.max(0,teamsTotal-appr)+'</div><div class="l">Not yet covered</div></div>';
+    document.getElementById('insPendCount').textContent = pend.length ? '('+pend.length+')' : '';
+    document.getElementById('insPending').innerHTML = pend.length ? pend.map(function(r){
+      return '<div class="card" style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">'+
+        '<div><b>'+esc(r.team_name||r.team_id)+'</b> '+insBadge(r.status)+'<div class="muted" style="font-size:var(--text-sm);margin-top:4px">'+esc(r.carrier||'')+' · Policy '+esc(r.policy_no||'—')+' · '+insDoc(r)+'</div></div>'+
+        '<div style="display:flex;gap:8px"><button class="btn btn-navy btn-sm" data-ins-approve="'+esc(r.team_id)+'">Approve</button><button class="btn btn-outline btn-sm" data-ins-reject="'+esc(r.team_id)+'">Reject</button></div>'+
+      '</div>'; }).join('') : '<div class="empty">Nothing waiting for review. 🎉</div>';
+    document.getElementById('insAllBody').innerHTML = INS.slice().sort(function(a,b){ return (a.team_name||'').localeCompare(b.team_name||''); }).map(function(r){
+      return '<tr><td><b>'+esc(r.team_name||r.team_id)+'</b>'+(r.note&&r.status==='rejected'?'<div class="muted" style="font-size:11px">'+esc(r.note)+'</div>':'')+'</td>'+
+        '<td>'+insBadge(r.status)+'</td><td>'+esc(r.source||'')+'</td><td>'+esc(r.carrier||'—')+'</td><td>'+esc(r.policy_no||'—')+'</td><td>'+esc(cov(r))+'</td><td>'+insDoc(r)+'</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="empty">No insurance on file yet.</td></tr>';
+  }
+  document.getElementById('panel-insurance').addEventListener('click', async function(e){
+    var ap = e.target.closest('[data-ins-approve]'), rj = e.target.closest('[data-ins-reject]');
+    if (!ap && !rj) return;
+    var tid = (ap||rj).getAttribute(ap?'data-ins-approve':'data-ins-reject');
+    var rec = INS.find(function(x){ return x.team_id===tid; }); if(!rec) return;
+    if (ap){ var patch = { status:'approved', reviewed_at:new Date().toISOString(), note:'' }; await STS.setInsuranceStatus(tid, patch); Object.assign(rec, patch); }
+    else { var why = prompt('Reason for rejection (the team will see this):', 'STS must be listed as additionally insured — please re-upload.'); if (why===null) return; var p2 = { status:'rejected', reviewed_at:new Date().toISOString(), note:why }; await STS.setInsuranceStatus(tid, p2); Object.assign(rec, p2); }
+    renderInsurance();
+  });
 
   // ── ENTRIES ─────────────────────────────────────────────────────────
   function filteredRegs(){

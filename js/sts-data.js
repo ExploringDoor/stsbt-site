@@ -138,6 +138,18 @@ var SAMPLE_GAMES = [
 var _games = SAMPLE_GAMES.map(function (g) { return Object.assign({}, g); });
 var _gameSeq = 9000;   // unique sample-mode ids for batch-created games
 
+// ── TEAM INSURANCE (admin-only) ──────────────────────────────────────
+// One record per team_id. status: none implied (no record) | pending | approved
+// | rejected. source: 'purchased' (bought through the site → auto-approved) or
+// 'uploaded' (team's own policy → needs admin approval). Lives in the gated
+// team_insurance collection; never shown on the public team page.
+var SAMPLE_INSURANCE = [
+  { team_id: 'blacksox', team_name: 'Blacksox', status: 'approved', source: 'purchased', carrier: 'Small Town Select Group Policy', policy_no: 'STS-2026-0142', doc_name: '', doc_url: '', coverage_start: '2025-08-01', coverage_end: '2026-07-31', submitted_at: '2025-07-12T09:00:00', reviewed_at: '2025-07-12T09:05:00', note: '' },
+  { team_id: 'ctx-wolfpack', team_name: 'CTX Wolfpack', status: 'pending', source: 'uploaded', carrier: 'Bolt Insurance', policy_no: 'BLT-99812', doc_name: 'wolfpack-coi-2026.pdf', doc_url: '#sample-pdf', coverage_start: '2025-08-01', coverage_end: '2026-07-31', submitted_at: '2025-07-20T14:30:00', reviewed_at: '', note: '' },
+  { team_id: 'btx-vice', team_name: 'BTX Vice', status: 'rejected', source: 'uploaded', carrier: 'K&K Insurance', policy_no: 'KK-2231', doc_name: 'vice-policy.pdf', doc_url: '#sample-pdf', coverage_start: '2025-08-01', coverage_end: '2026-07-31', submitted_at: '2025-07-18T10:00:00', reviewed_at: '2025-07-19T11:00:00', note: 'STS not listed as additionally insured — please add and re-upload.' },
+];
+var _insurance = SAMPLE_INSURANCE.map(function (x) { return Object.assign({}, x); });
+
 // ── SCALE MODE (?scale=N, sample/demo only) ──────────────────────────
 // Synthesizes N extra registrations (+ live teams for the paid season ones) so
 // the admin and public pages can be exercised at Keith's REAL volume (~1,150
@@ -237,6 +249,22 @@ var _gameSeq = 9000;   // unique sample-mode ids for batch-created games
       });
     }
   }
+
+  // ── INSURANCE: seed a realistic mix across generated teams ────────────
+  try {
+    var insSeen = {}; _insurance.forEach(function (r) { insSeen[r.team_id] = 1; });
+    var CARRIERS = ['Bolt Insurance', 'K&K Insurance', 'Sadler Sports', 'Philadelphia Insurance'];
+    _teams.filter(function (t) { return t.live && !insSeen[t.id]; }).forEach(function (t, k) {
+      var m = k % 5;
+      if (m === 0) return;   // ~20% have nothing on file
+      var sub = '2025-07-' + String(8 + (k % 18)).padStart(2, '0') + 'T12:00:00';
+      var rec = { team_id: t.id, team_name: t.name, coverage_start: '2025-08-01', coverage_end: '2026-07-31', submitted_at: sub, reviewed_at: '', note: '' };
+      if (m === 1) Object.assign(rec, { status: 'pending', source: 'uploaded', carrier: CARRIERS[k % 4], policy_no: 'POL-' + (10000 + k), doc_name: slugify(t.name) + '-coi.pdf', doc_url: '#sample-pdf' });
+      else if (m === 4) Object.assign(rec, { status: 'rejected', source: 'uploaded', carrier: 'K&K Insurance', policy_no: 'POL-' + (20000 + k), doc_name: slugify(t.name) + '-policy.pdf', doc_url: '#sample-pdf', reviewed_at: '2025-07-' + String(12 + (k % 16)).padStart(2, '0') + 'T09:00:00', note: 'STS not listed as additionally insured — please re-upload.' });
+      else Object.assign(rec, { status: 'approved', source: (k % 2 ? 'purchased' : 'uploaded'), carrier: (k % 2 ? 'Small Town Select Group Policy' : 'Sadler Sports'), policy_no: 'POL-' + (30000 + k), doc_name: (k % 2 ? '' : slugify(t.name) + '-coi.pdf'), doc_url: (k % 2 ? '' : '#sample-pdf'), reviewed_at: '2025-07-' + String(9 + (k % 18)).padStart(2, '0') + 'T10:00:00' });
+      _insurance.push(rec);
+    });
+  } catch (e) { /* demo-only */ }
 
   // ── GAMES: fully populate every tournament that has none ──────────────
   // Powers schedule, standings, brackets, champions, and team records — all
@@ -409,6 +437,22 @@ export async function getTeamRoster(teamId) {
   }
   var s = _teams.find(function (x) { return x.id === teamId || x.slug === teamId; });
   return (s && Array.isArray(s.roster)) ? s.roster : [];
+}
+
+// ── Insurance (admin-only) ───────────────────────────────────────────
+export async function loadInsurance() {
+  if (isConfigured) { try { return await fsAll('team_insurance'); } catch (e) { return []; } }
+  return _insurance.slice();
+}
+export async function getTeamInsurance(teamId) {
+  var all = await loadInsurance();
+  return all.find(function (x) { return x.team_id === teamId || x.id === teamId; }) || null;
+}
+// Admin approve/reject (admin.html is signed-in super → may write team_insurance).
+export async function setInsuranceStatus(teamId, patch) {
+  if (isConfigured) { await setDoc(doc(db, 'team_insurance', teamId), patch, { merge: true }); return; }
+  var rec = _insurance.find(function (x) { return x.team_id === teamId; });
+  if (rec) Object.assign(rec, patch); else _insurance.push(Object.assign({ team_id: teamId }, patch));
 }
 // Auto-create the public team page from a registration. The Clover webhook does
 // this for PAID entries; this is the client-side path for FREE ($0) team entries

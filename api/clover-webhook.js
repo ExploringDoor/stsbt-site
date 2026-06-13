@@ -84,8 +84,27 @@ export default async function handler(req, res) {
       clover_order_id: orderId, paid_at: new Date().toISOString(),
     });
 
-    // auto-create the team page if it doesn't exist yet
-    if (!reg.team_id) {
+    // Only SEASON / TOURNAMENT registrations create a team page. Products
+    // (insurance, merch) must NOT spawn a phantom team.
+    const form = reg.form_id ? await fsGet(`forms/${reg.form_id}`) : null;
+    const formType = form ? form.type : (/insurance|gamepro|ball|merch/i.test(reg.form_id || '') ? 'product' : 'season');
+    const isInsurance = /insurance/i.test(reg.form_id || (form && form.title) || (reg.form_title || ''));
+
+    // Insurance bought through the site → auto-approve for the matching team.
+    if (isInsurance) {
+      const tslug = slugify(reg.team_name) || `team-${reg.id}`;
+      try {
+        await fsPatch(`team_insurance/${tslug}`, {
+          team_id: tslug, team_name: reg.team_name || '', status: 'approved', source: 'purchased',
+          carrier: 'Small Town Select Group Policy', policy_no: '',
+          coverage_start: '2025-08-01', coverage_end: '2026-07-31',
+          submitted_at: new Date().toISOString(), reviewed_at: new Date().toISOString(), note: '',
+        });
+      } catch (e) { /* non-fatal */ }
+    }
+
+    // auto-create the team page if it doesn't exist yet (season/tournament only)
+    if (!reg.team_id && (formType === 'season' || formType === 'tournament')) {
       let slug;
       // reuse an existing team for THIS registration (idempotent on webhook retries)
       const mine = await fsQuery('teams', 'reg_id', 'EQUAL', reg.id);
