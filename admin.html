@@ -42,7 +42,7 @@
 <!-- Login gate (only when Firebase configured) -->
 <div class="login-gate hidden" id="loginGate">
   <form class="login-card" id="loginForm">
-    <img src="assets/sts-logo.png" alt="Small Town Select" style="margin:0 auto var(--space-4);width:64px;height:64px;border-radius:50%;display:block;object-fit:cover;background:#fff;box-shadow:0 0 0 2px var(--line)" onerror="stsLogoFallback(this,64)" />
+    <img src="assets/sts-logo.png" alt="Small Town Select" style="margin:0 auto var(--space-4);width:84px;height:84px;display:block;object-fit:contain" onerror="stsLogoFallback(this,64)" />
     <h2 style="margin:0 0 6px">Admin Sign In</h2>
     <p class="muted" style="font-size:var(--text-sm);margin-bottom:var(--space-5)">Small Town Select Tournaments</p>
     <div class="field"><input class="input" type="email" id="loginEmail" placeholder="Email" autocomplete="username" required /></div>
@@ -55,7 +55,7 @@
 <!-- Signed in but not an enabled admin -->
 <div class="login-gate hidden" id="noAccess">
   <div class="login-card">
-    <img src="assets/sts-logo.png" alt="Small Town Select" style="margin:0 auto var(--space-4);width:64px;height:64px;border-radius:50%;display:block;object-fit:cover;background:#fff;box-shadow:0 0 0 2px var(--line)" onerror="stsLogoFallback(this,64)" />
+    <img src="assets/sts-logo.png" alt="Small Town Select" style="margin:0 auto var(--space-4);width:84px;height:84px;display:block;object-fit:contain" onerror="stsLogoFallback(this,64)" />
     <h2 style="margin:0 0 6px">Not enabled yet</h2>
     <p class="muted" style="font-size:var(--text-sm)">Your account (<b data-who></b>) isn't set up as an administrator. Ask Keith to add you as a director.</p>
     <button class="btn btn-outline" id="noAccessOut" style="width:100%">Sign Out</button>
@@ -65,7 +65,7 @@
 <!-- Admin app -->
 <div class="admin-wrap hidden" id="adminApp">
   <aside class="admin-side">
-    <div class="brand"><img src="assets/sts-logo.png" alt="STS" style="width:38px;height:38px;border-radius:50%;object-fit:cover;background:#fff" onerror="stsLogoFallback(this,38)" /><b>STS Admin</b></div>
+    <div class="brand"><img src="assets/sts-logo.png" alt="STS" style="width:44px;height:44px;object-fit:contain" onerror="stsLogoFallback(this,38)" /><b>STS Admin</b></div>
     <ul class="admin-nav" id="adminNav">
       <li><button data-panel="entries" class="active">📋 Entries</button></li>
       <li><button data-panel="activity">🔔 Activity</button></li>
