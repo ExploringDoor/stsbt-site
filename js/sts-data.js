@@ -463,6 +463,29 @@ export async function findSeasonRegistration(opts) {
   });
   return match || null;
 }
+// Bulk-import historical entries (e.g. exported from QuickScores) as ARCHIVED
+// registrations. They land under the Entries → Archived filter and never touch the
+// live public site. Each record is written verbatim with status:'archived'. Returns
+// the count written. Caller is responsible for parsing/mapping the source file.
+export async function importArchivedRegistrations(records) {
+  records = (records || []).filter(Boolean);
+  var n = 0;
+  for (var i = 0; i < records.length; i++) {
+    var rec = Object.assign({
+      status: 'archived', payment_status: 'paid', source: 'quickscores',
+      archived: true, waiver_agreed: true
+    }, records[i]);
+    rec.created_at = rec.created_at || (isConfigured ? serverTimestamp() : new Date().toISOString());
+    rec.team_code = rec.team_code || genTeamCode();
+    if (isConfigured) {
+      await addDoc(collection(db, 'registrations'), rec);
+    } else {
+      rec.id = 'qs' + (_regs.length + 1); if (rec.entry_no == null) rec.entry_no = ++_entrySeq; _regs.push(rec);
+    }
+    n++;
+  }
+  return n;
+}
 export async function getRegistrationBySession(sessionId) {
   if (isConfigured) {
     var snap = await getDocs(query(collection(db, 'registrations'), where('clover_session_id', '==', sessionId)));

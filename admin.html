@@ -72,6 +72,7 @@
       <li><button data-panel="schedule">📅 Schedule</button></li>
       <li><button data-panel="analysis">📊 Analysis</button></li>
       <li><button data-panel="forms">📝 Forms</button></li>
+      <li><button data-panel="import">📥 Import</button></li>
       <li><button data-panel="teams">⚾ Teams</button></li>
       <li><button data-panel="insurance">🛡️ Insurance</button></li>
       <li><button data-panel="champions">🏆 Champions</button></li>
@@ -158,6 +159,26 @@
         <table class="tbl"><thead><tr><th>Order</th><th>Title</th><th>Type</th><th>Sport</th><th>Fee</th><th>Entries</th><th>Active</th><th>Actions</th></tr></thead>
         <tbody id="formsBody"></tbody></table>
       </div>
+    </section>
+
+    <!-- IMPORT (QuickScores archive) -->
+    <section class="panel" id="panel-import">
+      <p class="muted" style="max-width:70ch">Bring your old <strong>QuickScores</strong> teams &amp; coaches in as <strong>archived</strong> records. In QuickScores open <em>Online Registration → List Entries</em>, export to CSV/Excel, then paste the spreadsheet (or its CSV) below. Imported entries are tagged <strong>Archived</strong> — they show up under Entries → Archived for your reference and never appear on the public site.</p>
+      <div class="field-row" style="align-items:flex-end;margin-bottom:var(--space-3)">
+        <div class="field" style="margin:0"><label for="imSeason">Season label</label><input class="input" id="imSeason" placeholder="e.g. 2025" style="max-width:160px" /></div>
+        <div class="field" style="margin:0"><label for="imSport">Default sport (if blank in file)</label>
+          <select class="input" id="imSport" style="max-width:160px"><option value="">— none —</option><option value="baseball">Baseball</option><option value="softball">Softball</option></select></div>
+        <label class="btn btn-outline btn-sm" style="margin:0;cursor:pointer">Upload CSV file<input type="file" id="imFile" accept=".csv,text/csv,text/plain" hidden /></label>
+      </div>
+      <div class="field"><label for="imText">…or paste CSV / spreadsheet rows here</label>
+        <textarea class="input" id="imText" rows="6" placeholder="Paste the exported rows here (first line = column headers, e.g. Team Name, Coaches Name, Coaches Email…)" style="font-family:monospace;font-size:var(--text-xs)"></textarea></div>
+      <div class="spread"><button class="btn btn-navy btn-sm" id="imParse">Preview import</button><span class="muted" id="imSummary" style="font-size:var(--text-sm)"></span></div>
+      <div id="imPreviewWrap" class="hidden mt-4">
+        <div class="table-wrap" style="max-height:420px;overflow:auto"><table class="tbl"><thead><tr><th>#</th><th>Sport</th><th>Age / Class</th><th>Team</th><th>Coach</th><th>Email</th><th>Phone</th><th>Amount</th></tr></thead><tbody id="imPreviewBody"></tbody></table></div>
+        <div class="spread mt-3"><span class="muted" id="imCount" style="font-size:var(--text-sm)"></span><button class="btn btn-red" id="imCommit">Import as archived</button></div>
+      </div>
+      <div id="imErr" class="notice notice-warn hidden mt-3" style="text-transform:none;letter-spacing:0"></div>
+      <div id="imDone" class="notice notice-ok hidden mt-3" style="text-transform:none;letter-spacing:0"></div>
     </section>
 
     <!-- TEAMS -->
@@ -341,7 +362,7 @@
 
   // ── Auth gate + role scope ──────────────────────────────────────────
   var ME = null;  // { id, role, events[], name, email } — the signed-in admin
-  var SUPER_ONLY = ['forms','teams','content','prices','users','champions'];
+  var SUPER_ONLY = ['forms','import','teams','content','prices','users','champions'];
   function isSuper(){ return ME && ME.role === 'super'; }
 
   async function showApp(uid, email){
@@ -406,9 +427,115 @@
     document.getElementById('panelTitle').textContent = b.textContent.replace(/^[^A-Za-z]+/, '').replace(/\s*\d+\+?\s*$/, '').trim();
     if (b.dataset.panel === 'analysis') initAnalysisPanel();
     if (b.dataset.panel === 'champions') initChampionsPanel();
+    if (b.dataset.panel === 'import') initImportPanel();
   });
 
   var CURRENT_SEASON = (window.LEAGUE_CONFIG && LEAGUE_CONFIG.season && LEAGUE_CONFIG.season.year) || 2026;
+
+  // ── Import panel (QuickScores → archived registrations) ─────────────
+  var imInited = false, IM_PARSED = [];
+  function csvParse(text){
+    // RFC-4180-ish: handles quoted fields, escaped quotes, CRLF. Returns array of string[].
+    var rows = [], row = [], cur = '', q = false, i = 0, c;
+    text = String(text || '').replace(/^﻿/, '');
+    // auto-detect tab vs comma (pasting from Excel gives tabs)
+    var firstLine = text.split(/\r?\n/)[0] || '';
+    var delim = (firstLine.split('\t').length > firstLine.split(',').length) ? '\t' : ',';
+    for (; i < text.length; i++){
+      c = text[i];
+      if (q){
+        if (c === '"'){ if (text[i+1] === '"'){ cur += '"'; i++; } else q = false; }
+        else cur += c;
+      } else if (c === '"'){ q = true; }
+      else if (c === delim){ row.push(cur); cur = ''; }
+      else if (c === '\n'){ row.push(cur); rows.push(row); row = []; cur = ''; }
+      else if (c === '\r'){ /* skip */ }
+      else cur += c;
+    }
+    if (cur.length || row.length){ row.push(cur); rows.push(row); }
+    return rows.filter(function(r){ return r.some(function(x){ return String(x).trim() !== ''; }); });
+  }
+  function pickCol(headers, names){
+    for (var n = 0; n < names.length; n++){
+      var idx = headers.findIndex(function(h){ return h === names[n] || h.indexOf(names[n]) >= 0; });
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  }
+  function dollarsToCents(s){ var v = parseFloat(String(s||'').replace(/[^0-9.]/g,'')); return isFinite(v) ? Math.round(v*100) : 0; }
+  function parseImport(){
+    var err = document.getElementById('imErr'), done = document.getElementById('imDone');
+    err.classList.add('hidden'); done.classList.add('hidden');
+    var raw = document.getElementById('imText').value.trim();
+    if (!raw){ err.textContent = 'Paste your exported rows (or upload a CSV) first.'; err.classList.remove('hidden'); return; }
+    var rows = csvParse(raw);
+    if (rows.length < 2){ err.textContent = 'Need a header row plus at least one entry row.'; err.classList.remove('hidden'); return; }
+    var headers = rows[0].map(function(h){ return String(h).toLowerCase().trim(); });
+    var col = {
+      team:  pickCol(headers, ['team name','team']),
+      age:   pickCol(headers, ['age/classification','team age','age','classification']),
+      sport: pickCol(headers, ['sport']),
+      div:   pickCol(headers, ['division']),
+      coach: pickCol(headers, ['coaches name','coach name','coach','head coach']),
+      email: pickCol(headers, ['coaches email','coach email','email']),
+      phone: pickCol(headers, ['coaches contact','coach contact','contact number','phone']),
+      town:  pickCol(headers, ['town','city','home town']),
+      amt:   pickCol(headers, ['amount paid','form total','net amount','amount']),
+      entry: pickCol(headers, ['entry id','entry #','entry']),
+      when:  pickCol(headers, ['when submitted','date submitted','submitted','date paid']),
+      txn:   pickCol(headers, ['cc txn id','txn id','transaction'])
+    };
+    if (col.team < 0){ err.textContent = 'Couldn\'t find a "Team Name" column in the header row. Make sure the first line has column titles.'; err.classList.remove('hidden'); return; }
+    var defSport = document.getElementById('imSport').value;
+    var season = document.getElementById('imSeason').value.trim();
+    var get = function(r, k){ return col[k] >= 0 ? String(r[col[k]] == null ? '' : r[col[k]]).trim() : ''; };
+    IM_PARSED = rows.slice(1).map(function(r){
+      var team = get(r,'team'); if (!team) return null;
+      var sp = get(r,'sport').toLowerCase(); sp = sp.indexOf('soft')>=0 ? 'softball' : (sp.indexOf('base')>=0 ? 'baseball' : defSport);
+      return {
+        team_name: team, sport: sp, division: get(r,'div'),
+        age_class: get(r,'age'), town: get(r,'town'),
+        coach_name: get(r,'coach'), coach_email: get(r,'email'), coach_phone: get(r,'phone'),
+        amount_cents: dollarsToCents(get(r,'amt')),
+        qs_entry_id: get(r,'entry'), qs_txn_id: get(r,'txn'),
+        created_at: get(r,'when') || '', season: season,
+        form_title: 'QuickScores import' + (season ? ' · ' + season : '')
+      };
+    }).filter(Boolean);
+    var body = document.getElementById('imPreviewBody');
+    body.innerHTML = IM_PARSED.slice(0, 200).map(function(p, i){
+      return '<tr><td>'+(i+1)+'</td><td>'+esc(p.sport||'—')+'</td><td>'+esc(p.age_class||'—')+'</td><td><strong>'+esc(p.team_name)+'</strong></td><td>'+esc(p.coach_name||'—')+'</td><td>'+esc(p.coach_email||'—')+'</td><td>'+esc(p.coach_phone||'—')+'</td><td>'+(p.amount_cents?STS.money(p.amount_cents):'—')+'</td></tr>';
+    }).join('');
+    document.getElementById('imPreviewWrap').classList.remove('hidden');
+    document.getElementById('imCount').textContent = IM_PARSED.length + ' entr' + (IM_PARSED.length===1?'y':'ies') + ' ready to import' + (IM_PARSED.length>200?' (showing first 200)':'');
+    document.getElementById('imSummary').textContent = 'Parsed ' + IM_PARSED.length + ' rows.';
+  }
+  async function commitImport(){
+    if (!IM_PARSED.length) return;
+    var btn = document.getElementById('imCommit'); btn.disabled = true; btn.textContent = 'Importing…';
+    try {
+      var n = await STS.importArchivedRegistrations(IM_PARSED);
+      REGS = await STS.loadRegistrationsScoped(ME, {});
+      var done = document.getElementById('imDone');
+      done.innerHTML = '✓ Imported <strong>'+n+'</strong> archived entr'+(n===1?'y':'ies')+'. Find them under <strong>Entries → Archived</strong>.';
+      done.classList.remove('hidden');
+      document.getElementById('imPreviewWrap').classList.add('hidden');
+      document.getElementById('imText').value = ''; IM_PARSED = [];
+      document.getElementById('imSummary').textContent = '';
+    } catch(ex){
+      var err = document.getElementById('imErr'); err.textContent = 'Import failed: ' + (ex && ex.message || ex); err.classList.remove('hidden');
+    }
+    btn.disabled = false; btn.textContent = 'Import as archived';
+  }
+  function initImportPanel(){
+    if (imInited) return; imInited = true;
+    document.getElementById('imParse').addEventListener('click', parseImport);
+    document.getElementById('imCommit').addEventListener('click', commitImport);
+    document.getElementById('imFile').addEventListener('change', function(e){
+      var f = e.target.files && e.target.files[0]; if (!f) return;
+      var rd = new FileReader(); rd.onload = function(){ document.getElementById('imText').value = rd.result; parseImport(); }; rd.readAsText(f);
+    });
+  }
 
   // ── Analysis panel (schedule-fairness QA, admin-only) ───────────────
   var anInited = false, anCur = '', anDiv = '';
