@@ -163,12 +163,20 @@
 
     <!-- IMPORT (QuickScores archive) -->
     <section class="panel" id="panel-import">
-      <p class="muted" style="max-width:70ch">Bring your old <strong>QuickScores</strong> teams &amp; coaches in as <strong>archived</strong> records. In QuickScores open <em>Online Registration → List Entries</em>, export to CSV/Excel, then paste the spreadsheet (or its CSV) below. Imported entries are tagged <strong>Archived</strong> — they show up under Entries → Archived for your reference and never appear on the public site.</p>
+      <p class="muted" style="max-width:70ch">Bring your <strong>QuickScores</strong> teams &amp; coaches into the new site. In QuickScores open <em>Online Registration → List Entries</em>, export to CSV/Excel, then upload or paste it below.</p>
       <div class="field-row" style="align-items:flex-end;margin-bottom:var(--space-3)">
-        <div class="field" style="margin:0"><label for="imSeason">Season label</label><input class="input" id="imSeason" placeholder="e.g. 2025" style="max-width:160px" /></div>
+        <div class="field" style="margin:0"><label for="imSeason">Season label</label><input class="input" id="imSeason" placeholder="e.g. 2026" style="max-width:160px" /></div>
         <div class="field" style="margin:0"><label for="imSport">Default sport (if blank in file)</label>
           <select class="input" id="imSport" style="max-width:160px"><option value="">— none —</option><option value="baseball">Baseball</option><option value="softball">Softball</option></select></div>
         <label class="btn btn-outline btn-sm" style="margin:0;cursor:pointer">Upload CSV file<input type="file" id="imFile" accept=".csv,text/csv,text/plain" hidden /></label>
+      </div>
+      <div class="field" style="margin:0 0 var(--space-3)">
+        <label>Import these as</label>
+        <div class="pill-tabs" id="imModePills">
+          <button type="button" class="pill active" data-mode="active">Active (current teams)</button>
+          <button type="button" class="pill" data-mode="archived">Archived (reference only)</button>
+        </div>
+        <div class="hint" id="imModeHint" style="text-transform:none;letter-spacing:0">Active: they become this season's live entries you manage normally. Archived: filed away under Entries → Archived for reference only.</div>
       </div>
       <div class="field"><label for="imText">…or paste CSV / spreadsheet rows here</label>
         <textarea class="input" id="imText" rows="6" placeholder="Paste the exported rows here (first line = column headers, e.g. Team Name, Coaches Name, Coaches Email…)" style="font-family:monospace;font-size:var(--text-xs)"></textarea></div>
@@ -510,14 +518,19 @@
     document.getElementById('imCount').textContent = IM_PARSED.length + ' entr' + (IM_PARSED.length===1?'y':'ies') + ' ready to import' + (IM_PARSED.length>200?' (showing first 200)':'');
     document.getElementById('imSummary').textContent = 'Parsed ' + IM_PARSED.length + ' rows.';
   }
+  var imMode = 'active';
   async function commitImport(){
     if (!IM_PARSED.length) return;
-    var btn = document.getElementById('imCommit'); btn.disabled = true; btn.textContent = 'Importing…';
+    var archived = imMode === 'archived';
+    var btn = document.getElementById('imCommit'); btn.disabled = true; btn.textContent = 'Importing… (this can take a minute)';
     try {
-      var n = await STS.importArchivedRegistrations(IM_PARSED);
+      var n = await STS.importRegistrations(IM_PARSED, { archived: archived });
       REGS = await STS.loadRegistrationsScoped(ME, {});
+      renderEntries();
       var done = document.getElementById('imDone');
-      done.innerHTML = '✓ Imported <strong>'+n+'</strong> archived entr'+(n===1?'y':'ies')+'. Find them under <strong>Entries → Archived</strong>.';
+      done.innerHTML = archived
+        ? '✓ Imported <strong>'+n+'</strong> archived entr'+(n===1?'y':'ies')+'. Find them under <strong>Entries → Archived</strong>.'
+        : '✓ Imported <strong>'+n+'</strong> active entr'+(n===1?'y':'ies')+'. Find them under <strong>Entries</strong> (Active).';
       done.classList.remove('hidden');
       document.getElementById('imPreviewWrap').classList.add('hidden');
       document.getElementById('imText').value = ''; IM_PARSED = [];
@@ -531,6 +544,10 @@
     if (imInited) return; imInited = true;
     document.getElementById('imParse').addEventListener('click', parseImport);
     document.getElementById('imCommit').addEventListener('click', commitImport);
+    document.getElementById('imModePills').addEventListener('click', function(e){
+      var b = e.target.closest('.pill'); if (!b) return; imMode = b.dataset.mode;
+      document.querySelectorAll('#imModePills .pill').forEach(function(p){ p.classList.toggle('active', p===b); });
+    });
     document.getElementById('imFile').addEventListener('change', function(e){
       var f = e.target.files && e.target.files[0]; if (!f) return;
       var rd = new FileReader(); rd.onload = function(){ document.getElementById('imText').value = rd.result; parseImport(); }; rd.readAsText(f);
