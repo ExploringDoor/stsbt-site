@@ -10,6 +10,8 @@
   var SB = global.STSbracket;
   function esc(s){ return s==null?'':String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function clean(s){ if(s==null) return ''; var t=String(s).trim(); return /^(n\/?a|tbd|tba|-+)$/i.test(t)?'':t; }
+  // Field name as a link to its map on the Locations page (don't close the modal on click).
+  function fieldLink(field){ var f=clean(field); return f?'<a class="gm-fieldlink" href="locations.html?find='+encodeURIComponent(f)+'" onclick="event.stopPropagation()">📍 '+esc(f)+'</a>':''; }
   function fmtTime(t){ t=clean(t); if(!t) return ''; var p=String(t).split(':'); var h=+p[0],m=p[1]||'00'; if(isNaN(h)) return ''; var ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+m+' '+ap; }
   function fmtDate(d, opt){ d=clean(d); if(!d) return ''; var dt=new Date(d+'T12:00:00'); if(isNaN(dt)) return ''; return dt.toLocaleDateString('en-US', opt||{weekday:'short',month:'short',day:'numeric'}); }
   function slug(s){ return String(s==null?'':s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
@@ -104,7 +106,7 @@
     var A=sideDisplay(t,g.away), H=sideDisplay(t,g.home);
     var when=[fmtDate(g.date),fmtTime(g.time)].filter(Boolean).join(' · '), field=clean(g.field);
     return '<div class="gm-matchup"><div class="gm-team '+(A.tbd?'tbd':'')+'">'+tnHTML(A.name,A.tbd)+'</div><div class="gm-vs">vs</div><div class="gm-team '+(H.tbd?'tbd':'')+'">'+tnHTML(H.name,H.tbd)+'</div></div>'+
-      '<div class="gm-meta">'+(when||'Date &amp; time TBD')+(field?' &nbsp;·&nbsp; '+esc(field):'')+'</div>'+
+      '<div class="gm-meta">'+(when||'Date &amp; time TBD')+(field?' &nbsp;·&nbsp; '+fieldLink(field):'')+'</div>'+
       '<div class="gm-sec"><h4>Preview</h4><p class="gm-recap">'+esc(previewBlurb(t,g,cls))+'</p></div>';
   }
   // ── plain (non-bracket) game text — no bracket stage/stakes, no advance/eliminate ──
@@ -127,7 +129,7 @@
     var A=clean(g.away)||'TBD', H=clean(g.home)||'TBD';
     var when=[fmtDate(g.date),fmtTime(g.time)].filter(Boolean).join(' · '), field=clean(g.field);
     return '<div class="gm-matchup"><div class="gm-team">'+tnHTML(A)+'</div><div class="gm-vs">vs</div><div class="gm-team">'+tnHTML(H)+'</div></div>'+
-      '<div class="gm-meta">'+(when||'Date &amp; time TBD')+(field?' &nbsp;·&nbsp; '+esc(field):'')+'</div>'+
+      '<div class="gm-meta">'+(when||'Date &amp; time TBD')+(field?' &nbsp;·&nbsp; '+fieldLink(field):'')+'</div>'+
       '<div class="gm-sec"><h4>Preview</h4><p class="gm-recap">'+esc(poolText(g,false))+'</p></div>';
   }
   function poolRecapHTML(g){

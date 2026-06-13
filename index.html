@@ -152,11 +152,13 @@
         el.innerHTML = tourneys.map(function(f){
           var sportBadge = '<span class="badge badge-sport">' + esc(f.sport) + '</span>';
           var divs = (f.divisions || []).map(function(d){ return '<span class="badge badge-archived">' + esc(d) + '</span>'; }).join(' ');
+          // optional link to the tournament's own outside website (span+window.open to avoid nested <a>)
+          var extLink = f.info_url ? '<span class="tc-ext" role="link" tabindex="0" onclick="event.preventDefault();event.stopPropagation();window.open(this.dataset.u,\'_blank\',\'noopener\')" data-u="' + esc(f.info_url) + '">Tournament site ↗</span>' : '';
           return '<a class="tcard" href="register.html?form=' + encodeURIComponent(f.id) + '" style="text-decoration:none">' +
             '<div class="tc-top"><span class="tc-date">' + esc(f.event_dates || 'Dates TBA') + '</span>' + sportBadge + '</div>' +
             '<div class="tc-body"><h3>' + esc(f.title) + '</h3><div class="tc-loc">' + esc(f.location || 'Location TBA') + '</div>' +
               '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">' + divs + '</div></div>' +
-            '<div class="tc-foot"><span class="muted" style="font-size:var(--text-sm)">First pay, first play</span><span class="btn btn-red btn-sm">Register</span></div></a>';
+            '<div class="tc-foot"><span class="muted" style="font-size:var(--text-sm)">' + (extLink || 'First pay, first play') + '</span><span class="btn btn-red btn-sm">Register</span></div></a>';
         }).join('');
       }
       document.getElementById('statTourneys').textContent = String(tourneys.length);

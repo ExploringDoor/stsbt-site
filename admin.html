@@ -1073,6 +1073,7 @@
       '<div class="field-row"><div class="field"><label>Start Date</label><input class="input" type="date" id="f_start" value="'+esc(f.start_date||'')+'"></div>'+
       '<div class="field"><label>End Date <span class="muted">(optional)</span></label><input class="input" type="date" id="f_end" value="'+esc(f.end_date||'')+'"></div></div>'+
       '<div class="field"><label>Location</label><input class="input" id="f_loc" value="'+esc(f.location||'')+'"></div>'+
+      '<div class="field"><label>Tournament Website <span class="muted">(optional — links the public tournament card to an outside site)</span></label><input class="input" id="f_url" type="url" placeholder="https://…" value="'+esc(f.info_url||'')+'"></div>'+
       '<div class="field"><label>Divisions <span class="muted">(check the classifications this event offers)</span></label><div class="dv-grid" id="f_divs">'+divChipsHTML(f.sport||'baseball', f.divisions||[])+'</div></div>'+
       '<div class="field"><label>Convenience Fee (USD)</label><input class="input" id="f_conv" value="'+((f.convenience_fee_cents||0)/100).toFixed(2)+'"></div>'+
       '<div class="field"><label>Age Divisions &amp; Pricing <span class="muted">(check the ages this form accepts; set each team entry fee)</span></label>'+
@@ -1101,6 +1102,7 @@
     };
     document.getElementById('fmSave').onclick = async function(){
       f.title = val('f_title'); f.type = val('f_type'); f.sport = val('f_sport');
+      f.info_url = val('f_url').trim();
       f.start_date = val('f_start'); f.end_date = val('f_end');
       f.event_dates = fmtEventDates(f.start_date, f.end_date) || f.event_dates || '';
       f.location = val('f_loc');

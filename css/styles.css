@@ -256,6 +256,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-v
 .tcard h3 { margin: 0 0 6px; color: var(--sts-navy); font-size: var(--text-lg); }
 .tcard .tc-loc { color: var(--muted); font-size: var(--text-sm); }
 .tcard .tc-foot { padding: var(--space-3) var(--space-5); border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tcard .tc-ext { color: var(--sts-navy); font-weight: 600; font-size: var(--text-sm); text-decoration: underline; cursor: pointer; }
+.tcard .tc-ext:hover { color: var(--sts-red); }
 
 /* ── Badges ────────────────────────────────────────────────────────── */
 .badge { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }

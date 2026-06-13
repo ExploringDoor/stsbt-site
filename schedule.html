@@ -82,7 +82,8 @@
           var played = g.done && g.away_score!=null && g.home_score!=null;
           var tie = played && g.away_score===g.home_score;
           var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score;
-          var result = played ? '<div class="result">'+g.away_score+'–'+g.home_score+'</div>' : '<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+(g.field?' · '+esc(g.field):'')+'</div>';
+          var fieldHTML = g.field ? ' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent(g.field)+'" onclick="event.stopPropagation()">📍 '+esc(g.field)+'</a>' : '';
+          var result = played ? '<div class="result">'+g.away_score+'–'+g.home_score+'</div>' : '<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+fieldHTML+'</div>';
           return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtTime(g.time)))+'</div>'+
             '<div class="matchup"><span class="'+(aWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.away))+'</span><span class="vs">vs</span><span class="'+(hWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.home))+'</span>'+(g.division?' <span class="muted" style="font-size:var(--text-xs)">· '+esc(g.division)+'</span>':'')+'</div>'+
             result+'<div class="gcue">'+(played?'Recap':'Preview')+' ›</div></div>';
