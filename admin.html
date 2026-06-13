@@ -1210,25 +1210,42 @@
     var av2={}; REGS.forEach(function(r){ if(r.form_id===fid && r.team_name && (r.avail_earliest||r.avail_latest)) av2[r.team_name.toLowerCase()]={earliest:r.avail_earliest||'', latest:r.avail_latest||''}; });
     return av2;
   }
-  // Constraint-aware slot assignment: place each game in the first slot where the
-  // slot is free, neither team is already playing at that date+time, and (when
-  // possible) both teams are AVAILABLE. Falls back to ignoring availability rather
-  // than leaving a game unscheduled. Returns {fallback, unplaced} counts.
-  function assignSlots(games, dates, times, fields, avail){
+  // Constraint-aware slot assignment. Places each game in the first slot that:
+  //  • is free (incl. fields already used by OTHER tournaments that weekend),
+  //  • doesn't put a team at the same time OR within `restMin` of another of its
+  //    games (incl. games in OTHER events — a team in two divisions),
+  //  • (when possible) keeps both teams inside their availability.
+  // Degrades gracefully: drops availability, then the rest gap, before leaving a
+  // game unscheduled — but NEVER allows a true same-time double-book.
+  // Returns { fallback, unplaced, slots }.
+  function assignSlots(games, dates, times, fields, avail, restMin, allGames, fid){
     if(!dates.length) dates=[''];
-    var slots=[]; dates.forEach(function(d){ times.forEach(function(tm){ fields.forEach(function(f){ slots.push({date:d,time:tm,field:f}); }); }); });
-    var usedSlot={}, teamBusy={}, fallback=0, unplaced=0;
-    function ok(tlc,s){ var a=avail[tlc]; if(!a) return true; if(a.blackout && a.blackout[s.date]) return false; if(a.earliest && s.time && s.time<a.earliest) return false; if(a.latest && s.time && s.time>a.latest) return false; return true; }
-    function place(g,respect){
+    restMin = restMin||0;
+    var slots=[]; dates.forEach(function(d){ times.forEach(function(tm){ fields.forEach(function(f){ slots.push({date:d,time:tm,field:f,min:tKey(tm)}); }); }); });
+    var usedSlot={}, teamMin={}, fallback=0, unplaced=0;
+    // seed occupancy from OTHER events on the same days (shared fields; teams in 2 events)
+    (allGames||[]).forEach(function(g){
+      if(g.form_id===fid || !g.date || dates.indexOf(g.date)<0 || !g.time) return;
+      if(g.field) usedSlot[g.date+'|'+g.time+'|'+g.field]=true;
+      [g.away,g.home].forEach(function(t){ if(t){ var tl=String(t).toLowerCase(); (teamMin[tl]=teamMin[tl]||{}); (teamMin[tl][g.date]=teamMin[tl][g.date]||[]).push(tKey(g.time)); } });
+    });
+    function avOK(tlc,s){ var a=avail[tlc]; if(!a) return true; if(a.blackout && a.blackout[s.date]) return false; if(a.earliest && s.time && s.time<a.earliest) return false; if(a.latest && s.time && s.time>a.latest) return false; return true; }
+    function gaps(tlc,s){ return ((teamMin[tlc]&&teamMin[tlc][s.date])||[]).map(function(m){ return Math.abs(m-s.min); }); }
+    function sameTime(tlc,s){ return gaps(tlc,s).indexOf(0)>=0; }
+    function tooClose(tlc,s){ return restMin>0 && gaps(tlc,s).some(function(d){ return d>0 && d<restMin; }); }
+    function mark(tlc,s){ (teamMin[tlc]=teamMin[tlc]||{}); (teamMin[tlc][s.date]=teamMin[tlc][s.date]||[]).push(s.min); }
+    function place(g, level){   // 0=avail+rest, 1=rest only, 2=neither (same-time still blocked)
       var a=(g.away||'').toLowerCase(), h=(g.home||'').toLowerCase();
-      for(var i=0;i<slots.length;i++){ var s=slots[i], sk=s.date+'|'+s.time+'|'+s.field, bk1=a+'@'+s.date+'|'+s.time, bk2=h+'@'+s.date+'|'+s.time;
-        if(usedSlot[sk]||teamBusy[bk1]||teamBusy[bk2]) continue;
-        if(respect && (!ok(a,s)||!ok(h,s))) continue;
-        usedSlot[sk]=true; teamBusy[bk1]=true; teamBusy[bk2]=true; g.date=s.date; g.time=s.time; g.field=s.field; return true;
+      for(var i=0;i<slots.length;i++){ var s=slots[i], sk=s.date+'|'+s.time+'|'+s.field;
+        if(usedSlot[sk]) continue;
+        if(sameTime(a,s)||sameTime(h,s)) continue;
+        if(level<=1 && (tooClose(a,s)||tooClose(h,s))) continue;
+        if(level===0 && (!avOK(a,s)||!avOK(h,s))) continue;
+        usedSlot[sk]=true; mark(a,s); mark(h,s); g.date=s.date; g.time=s.time; g.field=s.field; return true;
       }
       return false;
     }
-    games.forEach(function(g){ if(place(g,true)) return; if(place(g,false)){ fallback++; return; } unplaced++; });
+    games.forEach(function(g){ if(place(g,0)) return; if(place(g,1)){ fallback++; return; } if(place(g,2)){ fallback++; return; } unplaced++; });
     return { fallback:fallback, unplaced:unplaced, slots:slots.length };
   }
   function openBracketModal(){
@@ -1242,6 +1259,8 @@
       '<div class="field"><label for="bk_dates">Tournament days <span class="muted">(comma-separated)</span></label><input class="input" id="bk_dates" placeholder="2026-06-13, 2026-06-14"></div>'+
       '<div class="field-row"><div class="field"><label for="bk_fields">Fields <span class="muted">(comma-separated)</span></label><input class="input" id="bk_fields" placeholder="Field 1, Field 2, Field 3" value="Field 1, Field 2"></div>'+
       '<div class="field"><label for="bk_times">Game times each day <span class="muted">(comma-separated)</span></label><input class="input" id="bk_times" placeholder="09:00, 11:00, 13:00, 15:00" value="09:00, 11:00, 13:00, 15:00, 17:00"></div></div>'+
+      '<div class="field"><label>Auto-fill time slots <span class="muted">(first → last start · game length)</span></label><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><input class="input" id="bk_first" type="time" value="08:00" style="min-width:108px"><span class="muted">→</span><input class="input" id="bk_last" type="time" value="20:00" style="min-width:108px"><input class="input" id="bk_glen" type="number" value="105" min="30" step="15" style="max-width:74px" title="Game length (minutes)"><span class="muted">min</span><button type="button" class="btn btn-outline btn-sm" id="bk_autofill">Fill times ↑</button></div></div>'+
+      '<div class="field"><label for="bk_rest">Min rest between a team’s games <span class="muted">(minutes — avoids back-to-back)</span></label><input class="input" id="bk_rest" type="number" inputmode="numeric" value="0" min="0" step="15" placeholder="e.g. 90" style="max-width:140px"></div>'+
       '<details id="bk_availWrap" style="margin-bottom:var(--space-4)"><summary style="cursor:pointer;font-weight:600;color:var(--sts-navy)">⏱ Team availability &amp; blackouts <span class="muted" style="font-weight:400">(optional — the schedule will honor these)</span></summary><div id="bk_availBody" style="margin-top:10px"></div></details>'+
       '<div class="notice notice-warn" style="font-size:var(--text-xs)">Games are auto-assigned across your <b>fields</b> and <b>time slots</b>, honoring any team availability you set — then drag any game in <b>Grid</b> view or click <b>Edit</b> to fine-tune. Typical flow: <b>Round robin</b> → post scores → reopen → <b>Seed from standings</b> → generate a <b>bracket</b>. <a href="bracket-preview.html" target="_blank" rel="noopener" style="color:var(--sts-navy);font-weight:600">See example brackets ↗</a></div>';
     function fillTeams(){ var fid=document.getElementById('bk_form').value, s={}; REGS.forEach(function(r){ if(r.form_id===fid && r.team_name) s[r.team_name]=1; }); document.getElementById('bk_teams').value=Object.keys(s).join('\n'); }
@@ -1268,6 +1287,14 @@
         '<div class="table-wrap"><table class="tbl" style="font-size:var(--text-sm)"><thead><tr><th>Team</th><th>No earlier</th><th>No later</th>'+dayHeads+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
     }
     document.getElementById('bk_availWrap').addEventListener('toggle', function(e){ if(e.target.open) buildAvailEditor(); });
+    // auto-build the time-slot list from first/last start + game length
+    document.getElementById('bk_autofill').onclick = function(){
+      var f=tKey(document.getElementById('bk_first').value), l=tKey(document.getElementById('bk_last').value), len=parseInt(document.getElementById('bk_glen').value,10)||105;
+      if(l<f || len<15){ document.getElementById('bkNote').textContent='Check the auto-fill times (last must be after first).'; return; }
+      var out=[]; for(var m=f;m<=l;m+=len){ out.push(String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')); }
+      document.getElementById('bk_times').value=out.join(', ');
+      document.getElementById('bkNote').textContent=out.length+' time slots filled.';
+    };
     function syncFmt(){ document.getElementById('bk_gppWrap').classList.toggle('hidden', document.getElementById('bk_format').value!=='roundrobin'); }
     document.getElementById('bk_format').addEventListener('change', syncFmt); syncFmt();
     document.getElementById('bk_seed').onclick = function(){
@@ -1290,15 +1317,15 @@
       var fields=csv('bk_fields',['Field 1','Field 2']);
       var times=csv('bk_times',['09:00','11:00','13:00','15:00']);
       var meta={sport:(f&&f.sport)||'baseball', division:''};
-      var avail=getAvail(fid), res;
+      var avail=getAvail(fid), restMin=parseInt(document.getElementById('bk_rest').value,10)||0, res;
       if(format==='roundrobin'){
         var gpp=parseInt(document.getElementById('bk_gpp').value,10)||3;
         var pool=window.STSgen.generatePool(teams, {gamesPerTeam:gpp});
-        res=assignSlots(pool, dates, times, fields, avail);   // honors team availability
+        res=assignSlots(pool, dates, times, fields, avail, restMin, GAMES, fid);   // availability + rest + cross-event
         await STS.savePool(fid, meta, pool);
       } else {
         var games=window.STSgen.generateBracket({format:format, teams:teams, startGame:1});
-        res=assignSlots(games, dates, times, fields, avail);
+        res=assignSlots(games, dates, times, fields, avail, restMin, GAMES, fid);
         await STS.saveBracket(fid, meta, games);
       }
       // tell Keith if availability couldn't be fully honored / ran out of slots

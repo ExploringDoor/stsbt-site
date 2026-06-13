@@ -683,7 +683,18 @@ export async function saveGame(game) {
   rec.id = 'g' + (++_gameSeq); _games.push(rec); return rec.id;
 }
 // Save a batch of round-robin pool games (regular games, no bracket `g`).
+// Remove this event's existing POOL games (g==null) so a regenerate REPLACES
+// rather than stacking duplicates. (Bracket games are left alone — see clearBracket.)
+export async function clearPool(formId) {
+  if (isConfigured) {
+    var snap = await getDocs(query(collection(db, 'games'), where('form_id', '==', formId)));
+    await Promise.all(snap.docs.filter(function (d) { return d.data().g == null; }).map(function (d) { return deleteDoc(d.ref); }));
+    return;
+  }
+  _games = _games.filter(function (g) { return !(g.form_id === formId && g.g == null); });
+}
 export async function savePool(formId, meta, matchups) {
+  await clearPool(formId);   // replace any existing pool for this event
   meta = meta || {};
   for (var i = 0; i < matchups.length; i++) {
     var m = matchups[i];
