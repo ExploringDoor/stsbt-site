@@ -66,7 +66,12 @@ service cloud.firestore {
     // The client may only ever set a non-paid status; payment truth + team_id are
     // stamped server-side (Admin SDK) by the Clover webhook.
     match /registrations/{id} {
-      allow create: if request.resource.data.form_id is string
+      // A signed-in SUPER admin may create entries of ANY shape — this is how Keith
+      // bulk-imports historical/archived rows (e.g. the QuickScores migration), which
+      // legitimately carry a 'paid'/'archived' status and no live form_id. Anonymous
+      // public submits still go through the strict shape-pin below.
+      allow create: if isSuper() || (
+                       request.resource.data.form_id is string
                     && exists(/databases/$(database)/documents/forms/$(request.resource.data.form_id))
                     && request.resource.data.payment_status in ['unpaid', 'pending', 'free']
                     && request.resource.data.status == 'completed'
@@ -81,7 +86,7 @@ service cloud.firestore {
                     && !('clover_order_id' in request.resource.data)
                     && !('clover_payment_id' in request.resource.data)
                     && !('paid_at' in request.resource.data)
-                    && !('team_id' in request.resource.data);
+                    && !('team_id' in request.resource.data));
       // PII read scoped per-document by the entry's stored form_id.
       allow read:   if isSuper() || ownsEvent(resource.data.form_id);
       // Edits/deletes are super-only (and the Admin-SDK server, which bypasses rules).
