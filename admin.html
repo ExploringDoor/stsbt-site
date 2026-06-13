@@ -17,6 +17,11 @@
   function stsLogoFallback(img, size){ var d=document.createElement('div'); d.className='nav-crest mono'; d.textContent='STS'; d.setAttribute('style','width:'+size+'px;height:'+size+'px;font-size:'+(size>50?22:13)+'px;color:var(--sts-navy);display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:#fff;box-shadow:0 0 0 2px var(--line);'+(size>50?'margin:0 auto var(--space-4)':'')); img.replaceWith(d); }
 </script>
 <style>
+  th.srt { cursor: pointer; user-select: none; white-space: nowrap; }
+  th.srt:hover { color: var(--sts-navy); }
+  th.srt::after { content: '↕'; opacity: .3; margin-left: 4px; font-size: .85em; }
+  th.srt[data-dir="asc"]::after { content: '↑'; opacity: 1; }
+  th.srt[data-dir="desc"]::after { content: '↓'; opacity: 1; }
   .modal-bg { position: fixed; inset: 0; background: rgba(0,18,48,.55); display: none; align-items: flex-start; justify-content: center; padding: var(--space-6) var(--space-4); z-index: 100; overflow-y: auto; }
   .modal-bg.open { display: flex; }
   .modal { background: #fff; border-radius: var(--radius-lg); width: 100%; max-width: 620px; box-shadow: var(--shadow-lg); }
@@ -114,10 +119,10 @@
       </div>
       <div class="table-wrap">
         <table class="tbl" id="entriesTbl">
-          <thead><tr>
-            <th>#</th><th>Submitted</th><th>Pay</th><th>Insurance</th><th>Sport</th><th>Age / Class</th><th>Division</th>
-            <th>Team</th><th>Coach</th><th>Email</th><th>Phone</th><th>Waiver</th>
-            <th>Amount</th><th>Last 4</th><th>CC Txn / Order</th><th>Actions</th>
+          <thead><tr id="entriesHead">
+            <th class="srt" data-sort="entry_no">#</th><th class="srt" data-sort="created_at">Submitted</th><th class="srt" data-sort="payment_status">Pay</th><th class="srt" data-sort="ins">Insurance</th><th class="srt" data-sort="sport">Sport</th><th class="srt" data-sort="age_class">Age / Class</th><th class="srt" data-sort="division">Division</th>
+            <th class="srt" data-sort="team_name">Team</th><th class="srt" data-sort="coach_name">Coach</th><th class="srt" data-sort="coach_email">Email</th><th class="srt" data-sort="coach_phone">Phone</th><th>Waiver</th>
+            <th class="srt" data-sort="amount_cents">Amount</th><th>Last 4</th><th>CC Txn / Order</th><th>Actions</th>
           </tr></thead>
           <tbody id="entriesBody"></tbody>
         </table>
@@ -896,9 +901,32 @@
   // costs ~400ms — so the table renders the first ENTRY_CAP rows with an explicit
   // "Show all" escape hatch, and the search box re-renders on a short debounce.
   var ENTRY_CAP = 200, entriesShowAll = false;
+  // ── column sorting ──
+  var entrySort = { key: '', dir: 1 };
+  var NUM_KEYS = { entry_no:1, amount_cents:1 }, DATE_KEYS = { created_at:1 };
+  function toMillis(v){ if(!v) return 0; if(typeof v==='object'){ if(typeof v.toMillis==='function') return v.toMillis(); if(v.seconds!=null) return v.seconds*1000; } var t=new Date(v).getTime(); return isNaN(t)?0:t; }
+  function sortRows(rows){
+    if(!entrySort.key) return rows;
+    var k=entrySort.key, d=entrySort.dir;
+    return rows.slice().sort(function(a,b){
+      var av, bv;
+      if(k==='ins'){ av=insStatusFor(a); bv=insStatusFor(b); }
+      else if(NUM_KEYS[k]){ av=Number(a[k])||0; bv=Number(b[k])||0; return (av-bv)*d; }
+      else if(DATE_KEYS[k]){ return (toMillis(a[k])-toMillis(b[k]))*d; }
+      else { av=a[k]; bv=b[k]; }
+      av=String(av==null?'':av).toLowerCase(); bv=String(bv==null?'':bv).toLowerCase();
+      return av<bv?-d:(av>bv?d:0);
+    });
+  }
+  function updateSortIndicators(){
+    document.querySelectorAll('#entriesHead .srt').forEach(function(th){
+      var on = th.dataset.sort===entrySort.key;
+      th.dataset.dir = on ? (entrySort.dir>0?'asc':'desc') : '';
+    });
+  }
   function renderEntries(){
     renderEntryStats();
-    var allRows = filteredRegs();
+    var allRows = sortRows(filteredRegs());
     var rows = (!entriesShowAll && allRows.length > ENTRY_CAP) ? allRows.slice(0, ENTRY_CAP) : allRows;
     var body = document.getElementById('entriesBody');
     document.getElementById('entriesEmpty').classList.toggle('hidden', allRows.length>0);
@@ -946,6 +974,11 @@
   document.getElementById('entryIns').addEventListener('change', function(e){ filt.ins = e.target.value; renderEntries(); });
   document.getElementById('payPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.pay=b.dataset.pay; document.querySelectorAll('#payPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); renderEntries(); });
   document.getElementById('statusPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.status=b.dataset.status; document.querySelectorAll('#statusPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); renderEntries(); });
+  document.getElementById('entriesHead').addEventListener('click', function(e){
+    var th=e.target.closest('.srt'); if(!th) return; var k=th.dataset.sort;
+    if(entrySort.key===k) entrySort.dir=-entrySort.dir; else { entrySort.key=k; entrySort.dir=1; }
+    updateSortIndicators(); renderEntries();
+  });
 
   // entry actions
   document.getElementById('entriesBody').addEventListener('click', async function(e){
