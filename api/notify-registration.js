@@ -145,10 +145,15 @@ export function buildMerchMessage(r) {
     ['Order #', r.clover_order_id || ''],
     ['Date', fmtWhen(r.paid_at || r.created_at)],
   ].filter((x) => x[1] !== '' && x[1] != null);
+  // Shipping address gets its own block (multi-line, preserved).
+  const ship = String(r.ship_address || '').trim();
+  const shipHtml = ship
+    ? `<div style="margin-top:14px"><b>Ship to:</b></div><div style="white-space:pre-line;color:#334155">${esc(ship)}</div>`
+    : `<div style="margin-top:14px;color:#bf0a30"><b>Ship to:</b> (no address on file)</div>`;
   return {
     subject: `STS: Order — ${item}${buyer ? ' (' + buyer + ')' : ''}`,
-    text: rows.map((x) => x[0] + ': ' + x[1]).join('\n'),
-    html: shell('paid', 'Merchandise Order', rowList(rows), `${site}/admin.html`, 'Open Admin'),
+    text: rows.map((x) => x[0] + ': ' + x[1]).join('\n') + (ship ? '\n\nShip to:\n' + ship : '\n\nShip to: (no address on file)'),
+    html: shell('paid', 'Merchandise Order', rowList(rows) + shipHtml, `${site}/admin.html`, 'Open Admin'),
   };
 }
 

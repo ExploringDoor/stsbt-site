@@ -26,6 +26,7 @@ const INSURANCE_SAMPLE = Object.assign({}, SAMPLE, {
 const MERCH_SAMPLE = Object.assign({}, SAMPLE, {
   form_id: 'gamepro-baseballs', form_title: 'STS GamePro Baseballs', amount_cents: 6000,
   clover_order_id: 'ORD-77555', paid_at: '2026-06-12T12:30:00', age_class: '', division: '',
+  ship_address: 'Jake Henderson\n1420 Ranch Road\nBrownwood, TX 76801',
 });
 const ROSTER_SAMPLE = {
   team_name: 'Crowley Cobras', coach_name: 'Thomas Rosales', coach_email: 'thomas_r0214@example.com',

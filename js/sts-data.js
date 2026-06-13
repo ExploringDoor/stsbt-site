@@ -33,13 +33,20 @@ export function abbr(name) {
   if (w.length === 1) return w[0].slice(0, 3).toUpperCase();
   return (w[0][0] + w[1][0] + (w[2] ? w[2][0] : '')).toUpperCase();
 }
-// Keith's eligibility cutoff: a player's age as of May 1 of the season year.
-// This derived age is the ONLY age info shown publicly — never the birthdate.
+// Keith's eligibility cutoff: a player's age as of May 1 of the SEASON year.
+// The season runs Aug 1 → Jul 31, so from Aug 1 onward the cutoff is NEXT May 1
+// (on/after Aug 1 2026 → May 1 2027). Matches the server (api/_age.js) so the site
+// auto-rolls into the new season with no config change. This derived age is the
+// ONLY age info shown publicly — never the birthdate.
+export function cutoffYear() {
+  var n = new Date();
+  return n.getMonth() >= 7 ? n.getFullYear() + 1 : n.getFullYear();
+}
+export function ageCutoffLabel() { return 'May 1, ' + cutoffYear(); }
 export function ageAsOfMay1(dob) {
   if (!dob) return '';
   var d = new Date(dob + 'T12:00:00'); if (isNaN(d)) return '';
-  var yr = (window.LEAGUE_CONFIG && LEAGUE_CONFIG.season && LEAGUE_CONFIG.season.year) || 2026;
-  var cut = new Date(yr + '-05-01T12:00:00');
+  var cut = new Date(cutoffYear() + '-05-01T12:00:00');
   var age = cut.getFullYear() - d.getFullYear(), m = cut.getMonth() - d.getMonth();
   if (m < 0 || (m === 0 && cut.getDate() < d.getDate())) age--;
   return age >= 0 ? age : '';
@@ -61,8 +68,8 @@ var AGE_PRICES = [
 var WAIVER = 'All coaches must complete the season Team Registration before registering and paying for any tournaments. All teams must carry team insurance purchased through Small Town Select, or add Small Town Select as additionally insured on their team insurance.';
 
 var SAMPLE_FORMS = [
-  { id: 'season-baseball', title: '2026 Fall/Spring Baseball Team Registration', type: 'season', sport: 'baseball', order: 1, active: true, archived: false, convenience_fee_cents: 0, price_options: [{ label: 'Season Registration', cents: 0 }], waiver_text: WAIVER, location: '', event_dates: 'Aug 1, 2025 – Jul 31, 2026' },
-  { id: 'season-softball', title: '2026 Fall/Spring Softball Team Registration', type: 'season', sport: 'softball', order: 2, active: true, archived: false, convenience_fee_cents: 0, price_options: [{ label: 'Season Registration', cents: 0 }], waiver_text: WAIVER, location: '', event_dates: 'Aug 1, 2025 – Jul 31, 2026' },
+  { id: 'season-baseball', title: '2026 Fall/Spring Baseball Team Registration', type: 'season', sport: 'baseball', order: 1, active: true, archived: false, convenience_fee_cents: 300, price_options: [{ label: 'Season Registration', cents: 2500 }], waiver_text: WAIVER, location: '', event_dates: 'Aug 1, 2025 – Jul 31, 2026' },
+  { id: 'season-softball', title: '2026 Fall/Spring Softball Team Registration', type: 'season', sport: 'softball', order: 2, active: true, archived: false, convenience_fee_cents: 300, price_options: [{ label: 'Season Registration', cents: 2500 }], waiver_text: WAIVER, location: '', event_dates: 'Aug 1, 2025 – Jul 31, 2026' },
   { id: 'brownwood-summer-slam', title: 'Brownwood "Summer Slam Series"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A'], order: 3, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Brownwood, TX', event_dates: 'June 13–14, 2026' },
   { id: 'iowa-park-heat-wave', title: 'Iowa Park "Heat Wave"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A', 'Majors'], order: 4, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Iowa Park, TX', event_dates: 'June 13–14, 2026' },
   { id: 'hill-county-bash', title: 'Hillsboro "Hill County All-Star Bash"', type: 'tournament', sport: 'softball', divisions: ['Class C', 'Class B', 'Class A'], order: 5, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Wallace Park, Hillsboro, TX', event_dates: 'June 13, 2026' },
@@ -227,8 +234,8 @@ var _activity = SAMPLE_ACTIVITY.map(function (x) { return Object.assign({}, x); 
     var teamName = town + ' ' + mascot + (cycle ? ' ' + (cycle + 1) : '');
     var coach = FIRST[i % FIRST.length] + ' ' + LAST[(i * 3) % LAST.length];
     var pay = PAY_MIX[i % PAY_MIX.length];
-    var fee = form.type === 'season' ? 0 : ((form.price_options && form.price_options[0] && form.price_options[0].cents) || 12800);
-    if (fee === 0 && pay !== 'free' && form.type === 'season') pay = 'free';
+    var fee = ((form.price_options && form.price_options[0] && form.price_options[0].cents) || (form.type === 'season' ? 2500 : 12800)) + (form.convenience_fee_cents || 0);
+    if (fee === 0 && pay !== 'free') pay = 'free';
     var mo = 8 + (i % 10); var yr2 = mo > 12 ? '2026' : '2025'; mo = mo > 12 ? mo - 12 : mo;
     var created = yr2 + '-' + String(mo).padStart(2, '0') + '-' + String(1 + (i % 28)).padStart(2, '0') + 'T' + String(8 + (i % 12)).padStart(2, '0') + ':' + String((i * 13) % 60).padStart(2, '0') + ':00';
     var slug = slugify(teamName);
