@@ -9,7 +9,7 @@
 //   CLOVER_ENV            'sandbox' | 'production'
 //   CLOVER_MERCHANT_ID    Keith's Clover Merchant ID (UUID)
 //   CLOVER_PRIVATE_TOKEN  Ecommerce private API token (2FA must be enabled)
-//   SITE_URL              e.g. https://smalltownselect.com  (for redirect URLs)
+//   SITE_URL              e.g. https://ststournaments.com  (for redirect URLs)
 //   FIREBASE_PROJECT_ID / FIREBASE_API_KEY  (Firestore REST)
 //
 // Processor CONFIRMED: Clover (clover.com Hosted Checkout). Stripe stays the

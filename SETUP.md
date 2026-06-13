@@ -60,7 +60,7 @@ Preview a director's scoped view locally with `admin.html?as=uid-carl`.
 | `FIREBASE_API_KEY` | Firebase Web API key | server writes |
 | `RESEND_API_KEY` | resend.com API key (free) | email to Keith |
 | `ADMIN_EMAIL` | `keithphilips34@gmail.com` | email to Keith |
-| `SITE_URL` | e.g. `https://smalltownselect.com` | redirects / links |
+| `SITE_URL` | e.g. `https://ststournaments.com` | redirects / links |
 | `CLOVER_ENV` | `sandbox` then `production` | payments |
 | `CLOVER_MERCHANT_ID` | Keith's Clover Merchant ID | payments |
 | `CLOVER_PRIVATE_TOKEN` | Clover Ecommerce private token | payments |
