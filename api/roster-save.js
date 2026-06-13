@@ -74,6 +74,16 @@ export default async function handler(req, res) {
 
     await fsPatch(`teams/${team.id}`, { roster: pub });
     await fsPatch(`team_rosters/${team.id}`, { team_id: team.id, roster: full });
+
+    // Best-effort: tell the admin a roster was updated (never blocks the save).
+    try {
+      const site = process.env.SITE_URL || '';
+      if (site) await fetch(`${site}/api/notify-registration`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'roster', registration: { team_name: team.name, player_count: full.length, coach_name: team.coach_name || '' } }),
+      });
+    } catch (e) { /* non-fatal */ }
+
     return res.status(200).json({ ok: true, count: full.length });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
