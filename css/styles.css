@@ -100,7 +100,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-6) 0; }
 .nav-brand:hover { text-decoration: none; }
 .nav-crest { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; display: block; flex-shrink: 0; background: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.14), 0 2px 6px rgba(0,0,0,.25); }
 /* the real logo is a transparent PNG — show just the ball, no white circle/ring */
-img.nav-crest { width: 52px; height: 52px; border-radius: 0; background: transparent; box-shadow: none; object-fit: contain; }
+img.nav-crest { width: 62px; height: 62px; border-radius: 0; background: transparent; box-shadow: none; object-fit: contain; }
 .nav-brand .name-block { display: flex; flex-direction: column; line-height: 1.05; }
 .nav-brand .name-block .sub { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: rgba(255,255,255,.7); }
 .nav-links { list-style: none; display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: 0; }
