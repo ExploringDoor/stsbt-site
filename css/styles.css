@@ -96,6 +96,8 @@ hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-6) 0; }
   border-bottom: 3px solid var(--sts-red);
 }
 .nav-inner { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); height: 64px; }
+/* Nav spans full width so the brand hugs the left edge (not the centered gutter) */
+.nav > .container.nav-inner { max-width: none; padding-left: var(--space-4); padding-right: var(--space-4); }
 .nav-brand { display: flex; align-items: center; gap: var(--space-3); color: var(--sts-white); text-decoration: none; font-family: var(--font-display); font-weight: 600; font-size: var(--text-xl); letter-spacing: .02em; text-transform: uppercase; }
 .nav-brand:hover { text-decoration: none; }
 .nav-crest { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; display: block; flex-shrink: 0; background: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.14), 0 2px 6px rgba(0,0,0,.25); }
@@ -335,7 +337,7 @@ table.tbl .actions { display: flex; gap: 6px; }
 .admin-wrap { display: flex; min-height: 100vh; }
 .admin-side { width: 230px; background: var(--sts-navy); color: #fff; flex: none; padding: var(--space-5) 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
 .admin-side .brand { padding: 0 var(--space-5) var(--space-5); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,.12); margin-bottom: var(--space-4); }
-.admin-side .brand img { width: 38px; height: 38px; border-radius: 50%; background: #fff; }
+.admin-side .brand img { width: 54px; height: 54px; border-radius: 0; background: transparent; object-fit: contain; }
 .admin-side .brand b { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .03em; font-size: var(--text-sm); }
 .admin-nav { list-style: none; margin: 0; padding: 0; }
 .admin-nav button { width: 100%; text-align: left; background: none; border: 0; color: rgba(255,255,255,.85); font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-size: var(--text-sm); padding: 11px var(--space-5); cursor: pointer; display: flex; align-items: center; gap: 10px; border-left: 3px solid transparent; }
