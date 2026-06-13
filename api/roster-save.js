@@ -42,12 +42,14 @@ export default async function handler(req, res) {
 
     // A coach re-editing can't see stored birthdates (the public doc has none), so an
     // empty incoming dob must KEEP the one already on file — never silently wipe it.
-    let prevDob = {};
+    // Also capture the previous player NAMES to diff added/removed for the notice.
+    let prevDob = {}, prevNames = [];
     try {
       const prev = await fsGet(`team_rosters/${team.id}`);
       (prev && Array.isArray(prev.roster) ? prev.roster : []).forEach(p => {
         const k = String(p.name || '').toLowerCase().trim();
         if (k && p.dob) prevDob[k] = p.dob;
+        if (p.name) prevNames.push(String(p.name).trim());
       });
     } catch (e) {}
 
@@ -74,6 +76,26 @@ export default async function handler(req, res) {
 
     await fsPatch(`teams/${team.id}`, { roster: pub });
     await fsPatch(`team_rosters/${team.id}`, { team_id: team.id, roster: full });
+
+    // Notify the admin of what changed (added/removed), with the coach + timestamp.
+    try {
+      const newNames = full.map(p => p.name).filter(Boolean);
+      const lc = s => s.toLowerCase();
+      const added = newNames.filter(n => !prevNames.some(p => lc(p) === lc(n)));
+      const removed = prevNames.filter(p => !newNames.some(n => lc(n) === lc(p)));
+      let coachEmail = '';
+      try { if (team.reg_id) { const reg = await fsGet(`registrations/${team.reg_id}`); coachEmail = (reg && reg.coach_email) || ''; } } catch (e) {}
+      const site = process.env.SITE_URL || '';
+      if (site) await fetch(`${site}/api/notify-registration`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'roster', registration: {
+          team_name: team.name, coach_name: team.coach_name || '', coach_email: coachEmail,
+          age_class: team.age_class || '', sport: team.sport || '',
+          added, removed, player_count: full.length, updated_at: new Date().toISOString(),
+        } }),
+      });
+    } catch (e) { /* non-fatal */ }
+
     return res.status(200).json({ ok: true, count: full.length });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });

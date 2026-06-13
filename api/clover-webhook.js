@@ -132,11 +132,13 @@ export default async function handler(req, res) {
       await fsPatch(`registrations/${reg.id}`, { team_id: slug });
     }
 
-    // notify Keith (best-effort)
+    // notify Keith (best-effort). Insurance is detected downstream; a non-insurance
+    // PRODUCT (e.g. GamePro Baseballs) is a merchandise 'order', everything else 'paid'.
+    const notifyEvent = (formType === 'product' && !isInsurance) ? 'order' : 'paid';
     try {
       await fetch(`${process.env.SITE_URL || ''}/api/notify-registration`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: 'paid', registration: { ...reg, card_last4: last4, clover_order_id: orderId } }),
+        body: JSON.stringify({ event: notifyEvent, registration: { ...reg, card_last4: last4, clover_order_id: orderId } }),
       });
     } catch (e) { /* non-fatal */ }
 

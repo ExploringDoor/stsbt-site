@@ -150,6 +150,18 @@ var SAMPLE_INSURANCE = [
 ];
 var _insurance = SAMPLE_INSURANCE.map(function (x) { return Object.assign({}, x); });
 
+// ── ACTIVITY FEED (admin notifications log) ──────────────────────────
+// Every finalized event (registration, payment, roster change, insurance,
+// order) appends a row here so the admin has a running log, not just email.
+var SAMPLE_ACTIVITY = [
+  { id: 'a1', type: 'roster', team_name: 'CTX Wolfpack', title: 'CTX Wolfpack roster updated', detail: '2 added', actor: 'Dan Chiappe', at: '2026-06-12T15:40:00' },
+  { id: 'a2', type: 'insurance', team_name: 'Blacksox', title: 'Insurance purchased — Blacksox', detail: 'Tanir Horton', actor: 'Tanir Horton', at: '2026-06-12T14:05:00' },
+  { id: 'a3', type: 'payment', team_name: 'CTX Wolfpack', title: 'Paid registration — CTX Wolfpack', detail: 'Brownwood "Summer Slam Series" · $128.00', actor: 'Dan Chiappe', at: '2026-06-11T12:08:00' },
+  { id: 'a4', type: 'order', team_name: 'Blacksox', title: 'Order — STS GamePro Baseballs', detail: 'Blacksox · $60.00', actor: 'Tanir Horton', at: '2026-06-10T09:30:00' },
+  { id: 'a5', type: 'registration', team_name: 'Comanche Bears', title: 'New team registered — Comanche Bears', detail: '2026 Fall/Spring Baseball Team Registration', actor: 'Will Rhodes', at: '2026-06-09T16:20:00' },
+];
+var _activity = SAMPLE_ACTIVITY.map(function (x) { return Object.assign({}, x); });
+
 // ── SCALE MODE (?scale=N, sample/demo only) ──────────────────────────
 // Synthesizes N extra registrations (+ live teams for the paid season ones) so
 // the admin and public pages can be exercised at Keith's REAL volume (~1,150
@@ -263,6 +275,24 @@ var _insurance = SAMPLE_INSURANCE.map(function (x) { return Object.assign({}, x)
       else if (m === 4) Object.assign(rec, { status: 'rejected', source: 'uploaded', carrier: 'K&K Insurance', policy_no: 'POL-' + (20000 + k), doc_name: slugify(t.name) + '-policy.pdf', doc_url: 'assets/sample-coi.pdf', reviewed_at: '2025-07-' + String(12 + (k % 16)).padStart(2, '0') + 'T09:00:00', note: 'STS not listed as additionally insured — please re-upload.' });
       else Object.assign(rec, { status: 'approved', source: (k % 2 ? 'purchased' : 'uploaded'), carrier: (k % 2 ? 'Small Town Select Group Policy' : 'Sadler Sports'), policy_no: 'POL-' + (30000 + k), doc_name: (k % 2 ? '' : slugify(t.name) + '-coi.pdf'), doc_url: (k % 2 ? '' : 'assets/sample-coi.pdf'), reviewed_at: '2025-07-' + String(9 + (k % 18)).padStart(2, '0') + 'T10:00:00' });
       _insurance.push(rec);
+    });
+  } catch (e) { /* demo-only */ }
+
+  // ── ACTIVITY: seed a feed from the generated entries + insurance ──────
+  try {
+    _regs.slice(0, 40).forEach(function (r, k) {
+      if (!/^sc/.test(r.id)) return;
+      var paid = r.payment_status === 'paid', free = r.payment_status === 'free';
+      if (!paid && !free) return;
+      _activity.push({
+        id: 'act' + k, type: paid ? 'payment' : 'registration', team_name: r.team_name,
+        title: (paid ? 'Paid registration — ' : 'New team registered — ') + r.team_name,
+        detail: free ? r.form_title || '' : ((r.form_title || '') + ' · $' + ((r.amount_cents || 0) / 100).toFixed(2)).replace(/^ · /, ''),
+        actor: r.coach_name || '', at: r.created_at || '2026-06-01T12:00:00'
+      });
+    });
+    _insurance.filter(function (x) { return x.source === 'purchased' && x.status === 'approved'; }).slice(0, 8).forEach(function (x, k) {
+      _activity.push({ id: 'actins' + k, type: 'insurance', team_name: x.team_name, title: 'Insurance purchased — ' + x.team_name, detail: '', actor: '', at: x.submitted_at || '2026-06-05T12:00:00' });
     });
   } catch (e) { /* demo-only */ }
 
@@ -453,6 +483,12 @@ export async function setInsuranceStatus(teamId, patch) {
   if (isConfigured) { await setDoc(doc(db, 'team_insurance', teamId), patch, { merge: true }); return; }
   var rec = _insurance.find(function (x) { return x.team_id === teamId; });
   if (rec) Object.assign(rec, patch); else _insurance.push(Object.assign({ team_id: teamId }, patch));
+}
+
+// ── Activity feed (admin) ────────────────────────────────────────────
+export async function loadActivity() {
+  var all = isConfigured ? await fsAll('activity').catch(function () { return []; }) : _activity.slice();
+  return all.sort(function (a, b) { return String(b.at || '').localeCompare(String(a.at || '')); });
 }
 // Auto-create the public team page from a registration. The Clover webhook does
 // this for PAID entries; this is the client-side path for FREE ($0) team entries

@@ -124,6 +124,13 @@ service cloud.firestore {
       allow write: if isSuper();
     }
 
+    // ── ACTIVITY FEED (admin notifications log) ──────────────────────
+    // Written by the server (super user) as events happen; admins read it.
+    match /activity/{id} {
+      allow read:  if isAdmin();
+      allow write: if isSuper();
+    }
+
     // ── Public-read collections with admin writes ────────────────────
     // NOTE: roster docs here must NEVER contain a child's dob (it ships to every
     // browser via this `read: if true` rule). DOB lives in team_rosters/ above.

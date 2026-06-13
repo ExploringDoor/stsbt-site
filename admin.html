@@ -61,6 +61,7 @@
     <div class="brand"><span class="nav-crest mono" style="width:38px;height:38px;font-size:13px;color:var(--sts-navy);display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:#fff">STS</span><b>STS Admin</b></div>
     <ul class="admin-nav" id="adminNav">
       <li><button data-panel="entries" class="active">📋 Entries</button></li>
+      <li><button data-panel="activity">🔔 Activity</button></li>
       <li><button data-panel="schedule">📅 Schedule</button></li>
       <li><button data-panel="analysis">📊 Analysis</button></li>
       <li><button data-panel="forms">📝 Forms</button></li>
@@ -145,6 +146,20 @@
         <table class="tbl"><thead><tr><th>Team</th><th>Sport</th><th>Division</th><th>Age</th><th>Town</th><th>Code</th><th>Live</th><th>Actions</th></tr></thead>
         <tbody id="teamsBody"></tbody></table>
       </div>
+    </section>
+
+    <!-- ACTIVITY -->
+    <section class="panel" id="panel-activity">
+      <p class="muted">A running log of everything that happens — registrations, payments, roster changes, insurance, and orders. Same events that email you, in one place.</p>
+      <div class="pill-tabs" id="actPills" style="margin-bottom:var(--space-4)">
+        <button class="pill active" data-act="">All</button>
+        <button class="pill" data-act="registration">Registrations</button>
+        <button class="pill" data-act="payment">Payments</button>
+        <button class="pill" data-act="roster">Roster changes</button>
+        <button class="pill" data-act="insurance">Insurance</button>
+        <button class="pill" data-act="order">Orders</button>
+      </div>
+      <div id="activityFeed"></div>
     </section>
 
     <!-- INSURANCE -->
@@ -522,6 +537,7 @@
     GAMES = await STS.loadGamesScoped(ME, {});
     TEAMS = isSuper() ? await STS.loadTeams({ includeHidden: true }) : [];   // teams panel is super-only
     INS = isSuper() ? await STS.loadInsurance() : [];
+    ACT = isSuper() ? await STS.loadActivity() : [];
     // form filter dropdown (scoped label for directors)
     document.getElementById('entryForm').innerHTML = '<option value="">' + (isSuper() ? 'All tournaments / forms' : 'All my events') + '</option>' + FORMS.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
     // age + division filter options, derived from the actual entries
@@ -530,9 +546,31 @@
     var ageSort = function(a,b){ return (parseInt(a,10)||99)-(parseInt(b,10)||99) || a.localeCompare(b); };
     document.getElementById('entryAge').innerHTML = '<option value="">All ages</option>' + Object.keys(ages).sort(ageSort).map(function(a){ return '<option value="'+esc(a)+'">'+esc(a)+'</option>'; }).join('');
     document.getElementById('entryDiv').innerHTML = '<option value="">All divisions</option>' + Object.keys(divs).sort().map(function(d){ return '<option value="'+esc(d)+'">'+esc(d)+'</option>'; }).join('');
-    renderEntries(); renderForms(); renderTeams(); loadPrices(); renderSchedule(); renderInsurance();
+    renderEntries(); renderForms(); renderTeams(); loadPrices(); renderSchedule(); renderInsurance(); renderActivity();
     if (isSuper()) renderAdmins();
   }
+
+  // ── ACTIVITY FEED ───────────────────────────────────────────────────
+  var ACT = [], actFilt = '';
+  function actMeta(t){
+    return ({ registration:['📝','#002D72'], payment:['💳','#166534'], roster:['👥','#7c3aed'], insurance:['🛡️','#9a3412'], order:['⚾','#0369a1'] })[t] || ['•','#64748b'];
+  }
+  function renderActivity(){
+    var rows = ACT.filter(function(a){ return !actFilt || a.type===actFilt; });
+    var feed = document.getElementById('activityFeed');
+    if (!rows.length){ feed.innerHTML = '<div class="empty">No activity yet — registrations, payments and roster changes show up here.</div>'; return; }
+    feed.innerHTML = rows.slice(0,300).map(function(a){
+      var m = actMeta(a.type);
+      return '<div style="display:flex;gap:12px;align-items:flex-start;padding:11px 4px;border-bottom:1px solid var(--line)">'+
+        '<div style="font-size:18px;line-height:1.4;width:26px;text-align:center">'+m[0]+'</div>'+
+        '<div style="flex:1;min-width:0"><div style="font-weight:600;color:'+m[1]+'">'+esc(a.title||'')+'</div>'+
+          (a.detail?'<div class="muted" style="font-size:var(--text-sm)">'+esc(a.detail)+'</div>':'')+
+          (a.actor?'<div class="muted" style="font-size:11px">by '+esc(a.actor)+'</div>':'')+'</div>'+
+        '<div class="muted" style="font-size:11px;white-space:nowrap">'+fmtDate(a.at)+'</div>'+
+      '</div>';
+    }).join('');
+  }
+  document.getElementById('actPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; actFilt=b.dataset.act; document.querySelectorAll('#actPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); renderActivity(); });
 
   // ── INSURANCE ───────────────────────────────────────────────────────
   var INS = [];

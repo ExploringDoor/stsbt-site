@@ -9,6 +9,7 @@
 // If email isn't configured it returns 200 skipped=true so nothing else breaks.
 
 import { sendMail, emailConfigured, adminAddress, esc, shell } from './_email.js';
+import { fsCreate, fbConfigured } from './_firestore.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,32 +17,50 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  if (!emailConfigured()) return res.status(200).json({ skipped: true, reason: 'SENDGRID_API_KEY not set' });
 
   const { event = 'paid', registration = {} } = req.body || {};
   const r = registration;
 
-  // COACH-only confirmation (their team code) — fires at registration time.
+  // COACH-only confirmation (their team code) — email only, no activity log.
   if (event === 'confirm') {
-    const to = r.coach_email;
-    if (!to) return res.status(200).json({ skipped: true, reason: 'no coach_email' });
+    if (!emailConfigured() || !r.coach_email) return res.status(200).json({ skipped: true });
     const m = buildCoachMessage(r);
-    try { await sendMail({ to, subject: m.subject, html: m.html, text: m.text }); return res.status(200).json({ ok: true }); }
+    try { await sendMail({ to: r.coach_email, subject: m.subject, html: m.html, text: m.text }); return res.status(200).json({ ok: true }); }
     catch (e) { return res.status(500).json({ error: String(e.message || e) }); }
   }
 
-  // ADMIN alert — only ever fired for a FINALIZED entry (paid, or free-and-complete),
-  // never on an unpaid/pending submit. Insurance becomes a carrier-ready request.
+  // Log every admin-facing event to the activity feed (best-effort, independent of email).
+  try { await writeActivity(event, r); } catch (e) { /* non-fatal */ }
+
+  // ADMIN alert — finalized entries only (paid / free-complete / order / roster).
   const to = adminAddress();
-  if (!to) return res.status(200).json({ skipped: true, reason: 'ADMIN_EMAIL not set' });
+  if (!emailConfigured() || !to) return res.status(200).json({ ok: true, emailed: false });
   const isInsurance = event === 'insurance' || /insurance/i.test(r.form_title || r.form_id || '');
-  const msg = isInsurance ? buildInsuranceMessage(r) : buildMessage(event, r);
+  const msg = isInsurance ? buildInsuranceMessage(r)
+    : event === 'order' ? buildMerchMessage(r)
+    : event === 'roster' ? buildRosterMessage(r)
+    : buildMessage(event, r);
   try {
     await sendMail({ to, subject: msg.subject, html: msg.html, text: msg.text, replyTo: r.coach_email || undefined });
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, emailed: true });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
   }
+}
+
+// Append one row to the admin activity feed.
+async function writeActivity(event, r) {
+  if (!fbConfigured()) return;
+  const isInsurance = event === 'insurance' || /insurance/i.test(r.form_title || r.form_id || '');
+  const type = event === 'roster' ? 'roster' : event === 'order' ? 'order' : isInsurance ? 'insurance' : (Number(r.amount_cents) ? 'payment' : 'registration');
+  const team = r.team_name || '';
+  let title, detail;
+  if (type === 'roster') { const a = (r.added || []).length, d = (r.removed || []).length; title = `${team} roster updated`; detail = [a ? a + ' added' : '', d ? d + ' removed' : ''].filter(Boolean).join(', ') || 'saved'; }
+  else if (type === 'insurance') { title = `Insurance purchased — ${team}`; detail = r.coach_name || ''; }
+  else if (type === 'order') { title = `Order — ${r.form_title || 'Merchandise'}`; detail = `${team || r.coach_name || ''} · ${money(r.amount_cents)}`; }
+  else if (type === 'payment') { title = `Paid registration — ${team}`; detail = [r.form_title, money(r.amount_cents)].filter(Boolean).join(' · '); }
+  else { title = `New team registered — ${team}`; detail = r.form_title || ''; }
+  await fsCreate('activity', { type, team_name: team, title, detail, actor: r.coach_name || '', at: new Date().toISOString() });
 }
 
 function money(c) { return c != null && c !== '' ? '$' + (Number(c) / 100).toFixed(2) : ''; }
@@ -109,6 +128,56 @@ export function buildInsuranceMessage(r) {
       rows.map((x) => x[0] + ': ' + x[1]).join('\n') +
       `\n\nPlease email the certificate to ${admin}${r.coach_email ? ` and ${r.coach_email}` : ''}.`,
     html: shell('insurance', 'Certificate of Insurance Request', intro + `<div style="margin-top:12px">${rowList(rows)}</div>` + send, null, null),
+  };
+}
+
+// ── MERCHANDISE order (GamePro Baseballs, etc.) ──────────────────────
+export function buildMerchMessage(r) {
+  const site = process.env.SITE_URL || 'https://ststournaments.com';
+  const item = r.form_title || 'Merchandise';
+  const buyer = r.team_name || r.coach_name || '';
+  const rows = [
+    ['Order', item],
+    ['Buyer', buyer],
+    ['Contact', [r.coach_name, r.coach_phone, r.coach_email].filter(Boolean).join('  ·  ')],
+    ['Amount', money(r.amount_cents)],
+    ['Card', r.card_last4 ? '•••• ' + r.card_last4 : ''],
+    ['Order #', r.clover_order_id || ''],
+    ['Date', fmtWhen(r.paid_at || r.created_at)],
+  ].filter((x) => x[1] !== '' && x[1] != null);
+  return {
+    subject: `STS: Order — ${item}${buyer ? ' (' + buyer + ')' : ''}`,
+    text: rows.map((x) => x[0] + ': ' + x[1]).join('\n'),
+    html: shell('paid', 'Merchandise Order', rowList(rows), `${site}/admin.html`, 'Open Admin'),
+  };
+}
+
+// ── ROSTER changed (what a coach added/removed + when) ───────────────
+export function buildRosterMessage(r) {
+  const site = process.env.SITE_URL || 'https://ststournaments.com';
+  const team = r.team_name || 'team';
+  const Sport = (r.sport || '').charAt(0).toUpperCase() + (r.sport || '').slice(1);
+  const league = r.age_class
+    ? `${r.age_class} (${r.form_title || '2026 Fall/Spring ' + Sport + ' Team Registration'}${Sport ? ' - ' + Sport : ''})`
+    : (r.form_title || '');
+  const added = Array.isArray(r.added) ? r.added : [];
+  const removed = Array.isArray(r.removed) ? r.removed : [];
+  const when = fmtWhen(r.updated_at || r.created_at);
+
+  let listsHtml = '', listsText = '';
+  if (added.length) { listsHtml += `<div style="margin-top:14px"><b>Added:</b></div>` + added.map((n) => `<div>${esc(n)} added to roster</div>`).join(''); listsText += '\nAdded:\n' + added.map((n) => n + ' added to roster').join('\n'); }
+  if (removed.length) { listsHtml += `<div style="margin-top:14px"><b>Removed:</b></div>` + removed.map((n) => `<div>${esc(n)} removed from roster</div>`).join(''); listsText += '\nRemoved:\n' + removed.map((n) => n + ' removed from roster').join('\n'); }
+  if (!added.length && !removed.length) { listsHtml += `<div style="margin-top:14px;color:#64748b">Roster saved — no players added or removed.</div>`; }
+
+  const head =
+    `<div>The following team roster has been updated by coach <b>${esc(r.coach_name || '')}</b>${r.coach_email ? ` (${esc(r.coach_email)})` : ''}.</div>` +
+    `<div style="margin-top:10px">Team: <b>${esc(team)}</b></div>` +
+    `<div>League: <b>${esc(league)}</b></div>`;
+  const ts = when ? `<div style="margin-top:14px;color:#64748b;font-size:13px">Changed ${esc(when)}</div>` : '';
+  return {
+    subject: `${team} team roster has been changed`,
+    text: `The following team roster has been updated by coach ${r.coach_name || ''}${r.coach_email ? ` (${r.coach_email})` : ''}.\nTeam: ${team}\nLeague: ${league}${listsText}${when ? '\n\nChanged ' + when : ''}`,
+    html: shell('roster', 'Team Roster Updated', head + listsHtml + ts, `${site}/admin.html`, 'View in Admin'),
   };
 }
 
