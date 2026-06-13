@@ -135,7 +135,7 @@
           <select class="input" id="schedEvent" style="max-width:240px"><option value="">All events</option></select>
           <div class="pill-tabs" id="schedViewToggle"><button class="pill active" data-view="list">☰ List</button><button class="pill" data-view="grid">▦ Grid</button></div>
         </div>
-        <div style="display:flex;gap:8px"><a class="btn btn-outline btn-sm hidden" id="viewBracketBtn" target="_blank" rel="noopener">👁 View Bracket ↗</a><button class="btn btn-outline btn-sm" id="bracketBtn">🏆 Bracket / Pool</button><button class="btn btn-red btn-sm" id="newGameBtn">+ Add Game</button></div>
+        <div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" id="printSchedBtn">🖨 Print / Export</button><a class="btn btn-outline btn-sm hidden" id="viewBracketBtn" target="_blank" rel="noopener">👁 View Bracket ↗</a><button class="btn btn-outline btn-sm" id="bracketBtn">🏆 Bracket / Pool</button><button class="btn btn-red btn-sm" id="newGameBtn">+ Add Game</button></div>
       </div>
       <p class="muted" style="font-size:var(--text-sm)">Create games and post scores for your events. Standings on the public site update automatically from finished games.</p>
       <div id="schedPublish" style="margin-bottom:var(--space-3)"></div>
@@ -1148,6 +1148,34 @@
   })();
   document.getElementById('schedViewToggle').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; schedView=b.dataset.view; document.querySelectorAll('#schedViewToggle .pill').forEach(function(p){p.classList.toggle('active',p===b);}); renderSchedule(); });
   document.getElementById('schedEvent').addEventListener('change', function(e){ schedFilt=e.target.value; renderSchedule(); });
+  // ── PRINT / EXPORT (field day-sheets + per-team handouts) ───────────
+  function buildPrintView(){
+    var fid=schedFilt, title=fid?titleFor(fid):'All Events';
+    var games=GAMES.filter(function(g){ return !fid || g.form_id===fid; }).slice();
+    if(!games.length){ alert('No games to print yet — generate or add games first.'); return; }
+    var brk={}; function bt(f){ return brk[f]||(brk[f]={games:GAMES.filter(function(x){return x.form_id===f && x.g!=null;})}); }
+    function nm(g,raw){ if(g.g==null || !window.STSbracket) return raw||''; try{ return STSbracket.sideDisplay(bt(g.form_id), raw).name; }catch(e){ return raw||''; } }
+    function ev(g){ return fid?'':' · '+titleFor(g.form_id); }
+    function dnm(d){ if(!d) return 'TBD'; var dt=new Date(d+'T12:00:00'); return isNaN(dt)?d:dt.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'}); }
+    function sc(g){ return (g.done&&g.away_score!=null&&g.home_score!=null)?(g.away_score+'–'+g.home_score):''; }
+    function cmp(a,b){ return (a.date||'').localeCompare(b.date||'') || tKey(a.time)-tKey(b.time) || (a.field||'').localeCompare(b.field||''); }
+    games.sort(cmp);
+    var byDate={}; games.forEach(function(g){ (byDate[g.date||'TBD']=byDate[g.date||'TBD']||[]).push(g); });
+    var master=Object.keys(byDate).sort().map(function(d){ return '<h3>'+esc(dnm(d))+'</h3><table><thead><tr><th>Time</th><th>Field</th><th>Matchup</th><th>Score</th></tr></thead><tbody>'+byDate[d].map(function(g){ return '<tr><td>'+esc(fmtGTime(g.time)||'TBD')+'</td><td>'+esc(g.field||'')+'</td><td>'+esc(nm(g,g.away)||'TBD')+' v '+esc(nm(g,g.home)||'TBD')+esc(ev(g))+'</td><td>'+esc(sc(g))+'</td></tr>'; }).join('')+'</tbody></table>'; }).join('');
+    var byField={}; games.forEach(function(g){ (byField[g.field||'(no field)']=byField[g.field||'(no field)']||[]).push(g); });
+    var fieldSec=Object.keys(byField).sort().map(function(f){ return '<h3>Field: '+esc(f)+'</h3><table><thead><tr><th>Day</th><th>Time</th><th>Matchup</th><th>Score</th></tr></thead><tbody>'+byField[f].map(function(g){ return '<tr><td>'+esc(dnm(g.date))+'</td><td>'+esc(fmtGTime(g.time)||'TBD')+'</td><td>'+esc(nm(g,g.away)||'TBD')+' v '+esc(nm(g,g.home)||'TBD')+esc(ev(g))+'</td><td>'+esc(sc(g))+'</td></tr>'; }).join('')+'</tbody></table>'; }).join('');
+    var teams={}; games.forEach(function(g){ [['a',g.away,g.home],['h',g.home,g.away]].forEach(function(p){ var n=nm(g,p[1]); if(n && !/^(winner|loser) of game|^bye$|^tbd$/i.test(n)){ (teams[n]=teams[n]||[]).push({g:g,opp:nm(g,p[2])}); } }); });
+    var teamSec=Object.keys(teams).sort().map(function(t){ return '<h3>'+esc(t)+'</h3><table><thead><tr><th>Day</th><th>Time</th><th>Field</th><th>Opponent</th><th>Score</th></tr></thead><tbody>'+teams[t].sort(function(a,b){return cmp(a.g,b.g);}).map(function(x){ var g=x.g; return '<tr><td>'+esc(dnm(g.date))+'</td><td>'+esc(fmtGTime(g.time)||'TBD')+'</td><td>'+esc(g.field||'')+'</td><td>'+esc(x.opp||'TBD')+esc(ev(g))+'</td><td>'+esc(sc(g))+'</td></tr>'; }).join('')+'</tbody></table>'; }).join('');
+    var css='body{font-family:system-ui,Arial,sans-serif;color:#111;background:#fff;margin:22px;font-size:12px}h1{font-size:20px;margin:0;color:#00224f}h2{font-size:15px;margin:22px 0 6px;border-bottom:2px solid #00224f;padding-bottom:3px;color:#00224f}h3{font-size:13px;margin:13px 0 4px}table{width:100%;border-collapse:collapse;margin-bottom:8px}th,td{border:1px solid #ccc;padding:4px 7px;text-align:left}th{background:#eef2f8}.sub{color:#555;margin:2px 0 4px;font-size:11px}.sec{page-break-before:always}@media print{.noprint{display:none}body{margin:0}}';
+    var html='<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+' — Schedule</title><style>'+css+'</style></head><body>'+
+      '<div class="noprint" style="margin-bottom:14px"><button onclick="window.print()" style="padding:8px 16px;font-size:14px;cursor:pointer">🖨 Print this</button></div>'+
+      '<h1>'+esc(title)+'</h1><div class="sub">Small Town Select Tournaments · printed '+esc(new Date().toLocaleDateString())+'</div>'+
+      '<h2>Master Schedule</h2>'+master+
+      '<div class="sec"><h2>By Field <span class="sub">(post at each field)</span></h2>'+fieldSec+'</div>'+
+      '<div class="sec"><h2>By Team <span class="sub">(hand to each coach)</span></h2>'+teamSec+'</div></body></html>';
+    var w=window.open('','_blank','width=900,height=700'); if(!w){ alert('Allow pop-ups to open the printable schedule.'); return; } w.document.write(html); w.document.close(); w.focus();
+  }
+  document.getElementById('printSchedBtn').addEventListener('click', buildPrintView);
   document.getElementById('schedPublish').addEventListener('click', async function(e){
     if(!e.target.closest('#schedPubToggle')) return;
     var f = FORMS.find(function(x){ return x.id===schedFilt; }); if(!f) return;
