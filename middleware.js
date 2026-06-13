@@ -1,38 +1,88 @@
 // Vercel Edge Middleware — private-preview password gate for the ENTIRE site.
 //
 // The GitHub repo is PUBLIC, so the password must NEVER live in this file. It is
-// read only from the SITE_GATE env var (set in Vercel → Environment Variables).
+// read only from the SITE_GATE env var (Vercel → Environment Variables).
 //
-// Behaviour: HTTP Basic Auth — any username, the password must equal SITE_GATE.
-// FAIL-CLOSED: if SITE_GATE is unset, the site stays locked (better dark than
-// public). To take the gate DOWN later, just delete the SITE_GATE env var and
-// remove this file (or set SITE_GATE and share it with Keith for a private look).
+// UX: a normal branded HTML login page (NOT browser Basic Auth, which some
+// browsers refuse to prompt for). Submitting the right password sets a cookie;
+// after that every page loads normally for 30 days.
+//
+// FAIL-CLOSED: if SITE_GATE is unset, nothing unlocks (better dark than public).
+// TO GO PUBLIC AT LAUNCH: delete the SITE_GATE env var and remove this file.
 
 export const config = {
-  // Gate every route except Vercel's internal paths + the favicon.
   matcher: '/((?!_vercel/|favicon\\.ico).*)',
 };
 
-export default function middleware(request) {
-  const GATE = process.env.SITE_GATE || '';
-  const header = request.headers.get('authorization') || '';
+function parseCookies(str) {
+  const out = {};
+  (str || '').split(';').forEach((p) => {
+    const i = p.indexOf('=');
+    if (i > -1) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim());
+  });
+  return out;
+}
 
-  if (GATE && header.startsWith('Basic ')) {
-    let decoded = '';
-    try { decoded = atob(header.slice(6)); } catch (e) { decoded = ''; }
-    const pass = decoded.slice(decoded.indexOf(':') + 1);
-    if (pass === GATE) return; // correct password → let the request through
+function loginPage(showError) {
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Small Town Select Tournaments — Private Preview</title>
+<style>
+  *{box-sizing:border-box} html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(180deg,#00224f,#001226);color:#fff;
+    display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{width:100%;max-width:380px;background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:32px 28px;text-align:center}
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#f6c453;font-weight:700}
+  h1{font-size:22px;margin:10px 0 4px;line-height:1.2}
+  p{margin:0 0 22px;color:rgba(255,255,255,.7);font-size:14px}
+  input{width:100%;padding:13px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.2);
+    background:rgba(0,0,0,.25);color:#fff;font-size:16px;text-align:center;letter-spacing:.05em}
+  input:focus{outline:none;border-color:#f6c453}
+  button{width:100%;margin-top:12px;padding:13px;border:0;border-radius:10px;cursor:pointer;
+    background:#f6c453;color:#00224f;font-size:15px;font-weight:700}
+  .err{color:#ff9d9d;font-size:13px;margin-top:14px;min-height:16px}
+</style></head><body>
+<form class="card" method="POST" action="/__unlock">
+  <div class="eyebrow">Private Preview</div>
+  <h1>Small Town Select Tournaments</h1>
+  <p>This site isn't public yet. Enter the password to continue.</p>
+  <input type="password" name="pw" placeholder="Password" autofocus autocomplete="current-password" required>
+  <button type="submit">Enter</button>
+  <div class="err">${showError ? 'Incorrect password — try again.' : ''}</div>
+</form></body></html>`;
+  return new Response(html, {
+    status: showError ? 401 : 200,
+    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+  });
+}
+
+export default async function middleware(request) {
+  const GATE = process.env.SITE_GATE || '';
+  const url = new URL(request.url);
+  const cookies = parseCookies(request.headers.get('cookie'));
+
+  // Already unlocked → let everything through.
+  if (GATE && cookies.sts_ok === GATE) return;
+
+  // Login form submit.
+  if (request.method === 'POST' && url.pathname === '/__unlock') {
+    let pw = '';
+    try { const f = await request.formData(); pw = String(f.get('pw') || ''); } catch (e) {}
+    if (GATE && pw === GATE) {
+      return new Response(null, {
+        status: 303,
+        headers: {
+          'Location': '/',
+          'Set-Cookie': `sts_ok=${encodeURIComponent(GATE)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`,
+          'cache-control': 'no-store',
+        },
+      });
+    }
+    return loginPage(true);
   }
 
-  return new Response(
-    'Small Town Select Tournaments — private preview.\nThis site is not public yet.',
-    {
-      status: 401,
-      headers: {
-        'WWW-Authenticate': 'Basic realm="Small Town Select — private preview"',
-        'content-type': 'text/plain; charset=utf-8',
-        'cache-control': 'no-store',
-      },
-    }
-  );
+  // Everyone else → the login page.
+  return loginPage(false);
 }
