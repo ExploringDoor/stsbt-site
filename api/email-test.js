@@ -10,7 +10,7 @@
 // Env: SENDGRID_API_KEY, MAIL_FROM, ADMIN_EMAIL (see api/_email.js).
 
 import { sendMail, emailConfigured, adminAddress } from './_email.js';
-import { buildMessage, buildCoachMessage } from './notify-registration.js';
+import { buildMessage, buildCoachMessage, buildInsuranceMessage } from './notify-registration.js';
 
 const SAMPLE = {
   team_name: 'Brownwood Bandits', form_id: 'season-baseball',
@@ -32,12 +32,14 @@ export default async function handler(req, res) {
   if (!emailConfigured()) return res.status(200).json({ ok: false, reason: 'SENDGRID_API_KEY not set in Vercel' });
   if (!to) return res.status(200).json({ ok: false, reason: 'No recipient — set ADMIN_EMAIL or pass ?to=you@email.com' });
 
-  // 'confirm' = the COACH-facing confirmation (team code + manage link)
-  const types = type === 'all' ? ['submitted', 'confirm', 'paid', 'insurance', 'roster'] : [type];
+  // confirm = COACH confirmation (team code) · paid = admin alert · insurance = carrier request
+  const types = type === 'all' ? ['confirm', 'paid', 'insurance'] : [type];
   const results = [];
   for (const t of types) {
     const data = t === 'insurance' ? INSURANCE_SAMPLE : SAMPLE;
-    const msg = t === 'confirm' ? buildCoachMessage(data) : buildMessage(t, data);
+    const msg = t === 'confirm' ? buildCoachMessage(data)
+      : t === 'insurance' ? buildInsuranceMessage(data)
+      : buildMessage(t, data);
     try {
       await sendMail({ to, subject: '[TEST] ' + msg.subject, html: msg.html, text: msg.text });
       results.push({ type: t, sent: true, subject: '[TEST] ' + msg.subject });

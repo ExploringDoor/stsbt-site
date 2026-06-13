@@ -18,10 +18,10 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!emailConfigured()) return res.status(200).json({ skipped: true, reason: 'SENDGRID_API_KEY not set' });
 
-  const { event = 'submitted', registration = {} } = req.body || {};
+  const { event = 'paid', registration = {} } = req.body || {};
   const r = registration;
 
-  // COACH-only confirmation
+  // COACH-only confirmation (their team code) — fires at registration time.
   if (event === 'confirm') {
     const to = r.coach_email;
     if (!to) return res.status(200).json({ skipped: true, reason: 'no coach_email' });
@@ -30,22 +30,18 @@ export default async function handler(req, res) {
     catch (e) { return res.status(500).json({ error: String(e.message || e) }); }
   }
 
-  // ADMIN alert
+  // ADMIN alert — only ever fired for a FINALIZED entry (paid, or free-and-complete),
+  // never on an unpaid/pending submit. Insurance becomes a carrier-ready request.
   const to = adminAddress();
   if (!to) return res.status(200).json({ skipped: true, reason: 'ADMIN_EMAIL not set' });
-  const msg = buildMessage(event, r);
+  const isInsurance = event === 'insurance' || /insurance/i.test(r.form_title || r.form_id || '');
+  const msg = isInsurance ? buildInsuranceMessage(r) : buildMessage(event, r);
   try {
     await sendMail({ to, subject: msg.subject, html: msg.html, text: msg.text, replyTo: r.coach_email || undefined });
+    return res.status(200).json({ ok: true });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
   }
-
-  // Best-effort coach confirmation on a new registration / payment (never a product/roster).
-  const isInsurance = /insurance/i.test(r.form_title || r.form_id || '');
-  if ((event === 'submitted' || event === 'paid') && r.coach_email && r.team_code && !isInsurance) {
-    try { const cm = buildCoachMessage(r); await sendMail({ to: r.coach_email, subject: cm.subject, html: cm.html, text: cm.text }); } catch (e) { /* non-fatal */ }
-  }
-  return res.status(200).json({ ok: true });
 }
 
 function money(c) { return c != null && c !== '' ? '$' + (Number(c) / 100).toFixed(2) : ''; }
@@ -59,25 +55,15 @@ function rowList(rows) {
   return rows.map((x) => `<div><span style="color:#64748b">${esc(x[0])}:</span> <b>${esc(x[1])}</b></div>`).join('');
 }
 
-// ── ADMIN message ────────────────────────────────────────────────────
+// ── ADMIN alert (a finalized registration / payment) ─────────────────
 export function buildMessage(event, r) {
   const site = process.env.SITE_URL || 'https://ststournaments.com';
   const team = r.team_name || 'Team';
-  const isInsurance = event === 'insurance' || /insurance/i.test(r.form_title || r.form_id || '');
   const submitted = fmtWhen(r.created_at || r.submitted_at || r.paid_at);
+  const isFree = (r.payment_status === 'free') || !Number(r.amount_cents);   // $0 season reg
 
-  if (event === 'roster') {
-    const n = r.player_count != null ? r.player_count : '';
-    const rows = [['Team', team], ['Players on roster', n], ['Coach', r.coach_name || ''], ['Submitted', submitted]].filter((x) => x[1] !== '' && x[1] != null);
-    return {
-      subject: `STS: Roster updated — ${team}${n !== '' ? ' (' + n + ' players)' : ''}`,
-      text: rows.map((x) => x[0] + ': ' + x[1]).join('\n'),
-      html: shell('roster', 'Roster Updated', rowList(rows), `${site}/admin.html`, 'View in Admin'),
-    };
-  }
-
-  const kind = isInsurance ? 'insurance' : event === 'paid' ? 'paid' : 'submitted';
-  const title = isInsurance ? 'Insurance Purchased' : event === 'paid' ? 'Paid Registration' : 'New Registration';
+  const kind = isFree ? 'submitted' : 'paid';
+  const title = isFree ? 'New Team Registered' : 'Paid Registration';
   const rows = [
     ['Team', team],
     ['Date submitted', submitted],
@@ -86,15 +72,43 @@ export function buildMessage(event, r) {
     ['Coach', [r.coach_name, r.coach_phone, r.coach_email].filter(Boolean).join('  ·  ')],
     ['Town', r.town || ''],
     ['Entry #', r.entry_no || ''],
-    ['Amount', money(r.amount_cents)],
-    event === 'paid' ? ['Card', r.card_last4 ? '•••• ' + r.card_last4 : ''] : null,
-    event === 'paid' ? ['Clover order', r.clover_order_id || ''] : null,
+    ['Amount', isFree ? 'Free' : money(r.amount_cents)],
+    !isFree ? ['Card', r.card_last4 ? '•••• ' + r.card_last4 : ''] : null,
+    !isFree ? ['Clover order', r.clover_order_id || ''] : null,
   ].filter(Boolean).filter((x) => x[1] !== '' && x[1] != null);
 
   return {
-    subject: `STS: ${isInsurance ? 'Insurance' : event === 'paid' ? 'PAID' : 'New'} — ${team}${r.age_class ? ' (' + r.age_class + ')' : ''}`,
+    subject: `STS: ${isFree ? 'Registered' : 'PAID'} — ${team}${r.age_class ? ' (' + r.age_class + ')' : ''}`,
     text: rows.map((x) => x[0] + ': ' + x[1]).join('\n'),
     html: shell(kind, title, rowList(rows), `${site}/admin.html`, 'Open Admin'),
+  };
+}
+
+// ── INSURANCE — carrier-ready request (Keith just forwards this) ──────
+export function buildInsuranceMessage(r) {
+  const admin = process.env.ADMIN_EMAIL || '';
+  const team = r.team_name || 'a team';
+  const rows = [
+    ['Team', team],
+    ['Coach', r.coach_name || ''],
+    ['Coach email', r.coach_email || ''],
+    ['Coach phone', r.coach_phone || ''],
+    ['Town', r.town || ''],
+    ['Sport / Division / Age', [r.sport, r.division, r.age_class].filter(Boolean).join(' · ')],
+    ['Players', r.player_count != null ? r.player_count : ''],
+    ['Coverage period', 'Aug 1, 2025 – Jul 31, 2026'],
+    ['Purchased', fmtWhen(r.paid_at || r.created_at)],
+  ].filter((x) => x[1] !== '' && x[1] != null);
+
+  const intro = `<div>A team purchased team insurance through Small Town Select. Please issue a <b>Certificate of Insurance</b> for the team below, with <b>Small Town Select Tournaments</b> listed as additionally insured.</div>`;
+  const send = `<div style="margin-top:14px;color:#334155">Please email the certificate to ${admin ? `<b>${esc(admin)}</b>` : 'Small Town Select'}${r.coach_email ? ` and the coach at <b>${esc(r.coach_email)}</b>` : ''}.</div>`;
+  return {
+    subject: `Certificate of Insurance Request — ${team} (Small Town Select)`,
+    text:
+      `A team purchased team insurance through Small Town Select. Please issue a Certificate of Insurance, with Small Town Select Tournaments listed as additionally insured.\n\n` +
+      rows.map((x) => x[0] + ': ' + x[1]).join('\n') +
+      `\n\nPlease email the certificate to ${admin}${r.coach_email ? ` and ${r.coach_email}` : ''}.`,
+    html: shell('insurance', 'Certificate of Insurance Request', intro + `<div style="margin-top:12px">${rowList(rows)}</div>` + send, null, null),
   };
 }
 

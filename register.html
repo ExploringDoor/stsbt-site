@@ -231,10 +231,12 @@
       };
       try {
         var res = await STS.createRegistration(data);
-        // notify Keith + send the coach their team code (best-effort; no-op if email not configured)
-        try { fetch('/api/notify-registration', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ event:'submitted', registration: Object.assign({ entry_no: res.entry_no, team_code: res.team_code, created_at: new Date().toISOString() }, data) }) }); } catch(_){}
+        var payload = Object.assign({ entry_no: res.entry_no, team_code: res.team_code, created_at: new Date().toISOString() }, data);
+        // The COACH gets their team code right away (best-effort; no-op if email off).
+        try { fetch('/api/notify-registration', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ event:'confirm', registration: payload }) }); } catch(_){}
         if (amount > 0) {
-          // PHASE 2: redirect to Clover hosted checkout
+          // PHASE 2: redirect to Clover hosted checkout. KEITH is notified by the
+          // webhook only once payment actually clears — not on this unpaid submit.
           try {
             var r = await fetch('/api/create-checkout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ regId: res.id }) });
             if (r.ok) { var j = await r.json(); if (j.href) { location.href = j.href; return; } }
@@ -242,11 +244,12 @@
           // fallback (payment not yet wired): go to thanks with a pending flag
           location.href = thanksUrl(res, data, 'pending'); return;
         }
-        // FREE ($0) entry — no payment, so create the team page now (paid entries
-        // get theirs from the Clover webhook). Products/add-ons don't make a team.
+        // FREE ($0) entry — final right now (no payment step). Create the team page
+        // and notify Keith, since this is the equivalent of "paid/complete".
         if (FORM.type !== 'product') {
           try { await STS.createTeamFromRegistration(Object.assign({}, data, { id: res.id, team_code: res.team_code, roster: [] })); } catch(_){}
         }
+        try { fetch('/api/notify-registration', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ event:'paid', registration: Object.assign({ payment_status:'free' }, payload) }) }); } catch(_){}
         location.href = thanksUrl(res, data, 'paid');
       } catch(ex){
         err.textContent = 'Sorry — something went wrong submitting your registration. Please try again.'; err.classList.remove('hidden');
