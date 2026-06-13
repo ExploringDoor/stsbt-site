@@ -22,6 +22,11 @@
   .pl-namelink { color: var(--sts-navy); font-weight: 600; text-decoration: none; }
   .pl-namelink:hover { text-decoration: underline; }
   .rost-guest { display: inline-block; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-size: 9px; font-weight: 700; color: var(--sts-red); border: 1px solid var(--sts-red); border-radius: 4px; padding: 1px 5px; vertical-align: middle; margin-left: 5px; }
+  .tbl tr[data-gid] { cursor: pointer; }
+  .tbl tr[data-gid]:hover { background: rgba(0,45,114,.05); }
+  .g-cue { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--sts-navy); opacity: .55; }
+  .tw-card { display: block; text-decoration: none; color: inherit; }
+  .tw-card .cg-view { margin-top: 8px; color: var(--sts-navy); font-weight: 600; font-size: var(--text-sm); }
 </style>
 </head>
 <body>
@@ -35,6 +40,7 @@
 <div id="sts-footer"></div>
 
 <script src="js/sts-bracket.js"></script>
+<script src="js/sts-gamemodal.js"></script>
 <script src="js/sts-chrome.js"></script>
 <script type="module">
   import * as STS from './js/sts-data.js';
@@ -68,17 +74,23 @@
     function sideName(g, raw){ if(g.g==null || !window.STSbracket) return raw==null?'':String(raw); var sd=STSbracket.sideDisplay(bt(g.form_id), raw); return sd.tbd?'':sd.name; }
     function isChamp(g){ if(g.g==null || !window.STSbracket) return false; try{ return STSbracket.classify(bt(g.form_id))[g.g]==='f'; }catch(e){ return false; } }
     var TN = (t.name||'').toLowerCase().trim();
-    var results=[];
+    function fmtTime(s){ if(!s) return ''; var p=String(s).split(':'); var h=+p[0],m=p[1]||'00'; if(isNaN(h)) return ''; var ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+m+' '+ap; }
+    var results=[], upcoming=[];
     ALL.forEach(function(g){
-      if(!(g.done && g.away_score!=null && g.home_score!=null)) return;
       if(!schedPub(g.form_id)) return;
       var aN=sideName(g,g.away), hN=sideName(g,g.home);
       var isAway = aN.toLowerCase().trim()===TN, isHome = hN.toLowerCase().trim()===TN;
       if(!isAway && !isHome) return;
-      var my=isAway?g.away_score:g.home_score, op=isAway?g.home_score:g.away_score, opp=isAway?hN:aN;
-      results.push({ date:g.date||'', event:titleFor(g.form_id), opp:opp, my:my, op:op, res:(my>op?'W':(op>my?'L':'T')), champ:isChamp(g) });
+      var opp = isAway?hN:aN;
+      if(g.done && g.away_score!=null && g.home_score!=null){
+        var my=isAway?g.away_score:g.home_score, op=isAway?g.home_score:g.away_score;
+        results.push({ gid:g.id, fid:g.form_id, date:g.date||'', event:titleFor(g.form_id), opp:opp, my:my, op:op, res:(my>op?'W':(op>my?'L':'T')), champ:isChamp(g) });
+      } else {
+        upcoming.push({ gid:g.id, fid:g.form_id, date:g.date||'', time:g.time||'', field:g.field||'', event:titleFor(g.form_id), opp:opp });
+      }
     });
     results.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+    upcoming.sort(function(a,b){ return (a.date||'').localeCompare(b.date||'') || (a.time||'').localeCompare(b.time||''); });
     var rec={w:0,l:0,t:0,rs:0,ra:0};
     results.forEach(function(r){ rec.rs+=r.my; rec.ra+=r.op; if(r.res==='W')rec.w++; else if(r.res==='L')rec.l++; else rec.t++; });
     var gp=rec.w+rec.l+rec.t, ardiff=gp?((rec.rs-rec.ra)/gp):0;
@@ -100,11 +112,21 @@
         results.map(function(r){ var rc=r.res==='W'?'gw':(r.res==='L'?'gl':'gt');
           var oppSlug=slugify(r.opp);
           var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
-          return '<tr><td>'+esc(fmtDate(r.date))+'</td><td>'+esc(r.event)+(r.champ?' <span class="gh-trophy" title="Championship game">🏆</span>':'')+'</td>'+
+          return '<tr data-gid="'+esc(r.gid)+'" tabindex="0" title="View recap"><td>'+esc(fmtDate(r.date))+'</td><td>'+esc(r.event)+(r.champ?' <span class="gh-trophy" title="Championship game">🏆</span>':'')+'</td>'+
             '<td>'+oppCell+'</td>'+
-            '<td class="'+rc+'"><b>'+r.res+'</b> '+r.my+'–'+r.op+'</td></tr>'; }).join('')+
+            '<td class="'+rc+'"><b>'+r.res+'</b> '+r.my+'–'+r.op+' <span class="g-cue">Recap ›</span></td></tr>'; }).join('')+
         '</tbody></table></div>'
       : '<div class="empty">No games played yet — results appear here as scores are posted.</div>';
+    var upcomingHTML = upcoming.length
+      ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Event</th><th>Opponent</th><th>Time</th></tr></thead><tbody>'+
+        upcoming.map(function(r){
+          var oppSlug=slugify(r.opp);
+          var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
+          var when=[fmtTime(r.time), r.field].filter(Boolean).join(' · ')||'TBD';
+          return '<tr data-gid="'+esc(r.gid)+'" tabindex="0" title="View preview"><td>'+esc(fmtDate(r.date))+'</td><td>'+esc(r.event)+'</td>'+
+            '<td>'+oppCell+'</td><td>'+esc(when)+' <span class="g-cue">Preview ›</span></td></tr>'; }).join('')+
+        '</tbody></table></div>'
+      : '';
 
     var logo = '<img src="assets/logos/'+esc(t.slug||t.id)+'.png" alt="'+esc(t.name)+' logo" loading="lazy" onerror="this.remove()">'+esc(STS.abbr(t.name));
     var meta = [t.division, t.age_class, t.sport, t.town, (t.coach_name?'Coach '+t.coach_name:'')].filter(Boolean).map(function(m){ return '<span>'+esc(m)+'</span>'; }).join('');
@@ -117,9 +139,22 @@
           return '<tr><td class="jersey">'+esc(p.num||'')+'</td><td>'+nameCell+'</td><td>'+esc(STS.playerAge(p))+'</td><td>'+esc(p.grade||'')+'</td></tr>'; }).join('')+
         '</tbody></table></div>'
       : '<div class="empty">No roster posted yet. The coach can add players with their team code.</div>';
-    var tourneys = (t.tournaments||[]);
-    var tourneyHTML = tourneys.length
-      ? '<div class="card-grid">'+tourneys.map(function(name){ return '<div class="card"><div class="eyebrow">Registered</div><h3 style="margin:4px 0 0">'+esc(name)+'</h3></div>'; }).join('')+'</div>'
+    // tournaments this team is in — from games actually played + any registered.
+    // A tournament with a bracket links to it ("View bracket →").
+    var tFids = {};
+    results.concat(upcoming).forEach(function(r){ if(r.fid) tFids[r.fid]=1; });
+    (t.tournaments||[]).forEach(function(name){ var f=FORMS.find(function(x){ return x.title===name; }); if(f) tFids[f.id]=1; });
+    var tList = Object.keys(tFids).map(function(fid){ return FORMS.find(function(x){ return x.id===fid; }); })
+      .filter(function(f){ return f && f.type==='tournament'; });
+    function hasBracket(fid){ return ALL.some(function(g){ return g.form_id===fid && g.g!=null; }); }
+    var tourneyHTML = tList.length
+      ? '<div class="card-grid">'+tList.map(function(f){
+          var hb=hasBracket(f.id);
+          var body='<div class="eyebrow">'+(hb?'Tournament':'Registered')+'</div><h3 style="margin:4px 0 0">'+esc(f.title)+'</h3>'+
+            (f.location?'<div class="muted" style="font-size:var(--text-sm);margin-top:4px">'+esc(f.location)+'</div>':'')+
+            (hb?'<div class="cg-view">View bracket →</div>':'');
+          return hb ? '<a class="card tw-card" href="brackets.html#'+esc(f.id)+'">'+body+'</a>' : '<div class="card">'+body+'</div>';
+        }).join('')+'</div>'
       : '<div class="empty">Not registered for any tournaments yet.</div>';
     var record = gp ? ('<span>'+rec.w+'–'+rec.l+(rec.t?'–'+rec.t:'')+' record</span>'+(titles?'<span>'+titles+'× 🏆 Champion</span>':'')) : '';
 
@@ -131,10 +166,28 @@
       '</div></div></div>'+
       '<main class="container section">'+
         (statGrid ? '<div class="sec-head"><h2>Season Stats</h2><span class="muted" style="font-size:var(--text-sm)">'+gp+' game'+(gp===1?'':'s')+'</span></div>'+statGrid : '')+
-        '<div class="sec-head'+(statGrid?' mt-7':'')+'"><h2>Games</h2></div>'+gamesHTML+
+        (upcomingHTML ? '<div class="sec-head'+(statGrid?' mt-7':'')+'"><h2>Upcoming Schedule</h2><span class="muted" style="font-size:var(--text-sm)">'+upcoming.length+' game'+(upcoming.length===1?'':'s')+' · tap for preview</span></div>'+upcomingHTML : '')+
+        '<div class="sec-head'+((statGrid||upcomingHTML)?' mt-7':'')+'"><h2>'+(upcomingHTML?'Results':'Games')+'</h2>'+(results.length?'<span class="muted" style="font-size:var(--text-sm)">tap for recap</span>':'')+'</div>'+gamesHTML+
         '<div class="sec-head mt-7"><h2>Roster</h2><span class="muted" style="font-size:var(--text-sm)">'+roster.length+' player'+(roster.length===1?'':'s')+'</span></div>'+rosterHTML+
         '<div class="sec-head mt-7"><h2>Tournaments</h2></div>'+tourneyHTML+
       '</main>';
+
+    // click/Enter a game row → open the preview (upcoming) / recap (played) modal
+    function openGameRow(row){
+      if(!window.STSgameModal) return;
+      var g = ALL.find(function(x){ return String(x.id)===String(row.getAttribute('data-gid')); });
+      if(!g) return;
+      var evGames = ALL.filter(function(x){ return x.form_id===g.form_id; });
+      STSgameModal.open(titleFor(g.form_id), evGames, g);
+    }
+    root.addEventListener('click', function(e){
+      if(e.target.closest('a')) return;            // let opponent/team links navigate
+      var row=e.target.closest('tr[data-gid]'); if(row) openGameRow(row);
+    });
+    root.addEventListener('keydown', function(e){
+      if(e.key!=='Enter' && e.key!==' ') return;
+      var row=e.target.closest('tr[data-gid]'); if(row){ e.preventDefault(); openGameRow(row); }
+    });
     if (window.STSfx) STSfx.arm(document);
   })();
 </script>

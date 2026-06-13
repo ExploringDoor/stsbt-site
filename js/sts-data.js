@@ -247,11 +247,14 @@ var _gameSeq = 9000;   // unique sample-mode ids for batch-created games
     var gid = 70000;
     function emit(g) { g.id = 'scg' + (gid++); _games.push(g); }
     function poolGames(fid, sport, division, names, date) {
+      // future date for the unplayed (upcoming) games so team pages show a schedule
+      var later = date.replace(/-(\d\d)$/, function (m, d) { return '-' + String(Math.min(28, (+d) + 7)).padStart(2, '0'); });
       for (var a = 0; a < names.length; a++) for (var b = a + 1; b < names.length; b++) {
         var s = a * 7 + b * 3;
+        var open = ((a + b) % 4) === 3;   // ~1 in 4 left unplayed → "Upcoming"
         emit({ form_id: fid, sport: sport, division: division, g: null, away: names[a], home: names[b],
-          date: date, time: ['09:00', '11:30', '14:00', '16:30'][(a + b) % 4], field: FIELDS[(a + b) % FIELDS.length],
-          away_score: 3 + (s % 9), home_score: 2 + ((s * 2) % 8), done: true });
+          date: open ? later : date, time: ['09:00', '11:30', '14:00', '16:30'][(a + b) % 4], field: FIELDS[(a + b) % FIELDS.length],
+          away_score: open ? null : 3 + (s % 9), home_score: open ? null : 2 + ((s * 2) % 8), done: !open });
       }
     }
     function bracketGames(fid, sport, division, t, date) {
