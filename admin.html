@@ -1101,6 +1101,7 @@
   }
   // ── GRID VIEW (drag-and-drop scheduler) ─────────────────────────────
   function tKey(t){ var p=String(t||'').split(':'); var h=parseInt(p[0],10)||0, m=parseInt(p[1],10)||0; return h*60+m; }
+  function hhmm(m){ return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
   function fmtDay(d){ if(!d||d==='TBD') return 'Date TBD'; var dt=new Date(d+'T12:00:00'); if(isNaN(dt)) return d; return dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}); }
   function renderScheduleGrid(games){
     var wrap=document.getElementById('scheduleWrap');
@@ -1278,90 +1279,76 @@
   }
   function openBracketModal(){
     var tf = TOURNEY_FORMS(), fid0 = schedFilt || tf[0].id;
+    var format='roundrobin', fields=['Field 1','Field 2'], days=[], slots=[], custom=[], ordered=null;
+    for(var _m=8*60;_m<=18*60;_m+=120) slots.push(hhmm(_m));   // sensible default: 8a–6p, 2h games
     document.getElementById('bkBody').innerHTML =
-      '<div class="field"><label for="bk_form">Event</label><select class="input" id="bk_form">'+tf.map(function(f){return '<option value="'+esc(f.id)+'"'+(f.id===fid0?' selected':'')+'>'+esc(f.title)+'</option>';}).join('')+'</select></div>'+
-      '<div class="field"><label for="bk_format">Format</label><select class="input" id="bk_format">'+
-        '<option value="single">Single elimination</option><option value="double">Double elimination</option><option value="roundrobin">Round robin (pool play)</option></select></div>'+
-      '<div class="field hidden" id="bk_gppWrap"><label for="bk_gpp">Pool games per team <span class="muted">(1–3 typical · 4 for World Series)</span></label><input class="input" id="bk_gpp" type="number" inputmode="numeric" value="3" min="1" max="10"></div>'+
-      '<div class="field"><div class="spread"><label for="bk_teams" style="margin:0">Teams &amp; Seeds <span class="muted">(one per line, best seed first — type ANY team, signed up or not)</span></label><button type="button" class="btn btn-outline btn-sm" id="bk_seed">↻ Seed from standings</button></div><textarea class="input" id="bk_teams" style="min-height:140px;margin-top:8px"></textarea><div style="margin-top:6px"><button type="button" class="btn btn-outline btn-sm" id="bk_pull">↧ Pull registered teams</button></div></div>'+
-      '<div class="field"><label for="bk_dates">Tournament days <span class="muted">(comma-separated)</span></label><input class="input" id="bk_dates" placeholder="2026-06-13, 2026-06-14"></div>'+
-      '<div class="field-row"><div class="field"><label for="bk_fields">Fields <span class="muted">(comma-separated)</span></label><input class="input" id="bk_fields" placeholder="Field 1, Field 2, Field 3" value="Field 1, Field 2"></div>'+
-      '<div class="field"><label for="bk_times">Game times each day <span class="muted">(comma-separated)</span></label><input class="input" id="bk_times" placeholder="09:00, 11:00, 13:00, 15:00" value="09:00, 11:00, 13:00, 15:00, 17:00"></div></div>'+
-      '<div class="field"><label>Auto-fill time slots <span class="muted">(first → last start · game length)</span></label><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><input class="input" id="bk_first" type="time" value="08:00" style="min-width:108px"><span class="muted">→</span><input class="input" id="bk_last" type="time" value="20:00" style="min-width:108px"><input class="input" id="bk_glen" type="number" value="105" min="30" step="15" style="max-width:74px" title="Game length (minutes)"><span class="muted">min</span><button type="button" class="btn btn-outline btn-sm" id="bk_autofill">Fill times ↑</button></div></div>'+
-      '<div class="field"><label for="bk_rest">Min rest between a team’s games <span class="muted">(minutes — avoids back-to-back)</span></label><input class="input" id="bk_rest" type="number" inputmode="numeric" value="0" min="0" step="15" placeholder="e.g. 90" style="max-width:140px"></div>'+
-      '<details id="bk_availWrap" style="margin-bottom:var(--space-4)"><summary style="cursor:pointer;font-weight:600;color:var(--sts-navy)">⏱ Team availability &amp; blackouts <span class="muted" style="font-weight:400">(optional — the schedule will honor these)</span></summary><div id="bk_availBody" style="margin-top:10px"></div></details>'+
-      '<div class="notice notice-warn" style="font-size:var(--text-xs)">Games are auto-assigned across your <b>fields</b> and <b>time slots</b>, honoring any team availability you set — then drag any game in <b>Grid</b> view or click <b>Edit</b> to fine-tune. Typical flow: <b>Round robin</b> → post scores → reopen → <b>Seed from standings</b> → generate a <b>bracket</b>. <a href="bracket-preview.html" target="_blank" rel="noopener" style="color:var(--sts-navy);font-weight:600">See example brackets ↗</a></div>';
-    function fillTeams(){ var fid=document.getElementById('bk_form').value, s={}; REGS.forEach(function(r){ if(r.form_id===fid && r.team_name) s[r.team_name]=1; }); document.getElementById('bk_teams').value=Object.keys(s).join('\n'); }
-    // pre-fill from registered teams only if the box is empty (so manual edits survive a form switch)
-    function maybeFill(){ if(!document.getElementById('bk_teams').value.trim()) fillTeams(); }
-    document.getElementById('bk_form').addEventListener('change', maybeFill); maybeFill();
-    document.getElementById('bk_pull').onclick = fillTeams;
-    // availability editor: per-team earliest/latest + a "can't play" box per day
-    function buildAvailEditor(){
-      var teams=document.getElementById('bk_teams').value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
-      var dates=document.getElementById('bk_dates').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
-      var fid=document.getElementById('bk_form').value, body=document.getElementById('bk_availBody');
-      if(!teams.length){ body.innerHTML='<div class="muted" style="font-size:var(--text-sm)">Add teams first, then reopen this.</div>'; return; }
-      var regByTeam={}; REGS.forEach(function(r){ if(r.form_id===fid && r.team_name) regByTeam[r.team_name.toLowerCase()]=r; });
-      var dayHeads=dates.map(function(d){ var dt=new Date(d+'T12:00:00'); var lbl=isNaN(dt)?d:dt.toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'}); return '<th style="font-size:10px;white-space:nowrap">'+esc(lbl)+'</th>'; }).join('');
-      var rows=teams.map(function(t){
-        var reg=regByTeam[t.toLowerCase()]||{};
-        var cells=dates.map(function(d){ return '<td style="text-align:center"><input type="checkbox" class="av-bl" data-team="'+esc(t)+'" data-date="'+esc(d)+'" style="width:16px;height:16px"></td>'; }).join('');
-        return '<tr><td style="font-weight:600;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis">'+esc(t)+'</td>'+
-          '<td><input class="input av-e" type="time" data-team="'+esc(t)+'" value="'+esc(reg.avail_earliest||'')+'" style="min-width:115px"></td>'+
-          '<td><input class="input av-l" type="time" data-team="'+esc(t)+'" value="'+esc(reg.avail_latest||'')+'" style="min-width:115px"></td>'+cells+'</tr>';
-      }).join('');
-      body.innerHTML='<div class="muted" style="font-size:var(--text-xs);margin-bottom:6px">Earliest / latest start per team (pre-filled from registration). Check a day a team <b>can’t</b> play — the generator avoids it.</div>'+
-        '<div class="table-wrap"><table class="tbl" style="font-size:var(--text-sm)"><thead><tr><th>Team</th><th>No earlier</th><th>No later</th>'+dayHeads+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
-    }
-    document.getElementById('bk_availWrap').addEventListener('toggle', function(e){ if(e.target.open) buildAvailEditor(); });
-    // auto-build the time-slot list from first/last start + game length
-    document.getElementById('bk_autofill').onclick = function(){
-      var f=tKey(document.getElementById('bk_first').value), l=tKey(document.getElementById('bk_last').value), len=parseInt(document.getElementById('bk_glen').value,10)||105;
-      if(l<f || len<15){ document.getElementById('bkNote').textContent='Check the auto-fill times (last must be after first).'; return; }
-      var out=[]; for(var m=f;m<=l;m+=len){ out.push(String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')); }
-      document.getElementById('bk_times').value=out.join(', ');
-      document.getElementById('bkNote').textContent=out.length+' time slots filled.';
-    };
-    function syncFmt(){ document.getElementById('bk_gppWrap').classList.toggle('hidden', document.getElementById('bk_format').value!=='roundrobin'); }
-    document.getElementById('bk_format').addEventListener('change', syncFmt); syncFmt();
-    document.getElementById('bk_seed').onclick = function(){
-      var fid=document.getElementById('bk_form').value;
-      var pool=GAMES.filter(function(g){ return g.form_id===fid && g.g==null; });
-      var st=STS.computeStandings(pool);
-      if(!st.length){ document.getElementById('bkNote').textContent='No finished pool games to seed from yet.'; return; }
-      document.getElementById('bk_teams').value=st.map(function(r){ return r.team; }).join('\n');
-      document.getElementById('bkNote').textContent='Seeded by pool standings ('+st.length+' teams).';
-    };
-    document.getElementById('bkNote').textContent='';
-    document.getElementById('bkGen').onclick = async function(){
-      var fid=document.getElementById('bk_form').value, f=FORMS.find(function(x){return x.id===fid;});
-      var teams=document.getElementById('bk_teams').value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
-      if(teams.length<2){ document.getElementById('bkNote').textContent='Add at least 2 teams.'; return; }
-      if(!window.STSgen){ document.getElementById('bkNote').textContent='Generator not loaded.'; return; }
-      var format=document.getElementById('bk_format').value;
-      var dates=document.getElementById('bk_dates').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
-      var csv=function(id,fb){ var a=(document.getElementById(id).value||'').split(',').map(function(s){return s.trim();}).filter(Boolean); return a.length?a:fb; };
-      var fields=csv('bk_fields',['Field 1','Field 2']);
-      var times=csv('bk_times',['09:00','11:00','13:00','15:00']);
+      '<div class="field"><label for="bk_form">Tournament</label><select class="input" id="bk_form">'+tf.map(function(f){return '<option value="'+esc(f.id)+'"'+(f.id===fid0?' selected':'')+'>'+esc(f.title)+'</option>';}).join('')+'</select></div>'+
+      '<div class="field"><label>Format</label><div class="pill-tabs" id="bk_fmt"><button type="button" class="pill active" data-fmt="roundrobin">Round robin (pool)</button><button type="button" class="pill" data-fmt="single">Single elim</button><button type="button" class="pill" data-fmt="double">Double elim</button></div></div>'+
+      '<div class="field" id="bk_gppWrap"><label for="bk_gpp">Pool games per team</label><input class="input" id="bk_gpp" type="number" value="3" min="1" max="10" style="max-width:110px"></div>'+
+      '<div class="field"><div class="spread"><label style="margin:0">Teams <span class="muted" id="bk_teamCount"></span></label><button type="button" class="btn btn-outline btn-sm" id="bk_seed">↻ Seed from standings</button></div>'+
+        '<div id="bk_teamList" style="max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin-top:8px"></div>'+
+        '<div style="display:flex;gap:6px;margin-top:8px"><input class="input" id="bk_addTeam" placeholder="Add a team that isn’t registered…" style="flex:1"><button type="button" class="btn btn-outline btn-sm" id="bk_addTeamBtn">+ Add</button></div></div>'+
+      '<div class="field"><label for="bk_dayPick">Tournament days</label><div style="display:flex;gap:6px;align-items:center"><input class="input" id="bk_dayPick" type="date" style="max-width:185px"><button type="button" class="btn btn-outline btn-sm" id="bk_addDay">+ Add day</button></div><div id="bk_dayChips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div></div>'+
+      '<div class="field"><label for="bk_fieldPick">Fields</label><div style="display:flex;gap:6px;align-items:center"><input class="input" id="bk_fieldPick" placeholder="Field name (e.g. Memorial Field)" style="flex:1"><button type="button" class="btn btn-outline btn-sm" id="bk_addField">+ Add field</button></div><div id="bk_fieldChips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div></div>'+
+      '<div class="field"><label>Game time slots</label><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="muted">First</span><input class="input" id="bk_first" type="time" value="08:00" style="max-width:118px"><span class="muted">to</span><input class="input" id="bk_last" type="time" value="18:00" style="max-width:118px"><span class="muted">·</span><input class="input" id="bk_glen" type="number" value="120" min="30" step="15" style="max-width:70px"><span class="muted">min</span><button type="button" class="btn btn-navy btn-sm" id="bk_autofill">Build slots</button></div><div id="bk_timeChips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div></div>'+
+      '<div class="field"><label for="bk_rest">Min rest between a team’s games <span class="muted">(optional)</span></label><div style="display:flex;align-items:center;gap:8px"><input class="input" id="bk_rest" type="number" value="0" min="0" step="15" style="max-width:95px"><span class="muted">minutes — avoids back-to-back</span></div></div>'+
+      '<details id="bk_availWrap" style="margin-bottom:var(--space-4)"><summary style="cursor:pointer;font-weight:600;color:var(--sts-navy)">⏱ Team availability &amp; blackouts <span class="muted" style="font-weight:400">(optional)</span></summary><div id="bk_availBody" style="margin-top:10px"></div></details>'+
+      '<div class="notice notice-warn" style="font-size:var(--text-xs)">Pick your teams, days, fields and time slots — games auto-fill across them, honoring availability + rest. Then drag any game in <b>Grid</b> view to fine-tune. <a href="bracket-preview.html" target="_blank" rel="noopener" style="color:var(--sts-navy);font-weight:600">See example brackets ↗</a></div>';
+
+    var $=function(id){ return document.getElementById(id); };
+    function chip(label,kind,i){ return '<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 7px 3px 12px;font-size:var(--text-sm)">'+esc(label)+'<button type="button" data-rm="'+kind+'" data-i="'+i+'" style="border:0;background:none;cursor:pointer;color:var(--sts-red);font-size:16px;line-height:.7">×</button></span>'; }
+    function dlabel(d){ var dt=new Date(d+'T12:00:00'); return isNaN(dt)?d:dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
+    function renderDays(){ days.sort(); $('bk_dayChips').innerHTML = days.length?days.map(function(d,i){return chip(dlabel(d),'day',i);}).join(''):'<span class="muted" style="font-size:var(--text-sm)">Add at least one day.</span>'; }
+    function renderFields(){ $('bk_fieldChips').innerHTML = fields.length?fields.map(function(f,i){return chip(f,'field',i);}).join(''):'<span class="muted" style="font-size:var(--text-sm)">Add at least one field.</span>'; }
+    function renderSlots(){ slots.sort(function(a,b){return tKey(a)-tKey(b);}); $('bk_timeChips').innerHTML = slots.length?slots.map(function(s,i){return chip(fmtGTime(s),'slot',i);}).join(''):'<span class="muted" style="font-size:var(--text-sm)">Build your time slots above.</span>'; }
+    function regTeamsFor(fid){ var out=[],seen={}; REGS.forEach(function(r){ if(r.form_id===fid && r.team_name && !seen[r.team_name.toLowerCase()]){ seen[r.team_name.toLowerCase()]=1; out.push(r.team_name); } }); return out; }
+    function renderTeams(){ var list=ordered||regTeamsFor($('bk_form').value).concat(custom);
+      $('bk_teamList').innerHTML = list.length ? list.map(function(t){ return '<label style="display:flex;align-items:center;gap:9px;padding:4px 2px;cursor:pointer"><input type="checkbox" class="bk-team" value="'+esc(t)+'" checked style="width:16px;height:16px"><span>'+esc(t)+'</span></label>'; }).join('') : '<div class="muted" style="font-size:var(--text-sm);padding:6px">No registered teams yet — add teams below.</div>';
+      updateCount(); }
+    function selected(){ return Array.prototype.map.call($('bk_teamList').querySelectorAll('.bk-team:checked'), function(c){ return c.value; }); }
+    function updateCount(){ $('bk_teamCount').textContent='('+selected().length+' selected)'; }
+    renderDays(); renderFields(); renderSlots(); renderTeams();
+
+    $('bk_fmt').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b)return; format=b.dataset.fmt; $('bk_fmt').querySelectorAll('.pill').forEach(function(p){p.classList.toggle('active',p===b);}); $('bk_gppWrap').style.display=(format==='roundrobin')?'':'none'; });
+    $('bk_form').addEventListener('change', function(){ ordered=null; custom=[]; renderTeams(); });
+    $('bk_teamList').addEventListener('change', updateCount);
+    $('bk_addTeamBtn').onclick=function(){ var v=$('bk_addTeam').value.trim(); if(!v)return; custom.push(v); if(ordered)ordered.push(v); $('bk_addTeam').value=''; renderTeams(); };
+    $('bk_addTeam').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); $('bk_addTeamBtn').click(); } });
+    $('bk_addDay').onclick=function(){ var v=$('bk_dayPick').value; if(v && days.indexOf(v)<0){ days.push(v); renderDays(); } };
+    $('bk_addField').onclick=function(){ var v=$('bk_fieldPick').value.trim(); if(v && fields.indexOf(v)<0){ fields.push(v); $('bk_fieldPick').value=''; renderFields(); } };
+    $('bk_fieldPick').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); $('bk_addField').click(); } });
+    $('bk_autofill').onclick=function(){ var f=tKey($('bk_first').value), l=tKey($('bk_last').value), len=parseInt($('bk_glen').value,10)||120; if(l<f||len<15){ $('bkNote').textContent='Last start must be after first.'; return; } slots=[]; for(var m=f;m<=l;m+=len) slots.push(hhmm(m)); renderSlots(); };
+    function wireRemove(id,arr,after){ $(id).addEventListener('click',function(e){ var b=e.target.closest('[data-rm]'); if(!b)return; arr.splice(+b.dataset.i,1); after(); }); }
+    wireRemove('bk_dayChips',days,renderDays); wireRemove('bk_fieldChips',fields,renderFields); wireRemove('bk_timeChips',slots,renderSlots);
+    $('bk_seed').onclick=function(){ var fid=$('bk_form').value, pool=GAMES.filter(function(g){return g.form_id===fid&&g.g==null;}), st=STS.computeStandings(pool); if(!st.length){ $('bkNote').textContent='No finished pool games to seed from yet.'; return; } var sel=selected(), order=st.map(function(r){return r.team;}).filter(function(t){return sel.indexOf(t)>=0;}); sel.forEach(function(t){ if(order.indexOf(t)<0) order.push(t); }); ordered=order; renderTeams(); $('bkNote').textContent='Seeded by standings ('+order.length+' teams).'; };
+    function buildAvailEditor(){ var teams=selected(), fid=$('bk_form').value, body=$('bk_availBody'); if(!teams.length){ body.innerHTML='<div class="muted" style="font-size:var(--text-sm)">Select teams first.</div>'; return; } var regBy={}; REGS.forEach(function(r){ if(r.form_id===fid&&r.team_name) regBy[r.team_name.toLowerCase()]=r; }); var dh=days.map(function(d){ return '<th style="font-size:10px;white-space:nowrap">'+esc(dlabel(d))+'</th>'; }).join(''); var rows=teams.map(function(t){ var rg=regBy[t.toLowerCase()]||{}; var cells=days.map(function(d){ return '<td style="text-align:center"><input type="checkbox" class="av-bl" data-team="'+esc(t)+'" data-date="'+esc(d)+'" style="width:16px;height:16px"></td>'; }).join(''); return '<tr><td style="font-weight:600;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis">'+esc(t)+'</td><td><input class="input av-e" type="time" data-team="'+esc(t)+'" value="'+esc(rg.avail_earliest||'')+'" style="min-width:115px"></td><td><input class="input av-l" type="time" data-team="'+esc(t)+'" value="'+esc(rg.avail_latest||'')+'" style="min-width:115px"></td>'+cells+'</tr>'; }).join(''); body.innerHTML='<div class="muted" style="font-size:var(--text-xs);margin-bottom:6px">Earliest/latest start (pre-filled from registration). Check a day a team <b>can’t</b> play.</div><div class="table-wrap"><table class="tbl" style="font-size:var(--text-sm)"><thead><tr><th>Team</th><th>No earlier</th><th>No later</th>'+dh+'</tr></thead><tbody>'+rows+'</tbody></table></div>'; }
+    $('bk_availWrap').addEventListener('toggle', function(e){ if(e.target.open) buildAvailEditor(); });
+    $('bkNote').textContent='';
+
+    $('bkGen').onclick = async function(){
+      var fid=$('bk_form').value, f=FORMS.find(function(x){return x.id===fid;});
+      var teams=selected();
+      if(teams.length<2){ $('bkNote').textContent='Select at least 2 teams.'; return; }
+      if(!fields.length){ $('bkNote').textContent='Add at least one field.'; return; }
+      if(!slots.length){ $('bkNote').textContent='Build at least one time slot.'; return; }
+      if(!window.STSgen){ $('bkNote').textContent='Generator not loaded.'; return; }
       var meta={sport:(f&&f.sport)||'baseball', division:''};
-      var avail=getAvail(fid), restMin=parseInt(document.getElementById('bk_rest').value,10)||0, res;
+      var avail=getAvail(fid), restMin=parseInt($('bk_rest').value,10)||0, res;
       if(format==='roundrobin'){
-        var gpp=parseInt(document.getElementById('bk_gpp').value,10)||3;
-        var pool=window.STSgen.generatePool(teams, {gamesPerTeam:gpp});
-        res=assignSlots(pool, dates, times, fields, avail, restMin, GAMES, fid);   // availability + rest + cross-event
+        var gpp=parseInt($('bk_gpp').value,10)||3;
+        var pool=window.STSgen.generatePool(teams,{gamesPerTeam:gpp});
+        res=assignSlots(pool, days, slots, fields, avail, restMin, GAMES, fid);
         await STS.savePool(fid, meta, pool);
       } else {
         var games=window.STSgen.generateBracket({format:format, teams:teams, startGame:1});
-        res=assignSlots(games, dates, times, fields, avail, restMin, GAMES, fid);
+        res=assignSlots(games, days, slots, fields, avail, restMin, GAMES, fid);
         await STS.saveBracket(fid, meta, games);
       }
-      // tell Keith if availability couldn't be fully honored / ran out of slots
       if(res && (res.fallback || res.unplaced)){
-        var msgs=[]; if(res.fallback) msgs.push(res.fallback+' game'+(res.fallback===1?'':'s')+' couldn’t honor a team’s availability'); if(res.unplaced) msgs.push(res.unplaced+' game'+(res.unplaced===1?'':'s')+' had no open slot — add more fields/times/days');
-        document.getElementById('bkNote').textContent='⚠ '+msgs.join('; ')+'.';
+        var msgs=[]; if(res.fallback) msgs.push(res.fallback+' game'+(res.fallback===1?'':'s')+' couldn’t honor availability'); if(res.unplaced) msgs.push(res.unplaced+' game'+(res.unplaced===1?'':'s')+' had no open slot — add more fields/times/days');
+        $('bkNote').textContent='⚠ '+msgs.join('; ')+'.';
       }
-      GAMES=await STS.loadGamesScoped(ME, {}); schedFilt=fid; renderSchedule();
+      GAMES=await STS.loadGamesScoped(ME,{}); schedFilt=fid; renderSchedule();
       if(!res || (!res.fallback && !res.unplaced)) closeModal('bracketModal');
     };
     openModal('bracketModal');
