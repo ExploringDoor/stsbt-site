@@ -490,6 +490,19 @@ export async function importRegistrations(records, opts) {
 }
 // Back-compat wrapper.
 export async function importArchivedRegistrations(records) { return importRegistrations(records, { archived: true }); }
+// Delete every previously-imported (source:'quickscores') registration — lets an
+// admin re-run an import cleanly instead of stacking duplicates. Returns the count.
+export async function deleteImportedRegistrations() {
+  if (isConfigured) {
+    var snap = await getDocs(query(collection(db, 'registrations'), where('source', '==', 'quickscores')));
+    var n = 0;
+    for (var i = 0; i < snap.docs.length; i++) { await deleteDoc(doc(db, 'registrations', snap.docs[i].id)); n++; }
+    return n;
+  }
+  var before = _regs.length;
+  _regs = _regs.filter(function (r) { return r.source !== 'quickscores'; });
+  return before - _regs.length;
+}
 export async function getRegistrationBySession(sessionId) {
   if (isConfigured) {
     var snap = await getDocs(query(collection(db, 'registrations'), where('clover_session_id', '==', sessionId)));

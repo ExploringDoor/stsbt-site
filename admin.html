@@ -181,6 +181,7 @@
       <div class="field"><label for="imText">…or paste CSV / spreadsheet rows here</label>
         <textarea class="input" id="imText" rows="6" placeholder="Paste the exported rows here (first line = column headers, e.g. Team Name, Coaches Name, Coaches Email…)" style="font-family:monospace;font-size:var(--text-xs)"></textarea></div>
       <div class="spread"><button class="btn btn-navy btn-sm" id="imParse">Preview import</button><span class="muted" id="imSummary" style="font-size:var(--text-sm)"></span></div>
+      <div class="mt-3" style="border-top:1px dashed var(--line);padding-top:10px"><button class="btn btn-outline btn-sm" id="imClear" style="color:var(--sts-red)">Remove all previously-imported entries</button> <span class="muted" style="font-size:var(--text-xs)">Use this to undo a prior import before re-running it (deletes only entries tagged as QuickScores imports).</span></div>
       <div id="imPreviewWrap" class="hidden mt-4">
         <div class="table-wrap" style="max-height:420px;overflow:auto"><table class="tbl"><thead><tr><th>#</th><th>Sport</th><th>Age / Class</th><th>Team</th><th>Coach</th><th>Email</th><th>Phone</th><th>Amount</th></tr></thead><tbody id="imPreviewBody"></tbody></table></div>
         <div class="spread mt-3"><span class="muted" id="imCount" style="font-size:var(--text-sm)"></span><button class="btn btn-red" id="imCommit">Import as archived</button></div>
@@ -478,7 +479,8 @@
     if (!raw){ err.textContent = 'Paste your exported rows (or upload a CSV) first.'; err.classList.remove('hidden'); return; }
     var rows = csvParse(raw);
     if (rows.length < 2){ err.textContent = 'Need a header row plus at least one entry row.'; err.classList.remove('hidden'); return; }
-    var headers = rows[0].map(function(h){ return String(h).toLowerCase().trim(); });
+    var rawHeaders = rows[0].map(function(h){ return String(h==null?'':h).trim(); });
+    var headers = rawHeaders.map(function(h){ return h.toLowerCase(); });
     var col = {
       team:  pickCol(headers, ['team name','team']),
       age:   pickCol(headers, ['age/classification','team age','age','classification']),
@@ -489,8 +491,16 @@
       phone: pickCol(headers, ['coaches contact','coach contact','contact number','phone']),
       town:  pickCol(headers, ['town','city','home town']),
       amt:   pickCol(headers, ['amount paid','form total','net amount','amount']),
-      entry: pickCol(headers, ['entry id','entry #','entry']),
-      when:  pickCol(headers, ['when submitted','date submitted','submitted','date paid']),
+      total: pickCol(headers, ['total amount','form total']),
+      net:   pickCol(headers, ['net amount']),
+      fees:  pickCol(headers, ['qs fee','fee']),
+      payment: pickCol(headers, ['payment']),
+      regEmail: pickCol(headers, ['registrant email']),
+      entry: pickCol(headers, ['entryid','entry id','entry #','entry']),
+      invoice: pickCol(headers, ['invoice']),
+      datePaid: pickCol(headers, ['date paid']),
+      txnTime: pickCol(headers, ['txn date','txn date/time']),
+      when:  pickCol(headers, ['when submitted','date submitted','submitted','date']),
       txn:   pickCol(headers, ['cc txn id','txn id','transaction'])
     };
     if (col.team < 0){ err.textContent = 'Couldn\'t find a "Team Name" column in the header row. Make sure the first line has column titles.'; err.classList.remove('hidden'); return; }
@@ -500,15 +510,30 @@
     IM_PARSED = rows.slice(1).map(function(r){
       var team = get(r,'team'); if (!team) return null;
       var sp = get(r,'sport').toLowerCase(); sp = sp.indexOf('soft')>=0 ? 'softball' : (sp.indexOf('base')>=0 ? 'baseball' : defSport);
-      return {
+      // keep EVERY column verbatim so nothing from the export is ever lost
+      var qs_raw = {};
+      rawHeaders.forEach(function(h, i){ if (h) qs_raw[h] = String(r[i]==null?'':r[i]).trim(); });
+      var amtPaid = dollarsToCents(get(r,'amt'));
+      var payTxt = get(r,'payment').toLowerCase();
+      var pay = (amtPaid > 0 || /paid|complete|approved|success/.test(payTxt)) ? 'paid'
+              : (/refund|void|declin|fail/.test(payTxt) ? 'failed' : (amtPaid === 0 ? 'free' : 'unpaid'));
+      var entryNo = parseInt(get(r,'entry').replace(/[^0-9]/g,''), 10);
+      var rec = {
         team_name: team, sport: sp, division: get(r,'div'),
         age_class: get(r,'age'), town: get(r,'town'),
-        coach_name: get(r,'coach'), coach_email: get(r,'email'), coach_phone: get(r,'phone'),
-        amount_cents: dollarsToCents(get(r,'amt')),
+        coach_name: get(r,'coach'), coach_email: get(r,'email'), coach_phone: get(r,'phone').replace(/\.0+$/,''),
+        registrant_email: get(r,'regEmail'),
+        amount_cents: amtPaid, total_cents: dollarsToCents(get(r,'total')),
+        net_cents: dollarsToCents(get(r,'net')), qs_fee_cents: dollarsToCents(get(r,'fees')),
+        payment_status: pay,
         qs_entry_id: get(r,'entry'), qs_txn_id: get(r,'txn'),
-        created_at: get(r,'when') || '', season: season,
-        form_title: 'QuickScores import' + (season ? ' · ' + season : '')
+        qs_invoice: get(r,'invoice'), qs_date_paid: get(r,'datePaid'), qs_txn_time: get(r,'txnTime'),
+        created_at: get(r,'when') || get(r,'datePaid') || '', season: season,
+        form_title: 'QuickScores import' + (season ? ' · ' + season : ''),
+        qs_raw: qs_raw
       };
+      if (!isNaN(entryNo)) rec.entry_no = entryNo;
+      return rec;
     }).filter(Boolean);
     var body = document.getElementById('imPreviewBody');
     body.innerHTML = IM_PARSED.slice(0, 200).map(function(p, i){
@@ -547,6 +572,16 @@
     document.getElementById('imModePills').addEventListener('click', function(e){
       var b = e.target.closest('.pill'); if (!b) return; imMode = b.dataset.mode;
       document.querySelectorAll('#imModePills .pill').forEach(function(p){ p.classList.toggle('active', p===b); });
+    });
+    document.getElementById('imClear').addEventListener('click', async function(){
+      if (!confirm('Remove ALL previously-imported QuickScores entries? This only deletes import-tagged entries (not real registrations). You can then re-import.')) return;
+      var btn = this; btn.disabled = true; var was = btn.textContent; btn.textContent = 'Removing…';
+      try {
+        var n = await STS.deleteImportedRegistrations();
+        REGS = await STS.loadRegistrationsScoped(ME, {}); renderEntries();
+        var done = document.getElementById('imDone'); done.textContent = '✓ Removed '+n+' previously-imported entr'+(n===1?'y':'ies')+'. You can re-import now.'; done.classList.remove('hidden');
+      } catch(ex){ var err = document.getElementById('imErr'); err.textContent = 'Couldn\'t remove: ' + (ex && ex.message || ex); err.classList.remove('hidden'); }
+      btn.disabled = false; btn.textContent = was;
     });
     document.getElementById('imFile').addEventListener('change', function(e){
       var f = e.target.files && e.target.files[0]; if (!f) return;
@@ -924,6 +959,14 @@
     if (b.dataset.edit){ openEntryModal(r); }
   });
 
+  // Full verbatim QuickScores record (every column from the import) — read-only.
+  function qsDetails(r){
+    if (!r.qs_raw || typeof r.qs_raw !== 'object') return '';
+    var keys = Object.keys(r.qs_raw).filter(function(k){ return String(r.qs_raw[k]||'').trim() !== ''; });
+    if (!keys.length) return '';
+    return '<div class="refund-help" style="margin-top:12px"><b>QuickScores import — full record</b>'+
+      '<dl class="kv" style="margin-top:6px">'+keys.map(function(k){ return '<dt>'+esc(k)+'</dt><dd>'+esc(r.qs_raw[k])+'</dd>'; }).join('')+'</dl></div>';
+  }
   function openEntryModal(r){
     document.getElementById('emTitle').textContent = 'Entry #' + (r.entry_no||'') + ' — ' + (r.team_name||'');
     var refund = (r.payment_status==='paid') ? (
@@ -944,8 +987,10 @@
       '<div class="field-row"><div class="field"><label>Amount (USD)</label><input class="input" id="e_amt" value="'+((r.amount_cents||0)/100).toFixed(2)+'"></div>'+
       '<div class="field"><label>Card Last 4</label><input class="input" id="e_last4" value="'+esc(r.card_last4||'')+'"></div></div>'+
       '<div class="field"><label>CC Txn / Clover Order ID</label><input class="input" id="e_order" value="'+esc(r.clover_order_id||'')+'"></div>'+
-      '<dl class="kv mt-5"><dt>Team Code</dt><dd>'+esc(r.team_code||'—')+'</dd><dt>Form</dt><dd>'+esc((FORMS.find(function(f){return f.id===r.form_id;})||{}).title||r.form_id||'—')+'</dd></dl>'+
-      refund;
+      '<dl class="kv mt-5"><dt>Team Code</dt><dd>'+esc(r.team_code||'—')+'</dd>'+
+        (r.registrant_email?'<dt>Registrant Email</dt><dd>'+esc(r.registrant_email)+'</dd>':'')+
+        '<dt>Form</dt><dd>'+esc((FORMS.find(function(f){return f.id===r.form_id;})||{}).title||r.form_title||r.form_id||'—')+'</dd></dl>'+
+      refund + qsDetails(r);
     document.getElementById('emArchive').textContent = (r.status==='archived') ? 'Restore' : 'Archive';
     document.getElementById('emArchive').onclick = async function(){ var ns = (r.status==='archived')?'completed':'archived'; await STS.updateRegistration(r.id, { status: ns }); r.status=ns; renderEntries(); closeModal('entryModal'); };
     document.getElementById('emSave').onclick = async function(){
