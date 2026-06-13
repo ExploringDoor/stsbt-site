@@ -15,7 +15,7 @@
 // Processor CONFIRMED: Clover (clover.com Hosted Checkout). Stripe stays the
 // documented fallback only if Clover onboarding stalls the launch.
 
-import { fsGet, fsPatch, fbConfigured } from './_firestore.js';
+import { fsGet, fsPatch, fbConfigured, fbAdminConfigured } from './_firestore.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -29,8 +29,9 @@ export default async function handler(req, res) {
   const ENV = process.env.CLOVER_ENV || 'sandbox';
   const SITE = process.env.SITE_URL || `https://${req.headers.host}`;
 
-  if (!MID || !TOKEN || !fbConfigured()) {
-    // Not wired yet — client falls back to a "payment pending" confirmation.
+  if (!MID || !TOKEN || !fbConfigured() || !fbAdminConfigured()) {
+    // Not wired yet (Clover creds or server admin-auth missing) — client falls
+    // back to a "payment pending" confirmation. The reg→pending patch needs super.
     return res.status(501).json({ error: 'payment_not_configured' });
   }
 

@@ -12,6 +12,7 @@
 
 import crypto from 'node:crypto';
 import { fsQuery, fsGet, fsPatch, fsCreate, fbConfigured } from './_firestore.js';
+import { publicRoster } from './_age.js';
 
 // NOTE: `export const config = { api: { bodyParser: false } }` is Next.js syntax and is
 // IGNORED by a plain Vercel Node function. So we read the raw body defensively below.
@@ -99,9 +100,15 @@ export default async function handler(req, res) {
           name: reg.team_name || 'Team', slug, sport: reg.sport || '', division: reg.division || '',
           age_class: reg.age_class || '', town: reg.town || '', reg_id: reg.id, team_code: reg.team_code || '',
           coach_name: reg.coach_name || '',
-          roster: reg.roster || [], tournaments: reg.form_title ? [reg.form_title] : [], live: true,
+          // PUBLIC doc: dob-free roster only (usually empty at signup — coaches add
+          // players later via roster-save, which does the same dob-free split).
+          roster: publicRoster(reg.roster), tournaments: reg.form_title ? [reg.form_title] : [], live: true,
           status: 'active', w: 0, l: 0, created_at: new Date().toISOString(),
         }, slug);
+        // If the reg somehow carried birthdates, keep them in the gated collection.
+        if (Array.isArray(reg.roster) && reg.roster.some(p => p && p.dob)) {
+          await fsPatch(`team_rosters/${slug}`, { team_id: slug, roster: reg.roster });
+        }
       }
       await fsPatch(`registrations/${reg.id}`, { team_id: slug });
     }

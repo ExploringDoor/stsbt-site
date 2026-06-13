@@ -6,7 +6,8 @@
 // Env: FIREBASE_PROJECT_ID, FIREBASE_API_KEY
 
 import crypto from 'crypto';
-import { fsGet, fsPatch, fsQuery, fbConfigured } from './_firestore.js';
+import { fsGet, fsPatch, fsQuery, fbConfigured, fbAdminConfigured } from './_firestore.js';
+import { ageAsOfMay1 } from './_age.js';
 
 // Stable, non-reversible player id from name+dob. SALTED with a server-only secret
 // so the pid on the PUBLIC team doc can't be brute-forced back to a child's birthdate.
@@ -18,22 +19,6 @@ function playerId(name, dob) {
     .digest('hex').slice(0, 16);
 }
 
-// Keith's eligibility cutoff: age as of May 1 of the season year. The season runs
-// Aug 1 → Jul 31, so from August onward the relevant cutoff is NEXT May 1. This
-// derived age (age51) is the only age info the public team doc carries.
-function ageAsOfMay1(dob) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return '';
-  const now = new Date();
-  const yr = now.getMonth() >= 7 ? now.getFullYear() + 1 : now.getFullYear();
-  const cut = new Date(yr, 4, 1, 12);
-  const b = new Date(dob + 'T12:00:00');
-  if (isNaN(b)) return '';
-  let age = cut.getFullYear() - b.getFullYear();
-  const m = cut.getMonth() - b.getMonth();
-  if (m < 0 || (m === 0 && cut.getDate() < b.getDate())) age--;
-  return age >= 0 && age < 30 ? age : '';
-}
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -41,6 +26,10 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!fbConfigured()) return res.status(501).json({ error: 'not_configured' });
+  // Both writes below (public teams + gated team_rosters) require isSuper(), so the
+  // server must be able to sign in as the admin user — fail loudly if it can't,
+  // rather than letting the rules silently reject the write.
+  if (!fbAdminConfigured()) return res.status(501).json({ error: 'admin_auth_not_configured' });
 
   const { teamId, roster, code } = req.body || {};
   if (!teamId || !Array.isArray(roster) || !code) return res.status(400).json({ error: 'Missing fields' });
