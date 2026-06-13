@@ -118,9 +118,22 @@
 
     <!-- SCHEDULE -->
     <section class="panel" id="panel-schedule">
+      <style>
+        .grid-tbl td.grid-cell { vertical-align:top; min-width:150px; padding:6px; transition:background .12s; }
+        .grid-cell-over { background:rgba(0,45,114,.10)!important; outline:2px dashed var(--sts-navy); }
+        .grid-cell-dbl { background:rgba(180,83,9,.10); }
+        .grid-card { background:var(--surface); border:1.5px solid var(--line); border-radius:8px; padding:7px 9px; margin-bottom:6px; cursor:grab; font-size:var(--text-sm); }
+        .grid-card:active { cursor:grabbing; }
+        .grid-card:last-child { margin-bottom:0; }
+        .gc-teams { font-weight:600; line-height:1.25; }
+        .gc-score { font-family:var(--font-display); font-weight:700; color:var(--sts-navy); margin-top:2px; }
+        .gc-st { font-size:11px; margin-top:2px; }
+        .gc-warn { font-size:10px; color:var(--sts-red); font-weight:700; margin-top:3px; }
+      </style>
       <div class="spread" style="margin-bottom:var(--space-4)">
-        <div class="toolbar" style="margin:0">
-          <select class="input" id="schedEvent" style="max-width:260px"><option value="">All events</option></select>
+        <div class="toolbar" style="margin:0;gap:8px">
+          <select class="input" id="schedEvent" style="max-width:240px"><option value="">All events</option></select>
+          <div class="pill-tabs" id="schedViewToggle"><button class="pill active" data-view="list">☰ List</button><button class="pill" data-view="grid">▦ Grid</button></div>
         </div>
         <div style="display:flex;gap:8px"><a class="btn btn-outline btn-sm hidden" id="viewBracketBtn" target="_blank" rel="noopener">👁 View Bracket ↗</a><button class="btn btn-outline btn-sm" id="bracketBtn">🏆 Bracket / Pool</button><button class="btn btn-red btn-sm" id="newGameBtn">+ Add Game</button></div>
       </div>
@@ -532,7 +545,7 @@
     var rec = INS.find(function(x){ return x.team_id===slug; });
     return rec ? rec.status : 'none';
   }
-  var schedFilt = '';
+  var schedFilt = '', schedView = 'list';
 
   async function boot(){
     FORMS = await STS.loadFormsScoped(ME, { includeInactive: true });
@@ -1072,6 +1085,7 @@
     var wrap = document.getElementById('scheduleWrap');
     var rows = GAMES.filter(function(g){ return !schedFilt || g.form_id===schedFilt; });
     if (!rows.length){ wrap.innerHTML = '<div class="empty">No games yet. Click <b>+ Add Game</b> to build your schedule.</div>'; return; }
+    if (schedView==='grid'){ renderScheduleGrid(rows); return; }
     var byEvent = {}; rows.forEach(function(g){ (byEvent[g.form_id]=byEvent[g.form_id]||[]).push(g); });
     wrap.innerHTML = Object.keys(byEvent).map(function(fid){
       var body = byEvent[fid].map(function(g){
@@ -1085,6 +1099,54 @@
         '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Time</th><th>Field</th><th>Away</th><th>Score</th><th>Home</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div>';
     }).join('');
   }
+  // ── GRID VIEW (drag-and-drop scheduler) ─────────────────────────────
+  function tKey(t){ var p=String(t||'').split(':'); var h=parseInt(p[0],10)||0, m=parseInt(p[1],10)||0; return h*60+m; }
+  function fmtDay(d){ if(!d||d==='TBD') return 'Date TBD'; var dt=new Date(d+'T12:00:00'); if(isNaN(dt)) return d; return dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}); }
+  function renderScheduleGrid(games){
+    var wrap=document.getElementById('scheduleWrap');
+    if(!schedFilt){ wrap.innerHTML='<div class="empty">Pick a tournament above to use the drag-and-drop grid.</div>'; return; }
+    var byDate={}; games.forEach(function(g){ var d=g.date||'TBD'; (byDate[d]=byDate[d]||[]).push(g); });
+    var html=Object.keys(byDate).sort().map(function(date){
+      var dg=byDate[date];
+      var fields=Array.from(new Set(dg.map(function(g){return g.field||'(no field)';}))).sort();
+      var times=Array.from(new Set(dg.map(function(g){return g.time||'(no time)';}))).sort(function(a,b){return tKey(a)-tKey(b);});
+      var teamTime={}; dg.forEach(function(g){ [g.away,g.home].forEach(function(t){ if(t){ var k=t.toLowerCase()+'@@'+(g.time||''); teamTime[k]=(teamTime[k]||0)+1; } }); });
+      function conflict(g){ return [g.away,g.home].some(function(t){ return t && teamTime[t.toLowerCase()+'@@'+(g.time||'')]>1; }); }
+      var cell={}; dg.forEach(function(g){ var k=(g.field||'(no field)')+'|'+(g.time||'(no time)'); (cell[k]=cell[k]||[]).push(g); });
+      var head='<tr><th style="min-width:64px">Time</th>'+fields.map(function(f){return '<th>'+esc(f)+'</th>';}).join('')+'</tr>';
+      var body=times.map(function(tm){
+        return '<tr><td style="font-weight:600;white-space:nowrap">'+esc(fmtGTime(tm)||tm)+'</td>'+fields.map(function(f){
+          var gs=cell[f+'|'+tm]||[], dbl=gs.length>1;
+          var cards=gs.map(function(g){
+            var cf=conflict(g), sc=(g.done&&g.away_score!=null&&g.home_score!=null)?(g.away_score+'–'+g.home_score):'';
+            return '<div class="grid-card" draggable="true" data-gid="'+esc(g.id)+'"'+(cf?' style="border-color:var(--sts-red)"':'')+'>'+
+              '<div class="gc-teams">'+esc(g.away||'TBD')+'<span class="muted"> v </span>'+esc(g.home||'TBD')+'</div>'+
+              (sc?'<div class="gc-score">'+sc+'</div>':'<div class="gc-st muted">scheduled</div>')+
+              (cf?'<div class="gc-warn">⚠ team double-booked</div>':'')+'</div>';
+          }).join('');
+          return '<td class="grid-cell'+(dbl?' grid-cell-dbl':'')+'" data-field="'+esc(f)+'" data-time="'+esc(tm)+'">'+cards+'</td>';
+        }).join('')+'</tr>';
+      }).join('');
+      return '<h3 style="margin:var(--space-5) 0 var(--space-2)">'+esc(fmtDay(date))+'</h3>'+
+        '<div class="table-wrap"><table class="tbl grid-tbl">'+head+body+'</table></div>';
+    }).join('');
+    wrap.innerHTML='<div class="muted" style="font-size:var(--text-sm);margin-bottom:10px">Drag any game to a different field or time to reschedule it. <b style="color:var(--sts-red)">Red card</b> = a team is booked twice at that time; <b style="color:#b45309">orange cell</b> = two games on one field/slot.</div>'+html;
+  }
+  // delegated drag-and-drop (listeners attached once; cells re-render under them)
+  (function(){
+    var wrap=document.getElementById('scheduleWrap'), dragGid=null;
+    wrap.addEventListener('dragstart', function(e){ var c=e.target.closest('.grid-card'); if(c){ dragGid=c.getAttribute('data-gid'); try{e.dataTransfer.effectAllowed='move';}catch(_){} } });
+    wrap.addEventListener('dragover', function(e){ var cell=e.target.closest('.grid-cell'); if(cell && dragGid){ e.preventDefault(); cell.classList.add('grid-cell-over'); } });
+    wrap.addEventListener('dragleave', function(e){ var cell=e.target.closest('.grid-cell'); if(cell) cell.classList.remove('grid-cell-over'); });
+    wrap.addEventListener('drop', async function(e){ var cell=e.target.closest('.grid-cell'); if(!cell||!dragGid) return; e.preventDefault(); cell.classList.remove('grid-cell-over');
+      var g=GAMES.find(function(x){return String(x.id)===String(dragGid);}); var gid=dragGid; dragGid=null; if(!g) return;
+      var nf=cell.getAttribute('data-field'), nt=cell.getAttribute('data-time');
+      if((g.field||'(no field)')===nf && (g.time||'(no time)')===nt) return;
+      await STS.saveGame(Object.assign({}, g, { field: nf==='(no field)'?'':nf, time: nt==='(no time)'?'':nt }));
+      GAMES=await STS.loadGamesScoped(ME, {}); renderSchedule();
+    });
+  })();
+  document.getElementById('schedViewToggle').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; schedView=b.dataset.view; document.querySelectorAll('#schedViewToggle .pill').forEach(function(p){p.classList.toggle('active',p===b);}); renderSchedule(); });
   document.getElementById('schedEvent').addEventListener('change', function(e){ schedFilt=e.target.value; renderSchedule(); });
   document.getElementById('schedPublish').addEventListener('click', async function(e){
     if(!e.target.closest('#schedPubToggle')) return;
