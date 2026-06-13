@@ -78,6 +78,7 @@
       <li><button data-panel="analysis">📊 Analysis</button></li>
       <li><button data-panel="forms">📝 Forms</button></li>
       <li><button data-panel="import">📥 Import</button></li>
+      <li><button data-panel="email">📣 Email</button></li>
       <li><button data-panel="teams">⚾ Teams</button></li>
       <li><button data-panel="insurance">🛡️ Insurance</button></li>
       <li><button data-panel="champions">🏆 Champions</button></li>
@@ -193,6 +194,33 @@
       </div>
       <div id="imErr" class="notice notice-warn hidden mt-3" style="text-transform:none;letter-spacing:0"></div>
       <div id="imDone" class="notice notice-ok hidden mt-3" style="text-transform:none;letter-spacing:0"></div>
+    </section>
+
+    <!-- EMAIL / ANNOUNCEMENTS -->
+    <section class="panel" id="panel-email">
+      <p class="muted" style="max-width:72ch">Send an announcement, weather update, or notice to your coaches by email. Pick who gets it, write your message, and send — each coach gets their own copy (they won't see each other's addresses).</p>
+      <div class="field-row" style="align-items:flex-end;margin-bottom:var(--space-3)">
+        <div class="field" style="margin:0;min-width:240px"><label for="emlAudience">Send to</label>
+          <select class="input" id="emlAudience">
+            <option value="all">All coaches (everyone registered)</option>
+            <option value="form">A specific tournament / event…</option>
+            <option value="sport-baseball">All baseball coaches</option>
+            <option value="sport-softball">All softball coaches</option>
+          </select></div>
+        <div class="field hidden" id="emlFormWrap" style="margin:0;min-width:240px"><label for="emlForm">Tournament / event</label>
+          <select class="input" id="emlForm"></select></div>
+        <span class="muted" id="emlCount" style="font-size:var(--text-sm)"></span>
+      </div>
+      <div class="field"><label for="emlSubject">Subject</label><input class="input" id="emlSubject" placeholder="e.g. Saturday games — weather update" /></div>
+      <div class="field"><label for="emlMessage">Message</label><textarea class="input" id="emlMessage" rows="8" placeholder="Type your message to coaches here…"></textarea></div>
+      <div class="field" style="max-width:320px"><label for="emlReply">Reply-to email <span class="muted">(optional)</span></label><input class="input" id="emlReply" type="email" placeholder="replies go here (e.g. your inbox)" /></div>
+      <div class="spread" style="gap:10px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" id="emlTest">Send a test to myself</button>
+        <button class="btn btn-red" id="emlSend">Send to <span id="emlSendN">0</span> coaches</button>
+      </div>
+      <div id="emlErr" class="notice notice-warn hidden mt-3" style="text-transform:none;letter-spacing:0"></div>
+      <div id="emlDone" class="notice notice-ok hidden mt-3" style="text-transform:none;letter-spacing:0"></div>
+      <div class="notice notice-info mt-4" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm)"><b>Before sending to everyone:</b> your email service (SendGrid) must allow that many sends — the free tier caps at ~100/day, so a blast to all 800+ coaches needs a paid plan. Use “Send a test to myself” first to check how it looks.</div>
     </section>
 
     <!-- TEAMS -->
@@ -376,7 +404,7 @@
 
   // ── Auth gate + role scope ──────────────────────────────────────────
   var ME = null;  // { id, role, events[], name, email } — the signed-in admin
-  var SUPER_ONLY = ['forms','import','teams','content','prices','users','champions'];
+  var SUPER_ONLY = ['forms','import','email','teams','content','prices','users','champions'];
   function isSuper(){ return ME && ME.role === 'super'; }
 
   async function showApp(uid, email){
@@ -442,6 +470,7 @@
     if (b.dataset.panel === 'analysis') initAnalysisPanel();
     if (b.dataset.panel === 'champions') initChampionsPanel();
     if (b.dataset.panel === 'import') initImportPanel();
+    if (b.dataset.panel === 'email') initEmailPanel();
   });
 
   var CURRENT_SEASON = (window.LEAGUE_CONFIG && LEAGUE_CONFIG.season && LEAGUE_CONFIG.season.year) || 2026;
@@ -592,6 +621,63 @@
       var f = e.target.files && e.target.files[0]; if (!f) return;
       var rd = new FileReader(); rd.onload = function(){ document.getElementById('imText').value = rd.result; parseImport(); }; rd.readAsText(f);
     });
+  }
+
+  // ── Email / announcements panel ─────────────────────────────────────
+  var emlInited = false;
+  function emlRecipients(){
+    var aud = document.getElementById('emlAudience').value;
+    var fid = document.getElementById('emlForm').value;
+    var seen = {}, out = [];
+    (REGS||[]).forEach(function(r){
+      if (r.status === 'archived') return;
+      if (aud === 'form' && r.form_id !== fid) return;
+      if (aud === 'sport-baseball' && r.sport !== 'baseball') return;
+      if (aud === 'sport-softball' && r.sport !== 'softball') return;
+      var e = String(r.coach_email || r.registrant_email || '').trim().toLowerCase();
+      if (e && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) && !seen[e]) { seen[e] = 1; out.push(e); }
+    });
+    return out;
+  }
+  function emlRefresh(){
+    var n = emlRecipients().length;
+    document.getElementById('emlCount').textContent = n + ' coach' + (n===1?'':'es') + ' will receive this';
+    document.getElementById('emlSendN').textContent = n;
+  }
+  async function emlSend(testOnly){
+    var err = document.getElementById('emlErr'), done = document.getElementById('emlDone');
+    err.classList.add('hidden'); done.classList.add('hidden');
+    var subject = document.getElementById('emlSubject').value.trim();
+    var message = document.getElementById('emlMessage').value.trim();
+    var replyTo = document.getElementById('emlReply').value.trim();
+    if (!subject || !message){ err.textContent = 'Add a subject and a message first.'; err.classList.remove('hidden'); return; }
+    if (!isConfigured || !auth.currentUser){ err.textContent = 'Mass email only works on the live site while signed in (not in this demo).'; err.classList.remove('hidden'); return; }
+    var recipients = testOnly ? [auth.currentUser.email] : emlRecipients();
+    if (!recipients.length){ err.textContent = 'No coaches match that audience.'; err.classList.remove('hidden'); return; }
+    if (!testOnly && !confirm('Send this email to '+recipients.length+' coaches? This cannot be undone.')) return;
+    var btn = document.getElementById(testOnly?'emlTest':'emlSend'); btn.disabled = true; var was = btn.innerHTML; btn.textContent = 'Sending…';
+    try {
+      var idToken = await auth.currentUser.getIdToken();
+      var res = await fetch('/api/send-bulk', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ idToken: idToken, subject: subject, message: message, recipients: recipients, replyTo: replyTo }) });
+      var j = await res.json().catch(function(){ return {}; });
+      if (!res.ok){ throw new Error(j.error || ('Send failed ('+res.status+')')); }
+      if (j.skipped){ throw new Error('Email isn\'t configured on the server yet (SendGrid key missing).'); }
+      done.textContent = testOnly ? ('✓ Test sent to '+recipients[0]+'. Check your inbox.') : ('✓ Sent to '+(j.sent||recipients.length)+' coaches.');
+      done.classList.remove('hidden');
+    } catch(ex){ err.textContent = String(ex.message||ex); err.classList.remove('hidden'); }
+    btn.disabled = false; btn.innerHTML = was;
+  }
+  function initEmailPanel(){
+    var sel = document.getElementById('emlForm');
+    sel.innerHTML = (FORMS||[]).filter(function(f){ return f.type==='tournament'; }).map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('') || '<option value="">(no tournaments yet)</option>';
+    emlRefresh();
+    if (emlInited) return; emlInited = true;
+    document.getElementById('emlAudience').addEventListener('change', function(){
+      document.getElementById('emlFormWrap').classList.toggle('hidden', this.value!=='form'); emlRefresh();
+    });
+    document.getElementById('emlForm').addEventListener('change', emlRefresh);
+    document.getElementById('emlTest').addEventListener('click', function(){ emlSend(true); });
+    document.getElementById('emlSend').addEventListener('click', function(){ emlSend(false); });
   }
 
   // ── Analysis panel (schedule-fairness QA, admin-only) ───────────────
