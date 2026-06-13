@@ -231,8 +231,8 @@
       };
       try {
         var res = await STS.createRegistration(data);
-        // notify Keith (best-effort; no-op if email not configured)
-        try { fetch('/api/notify-registration', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ event:'submitted', registration: Object.assign({ entry_no: res.entry_no }, data) }) }); } catch(_){}
+        // notify Keith + send the coach their team code (best-effort; no-op if email not configured)
+        try { fetch('/api/notify-registration', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ event:'submitted', registration: Object.assign({ entry_no: res.entry_no, team_code: res.team_code, created_at: new Date().toISOString() }, data) }) }); } catch(_){}
         if (amount > 0) {
           // PHASE 2: redirect to Clover hosted checkout
           try {
