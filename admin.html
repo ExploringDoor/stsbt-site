@@ -84,7 +84,11 @@
       <div class="stat-row" id="entryStats"></div>
       <div class="toolbar">
         <input class="input grow" id="entrySearch" placeholder="Search team, coach, email…" />
-        <select class="input" id="entryForm" style="max-width:220px"><option value="">All forms</option></select>
+        <select class="input" id="entryForm" style="max-width:200px"><option value="">All tournaments / forms</option></select>
+        <select class="input" id="entrySport" style="max-width:130px"><option value="">All sports</option><option value="baseball">Baseball</option><option value="softball">Softball</option></select>
+        <select class="input" id="entryAge" style="max-width:130px"><option value="">All ages</option></select>
+        <select class="input" id="entryDiv" style="max-width:140px"><option value="">All divisions</option></select>
+        <select class="input" id="entryIns" style="max-width:150px"><option value="">Any insurance</option><option value="approved">✓ Insured</option><option value="pending">⏳ Pending</option><option value="rejected">✕ Rejected</option><option value="none">— None</option></select>
         <div class="pill-tabs" id="payPills">
           <button class="pill active" data-pay="">All</button>
           <button class="pill" data-pay="paid">Paid</button>
@@ -101,7 +105,7 @@
       <div class="table-wrap">
         <table class="tbl" id="entriesTbl">
           <thead><tr>
-            <th>#</th><th>Submitted</th><th>Pay</th><th>Sport</th><th>Age / Class</th><th>Division</th>
+            <th>#</th><th>Submitted</th><th>Pay</th><th>Insurance</th><th>Sport</th><th>Age / Class</th><th>Division</th>
             <th>Team</th><th>Coach</th><th>Email</th><th>Phone</th><th>Waiver</th>
             <th>Amount</th><th>Last 4</th><th>CC Txn / Order</th><th>Actions</th>
           </tr></thead>
@@ -151,7 +155,7 @@
       <div id="insPending"></div>
       <h3 style="margin:var(--space-6) 0 8px">All teams</h3>
       <div class="table-wrap">
-        <table class="tbl"><thead><tr><th>Team</th><th>Status</th><th>Source</th><th>Carrier</th><th>Policy #</th><th>Coverage</th><th>Document</th></tr></thead>
+        <table class="tbl"><thead><tr><th>Team</th><th>Status</th><th>Source</th><th>Carrier</th><th>Policy #</th><th>Coverage</th><th>Submitted</th><th>Reviewed</th><th>Document</th></tr></thead>
         <tbody id="insAllBody"></tbody></table>
       </div>
     </section>
@@ -503,7 +507,13 @@
 
   // ── State ───────────────────────────────────────────────────────────
   var FORMS = [], REGS = [], TEAMS = [], GAMES = [];
-  var filt = { pay: '', status: 'completed', form: '', q: '' };
+  var filt = { pay: '', status: 'completed', form: '', q: '', sport: '', age: '', div: '', ins: '' };
+  // insurance status for a registration's team (matched by team-name slug)
+  function insStatusFor(r){
+    var slug = STS.slugify(r.team_name||'');
+    var rec = INS.find(function(x){ return x.team_id===slug; });
+    return rec ? rec.status : 'none';
+  }
   var schedFilt = '';
 
   async function boot(){
@@ -513,7 +523,13 @@
     TEAMS = isSuper() ? await STS.loadTeams({ includeHidden: true }) : [];   // teams panel is super-only
     INS = isSuper() ? await STS.loadInsurance() : [];
     // form filter dropdown (scoped label for directors)
-    document.getElementById('entryForm').innerHTML = '<option value="">' + (isSuper() ? 'All forms' : 'All my events') + '</option>' + FORMS.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
+    document.getElementById('entryForm').innerHTML = '<option value="">' + (isSuper() ? 'All tournaments / forms' : 'All my events') + '</option>' + FORMS.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
+    // age + division filter options, derived from the actual entries
+    var ages = {}, divs = {};
+    REGS.forEach(function(r){ if(r.age_class) ages[r.age_class]=1; if(r.division) divs[r.division]=1; });
+    var ageSort = function(a,b){ return (parseInt(a,10)||99)-(parseInt(b,10)||99) || a.localeCompare(b); };
+    document.getElementById('entryAge').innerHTML = '<option value="">All ages</option>' + Object.keys(ages).sort(ageSort).map(function(a){ return '<option value="'+esc(a)+'">'+esc(a)+'</option>'; }).join('');
+    document.getElementById('entryDiv').innerHTML = '<option value="">All divisions</option>' + Object.keys(divs).sort().map(function(d){ return '<option value="'+esc(d)+'">'+esc(d)+'</option>'; }).join('');
     renderEntries(); renderForms(); renderTeams(); loadPrices(); renderSchedule(); renderInsurance();
     if (isSuper()) renderAdmins();
   }
@@ -544,13 +560,16 @@
     document.getElementById('insPendCount').textContent = pend.length ? '('+pend.length+')' : '';
     document.getElementById('insPending').innerHTML = pend.length ? pend.map(function(r){
       return '<div class="card" style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">'+
-        '<div><b>'+esc(r.team_name||r.team_id)+'</b> '+insBadge(r.status)+'<div class="muted" style="font-size:var(--text-sm);margin-top:4px">'+esc(r.carrier||'')+' · Policy '+esc(r.policy_no||'—')+' · '+insDoc(r)+'</div></div>'+
+        '<div><b>'+esc(r.team_name||r.team_id)+'</b> '+insBadge(r.status)+'<div class="muted" style="font-size:var(--text-sm);margin-top:4px">'+esc(r.carrier||'')+' · Policy '+esc(r.policy_no||'—')+' · '+insDoc(r)+'</div>'+
+        '<div class="muted" style="font-size:11px;margin-top:3px">Submitted '+esc(fmtDate(r.submitted_at)||'—')+'</div></div>'+
         '<div style="display:flex;gap:8px"><button class="btn btn-navy btn-sm" data-ins-approve="'+esc(r.team_id)+'">Approve</button><button class="btn btn-outline btn-sm" data-ins-reject="'+esc(r.team_id)+'">Reject</button></div>'+
       '</div>'; }).join('') : '<div class="empty">Nothing waiting for review. 🎉</div>';
     document.getElementById('insAllBody').innerHTML = INS.slice().sort(function(a,b){ return (a.team_name||'').localeCompare(b.team_name||''); }).map(function(r){
+      var reviewed = r.reviewed_at ? fmtDate(r.reviewed_at) + (r.status==='approved'?' ✓':r.status==='rejected'?' ✕':'') : '—';
       return '<tr><td><b>'+esc(r.team_name||r.team_id)+'</b>'+(r.note&&r.status==='rejected'?'<div class="muted" style="font-size:11px">'+esc(r.note)+'</div>':'')+'</td>'+
-        '<td>'+insBadge(r.status)+'</td><td>'+esc(r.source||'')+'</td><td>'+esc(r.carrier||'—')+'</td><td>'+esc(r.policy_no||'—')+'</td><td>'+esc(cov(r))+'</td><td>'+insDoc(r)+'</td></tr>';
-    }).join('') || '<tr><td colspan="7" class="empty">No insurance on file yet.</td></tr>';
+        '<td>'+insBadge(r.status)+'</td><td>'+esc(r.source||'')+'</td><td>'+esc(r.carrier||'—')+'</td><td>'+esc(r.policy_no||'—')+'</td><td>'+esc(cov(r))+'</td>'+
+        '<td>'+esc(fmtDate(r.submitted_at)||'—')+'</td><td>'+esc(reviewed)+'</td><td>'+insDoc(r)+'</td></tr>';
+    }).join('') || '<tr><td colspan="9" class="empty">No insurance on file yet.</td></tr>';
   }
   document.getElementById('panel-insurance').addEventListener('click', async function(e){
     var ap = e.target.closest('[data-ins-approve]'), rj = e.target.closest('[data-ins-reject]');
@@ -569,6 +588,10 @@
       if ((r.status||'completed') !== filt.status) return false;
       if (filt.pay && (r.payment_status||'unpaid') !== filt.pay) return false;
       if (filt.form && r.form_id !== filt.form) return false;
+      if (filt.sport && (r.sport||'') !== filt.sport) return false;
+      if (filt.age && (r.age_class||'') !== filt.age) return false;
+      if (filt.div && (r.division||'') !== filt.div) return false;
+      if (filt.ins && insStatusFor(r) !== filt.ins) return false;
       if (q){ var hay = (r.team_name+' '+r.coach_name+' '+r.coach_email+' '+r.coach_phone).toLowerCase(); if (hay.indexOf(q) < 0) return false; }
       return true;
     });
@@ -595,7 +618,7 @@
     var body = document.getElementById('entriesBody');
     document.getElementById('entriesEmpty').classList.toggle('hidden', allRows.length>0);
     var moreRow = rows.length < allRows.length
-      ? '<tr><td colspan="15" style="text-align:center;padding:14px"><button class="btn btn-outline btn-sm" id="entriesShowAll">Show all '+allRows.length+' entries ('+(allRows.length-rows.length)+' more)</button></td></tr>'
+      ? '<tr><td colspan="16" style="text-align:center;padding:14px"><button class="btn btn-outline btn-sm" id="entriesShowAll">Show all '+allRows.length+' entries ('+(allRows.length-rows.length)+' more)</button></td></tr>'
       : '';
     body.innerHTML = rows.map(function(r){
       var archived = (r.status==='archived');
@@ -603,6 +626,7 @@
         '<td class="num">'+esc(r.entry_no||'—')+'</td>'+
         '<td>'+fmtDate(r.created_at)+'</td>'+
         '<td>'+payBadge(r.payment_status)+'</td>'+
+        '<td>'+insBadge(insStatusFor(r))+'</td>'+
         '<td>'+esc(r.sport||'')+'</td>'+
         '<td>'+esc(r.age_class||'')+'</td>'+
         '<td>'+esc(r.division||'')+'</td>'+
@@ -631,6 +655,10 @@
     entrySearchDeb = setTimeout(function(){ filt.q = v; renderEntries(); }, 150);
   });
   document.getElementById('entryForm').addEventListener('change', function(e){ filt.form = e.target.value; renderEntries(); });
+  document.getElementById('entrySport').addEventListener('change', function(e){ filt.sport = e.target.value; renderEntries(); });
+  document.getElementById('entryAge').addEventListener('change', function(e){ filt.age = e.target.value; renderEntries(); });
+  document.getElementById('entryDiv').addEventListener('change', function(e){ filt.div = e.target.value; renderEntries(); });
+  document.getElementById('entryIns').addEventListener('change', function(e){ filt.ins = e.target.value; renderEntries(); });
   document.getElementById('payPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.pay=b.dataset.pay; document.querySelectorAll('#payPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); renderEntries(); });
   document.getElementById('statusPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.status=b.dataset.status; document.querySelectorAll('#statusPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); renderEntries(); });
 
