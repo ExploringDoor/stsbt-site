@@ -56,7 +56,8 @@
     if (!id){ root.innerHTML = '<div class="container section"><div class="empty">No team specified.</div></div>'; return; }
     var t = await STS.getTeam(id);
     if (!t || (!t.live && t.status!=='active')){
-      root.innerHTML = '<div class="container section"><div class="empty"><h2>Team page pending</h2><p class="muted">This team\'s page goes live once their registration payment clears. Check back soon.</p><a class="btn btn-navy" href="teams.html">Browse teams</a></div></div>';
+      var nm = decodeURIComponent(String(id)).replace(/[-_]+/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+      root.innerHTML = '<div class="container section"><div class="empty"><h2>'+esc(nm)+' — page coming soon</h2><p class="muted">This team\'s page isn\'t published yet. It goes live once the team is set up for the season — check back soon.</p><a class="btn btn-navy" href="teams.html">Browse teams</a></div></div>';
       document.title = 'Team · Small Town Select';
       return;
     }
