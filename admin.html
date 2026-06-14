@@ -380,10 +380,11 @@
   <div class="modal-foot"><button class="btn btn-outline btn-sm danger" id="gmDelete" style="color:var(--sts-red)">Delete</button><div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" data-close>Cancel</button><button class="btn btn-navy btn-sm" id="gmSave">Save Game</button></div></div>
 </div></div>
 
-<!-- Roster view modal (admin can see DOB/ages for eligibility) -->
+<!-- Roster edit modal (admin can see + edit DOB/ages for eligibility) -->
 <div class="modal-bg" id="rosterViewModal"><div class="modal"><div class="modal-head"><h3 id="rvTitle">Roster</h3><button class="x-close" data-close aria-label="Close">✕</button></div>
   <div class="modal-body" id="rvBody"></div>
-  <div class="modal-foot"><span class="muted" id="rvCount" style="font-size:var(--text-xs)"></span><button class="btn btn-outline btn-sm" data-close>Close</button></div>
+  <div id="rvMsg" class="notice hidden" style="margin:0 var(--space-5)"></div>
+  <div class="modal-foot"><span class="muted" id="rvCount" style="font-size:var(--text-xs)"></span><div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" id="rvAdd" type="button">+ Add player</button><button class="btn btn-outline btn-sm" data-close>Close</button><button class="btn btn-red btn-sm" id="rvSave" type="button">Save changes</button></div></div>
 </div></div>
 
 <!-- Bracket modal -->
@@ -1038,7 +1039,7 @@
       return '<tr>'+
         '<td class="num">'+esc(r.entry_no||'—')+'</td>'+
         '<td>'+fmtDate(r.created_at)+'</td>'+
-        '<td>'+payBadge(r.payment_status)+'</td>'+
+        '<td>'+payBadge(r.payment_status)+(r.paid_method?'<div class="muted" style="font-size:10px;margin-top:2px">via '+esc(r.paid_method)+'</div>':'')+'</td>'+
         '<td>'+insBadge(insStatusFor(r))+'</td>'+
         '<td>'+esc(r.sport||'')+'</td>'+
         '<td>'+esc(r.age_class||'')+'</td>'+
@@ -1052,6 +1053,7 @@
         '<td>'+(r.card_last4?('•••• '+esc(r.card_last4)):'—')+'</td>'+
         '<td>'+esc(r.clover_order_id||'—')+'</td>'+
         '<td><div class="actions">'+
+          ((!archived && r.payment_status!=='paid' && Number(r.amount_cents)>0) ? '<button class="icon-btn" data-paid="'+esc(r.id)+'" title="Mark paid (Venmo / cash / check)">💵</button>' : '')+
           '<button class="icon-btn" data-edit="'+esc(r.id)+'" title="View / edit">✎</button>'+
           '<button class="icon-btn" data-copy="'+esc(r.id)+'" title="Copy entry">⎘</button>'+
           (archived
@@ -1084,8 +1086,16 @@
   document.getElementById('entriesBody').addEventListener('click', async function(e){
     var b = e.target.closest('button'); if(!b) return;
     if (b.id === 'entriesShowAll'){ entriesShowAll = true; renderEntries(); return; }
-    var id = b.dataset.edit || b.dataset.archive || b.dataset.restore || b.dataset.copy;
+    var id = b.dataset.edit || b.dataset.archive || b.dataset.restore || b.dataset.copy || b.dataset.paid;
     var r = REGS.find(function(x){ return x.id===id; }); if(!r) return;
+    if (b.dataset.paid){
+      var method = prompt('Mark "'+(r.team_name||'this entry')+'" as PAID.\n\nHow did they pay? (e.g. Venmo, Cash, Check)', 'Venmo');
+      if (method===null) return;   // cancelled
+      var patch = { payment_status:'paid', paid_method:String(method||'manual').slice(0,40), paid_at:new Date().toISOString() };
+      try { await STS.updateRegistration(id, patch); Object.assign(r, patch); renderEntries(); }
+      catch(ex){ alert('Could not mark paid — '+(ex && ex.message ? ex.message : 'please try again')+'\n\n(If you\'re a director, make sure this entry belongs to one of your events.)'); }
+      return;
+    }
     if (b.dataset.archive){ await STS.updateRegistration(id, { status:'archived' }); r.status='archived'; renderEntries(); return; }
     if (b.dataset.restore){ await STS.updateRegistration(id, { status:'completed' }); r.status='completed'; renderEntries(); return; }
     if (b.dataset.copy){ var copy = Object.assign({}, r); ['id','paid_at','team_id','team_code','entry_no','created_at','clover_session_id','clover_payment_id','card_last4','clover_order_id'].forEach(function(k){ delete copy[k]; }); copy.team_name = r.team_name+' (copy)'; copy.payment_status = (Number(copy.amount_cents)>0?'unpaid':'free'); await STS.createRegistration(copy); REGS = await STS.loadRegistrationsScoped(ME, {}); renderEntries(); return; }
@@ -1303,24 +1313,62 @@
       return '<tr'+(t.status==='archived'?' style="opacity:.55"':'')+'>'+
         '<td><b>'+esc(t.name)+'</b></td><td>'+esc(t.sport||'')+'</td><td>'+esc(t.division||'')+'</td><td>'+esc(t.age_class||'')+'</td>'+
         '<td>'+esc(t.town||'')+'</td><td>'+esc(t.team_code||'')+'</td><td>'+(t.live?'🟢':'⚪')+'</td>'+
-        '<td><div class="actions"><button class="icon-btn" data-roster="'+esc(t.slug||t.id)+'">👁 Roster</button><a class="icon-btn" href="team.html?id='+esc(t.slug||t.id)+'" target="_blank">View ↗</a></div></td></tr>';
+        '<td><div class="actions"><button class="icon-btn" data-roster="'+esc(t.slug||t.id)+'">✎ Roster</button><a class="icon-btn" href="team.html?id='+esc(t.slug||t.id)+'" target="_blank">View ↗</a></div></td></tr>';
     }).join('') || '<tr><td colspan="8" class="muted" style="padding:var(--space-5)">No teams yet — they appear here once a registration is paid.</td></tr>';
   }
   // age as of May 1 of the season year (Keith's eligibility cutoff)
   var ageAsOfMay1 = STS.ageAsOfMay1;   // shared cutoff math (sts-data.js)
+  var rvTeam=null, rvRoster=[];   // the team + its FULL editable roster (with DOB)
+  function rvRender(){
+    var msg=document.getElementById('rvMsg'); msg.className='notice hidden';
+    document.getElementById('rvCount').textContent=rvRoster.length+' player'+(rvRoster.length===1?'':'s')+(rvTeam&&rvTeam.coach_name?' · Coach '+rvTeam.coach_name:'');
+    if(!rvRoster.length){ document.getElementById('rvBody').innerHTML='<div class="empty">No players yet — use “+ Add player”.</div>'; return; }
+    var grades=['','K','1','2','3','4','5','6','7','8','9','10','11','12'];
+    document.getElementById('rvBody').innerHTML=
+      '<div class="table-wrap"><table class="tbl"><thead><tr><th>#</th><th>Player</th><th>DOB</th><th title="Age as of May 1">Age 5/1</th><th>Grade</th><th>Guest</th><th></th></tr></thead><tbody>'+
+      rvRoster.map(function(p,i){ return '<tr>'+
+        '<td><input class="input" style="width:46px;padding:6px" data-i="'+i+'" data-f="num" value="'+esc(p.num||'')+'" inputmode="numeric"></td>'+
+        '<td><input class="input" style="min-width:150px;padding:6px" data-i="'+i+'" data-f="name" value="'+esc(p.name||'')+'" placeholder="Player full name"></td>'+
+        '<td><input class="input" type="date" style="padding:6px" data-i="'+i+'" data-f="dob" value="'+esc(p.dob||'')+'"></td>'+
+        '<td class="muted">'+esc(ageAsOfMay1(p.dob)||'—')+'</td>'+
+        '<td><select class="input" style="padding:6px" data-i="'+i+'" data-f="grade">'+grades.map(function(g){return '<option'+(String(p.grade||'')===g?' selected':'')+'>'+(g||'—')+'</option>';}).join('')+'</select></td>'+
+        '<td style="text-align:center"><input type="checkbox" data-i="'+i+'" data-f="guest"'+(p.guest?' checked':'')+'></td>'+
+        '<td><button class="icon-btn danger" data-rvdel="'+i+'" title="Remove">✕</button></td>'+
+        '</tr>'; }).join('')+
+      '</tbody></table></div>';
+  }
   async function openRosterView(t){
+    rvTeam=t; rvRoster=[];
     document.getElementById('rvTitle').textContent=t.name+' — Roster';
+    document.getElementById('rvMsg').className='notice hidden';
     document.getElementById('rvBody').innerHTML='<div class="empty">Loading…</div>';
     openModal('rosterViewModal');
-    // DOB lives in the gated team_rosters collection, not the public team doc.
-    var r=[]; try{ r=await STS.getTeamRoster(t.slug||t.id); }catch(e){ r=t.roster||[]; }
-    document.getElementById('rvCount').textContent=r.length+' player'+(r.length===1?'':'s')+(t.coach_name?' · Coach '+t.coach_name:'');
-    document.getElementById('rvBody').innerHTML = r.length
-      ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>#</th><th>Player</th><th>DOB</th><th title="Age as of May 1">Age 5/1</th><th>Grade</th></tr></thead><tbody>'+
-        r.map(function(p){ return '<tr><td>'+esc(p.num||'')+'</td><td><b>'+esc(p.name||'')+'</b>'+(p.guest?' <span style="color:var(--sts-red);font-size:10px;font-weight:700;letter-spacing:.04em">GUEST</span>':'')+'</td><td>'+esc(p.dob||'—')+'</td><td>'+esc(ageAsOfMay1(p.dob))+'</td><td>'+esc(p.grade||'')+'</td></tr>'; }).join('')+
-        '</tbody></table></div>'
-      : '<div class="empty">No roster submitted yet.</div>';
+    // DOB lives in the gated team_rosters collection — load the FULL roster so edits
+    // preserve guest_events / guardian email / approval that aren't on the public doc.
+    try{ rvRoster=(await STS.getTeamRoster(t.slug||t.id)||[]).map(function(p){ return Object.assign({}, p); }); }catch(e){ rvRoster=(t.roster||[]).slice(); }
+    rvRender();
   }
+  document.getElementById('rvBody').addEventListener('input', function(e){ var t=e.target; if(t.dataset&&t.dataset.i!=null){ rvRoster[+t.dataset.i][t.dataset.f]=(t.type==='checkbox')?t.checked:t.value; if(t.dataset.f==='dob') rvRender(); } });
+  document.getElementById('rvBody').addEventListener('change', function(e){ var t=e.target; if(t.dataset&&(t.dataset.f==='guest'||t.dataset.f==='grade')){ rvRoster[+t.dataset.i][t.dataset.f]=(t.type==='checkbox')?t.checked:t.value; } });
+  document.getElementById('rvBody').addEventListener('click', function(e){ var b=e.target.closest('[data-rvdel]'); if(!b) return; rvRoster.splice(+b.dataset.rvdel,1); rvRender(); });
+  document.getElementById('rvAdd').addEventListener('click', function(){ rvRoster.push({num:'',name:'',dob:'',grade:'',guest:false}); rvRender(); });
+  document.getElementById('rvSave').addEventListener('click', async function(){
+    if(!rvTeam) return;
+    var clean=rvRoster.filter(function(p){ return (p.name||'').trim(); });
+    var msg=document.getElementById('rvMsg');
+    var btn=this; btn.disabled=true; btn.textContent='Saving…';
+    try{
+      // Admin holds the team_code (it's on the team doc), so this reuses the same
+      // server endpoint coaches use — keeping the salted pid + eligibility index intact.
+      var r=await STS.saveTeamRoster(rvTeam.slug||rvTeam.id, clean, rvTeam.team_code)||{};
+      var active=(r.active!=null)?r.active:clean.filter(function(p){return !p.guest;}).length;
+      if(r.warning){ msg.className='notice notice-warn'; msg.innerHTML='<b>Saved</b> ('+clean.length+' player'+(clean.length===1?'':'s')+', '+active+' active). '+esc(r.warning); }
+      else { msg.className='notice notice-ok'; msg.textContent='Saved — '+clean.length+' player'+(clean.length===1?'':'s')+' ('+active+' active).'; }
+      // refresh the public team copy in memory so the row reflects any name change
+      try{ var fresh=await STS.getTeam(rvTeam.slug||rvTeam.id); if(fresh){ var idx=TEAMS.findIndex(function(x){return (x.slug||x.id)===(rvTeam.slug||rvTeam.id);}); if(idx>=0) TEAMS[idx]=fresh; rvTeam=fresh; } }catch(_){}
+    }catch(ex){ msg.className='notice notice-warn'; msg.innerHTML='<b>Couldn’t save.</b> '+esc(ex&&ex.message?ex.message:'Please try again.'); }
+    btn.disabled=false; btn.textContent='Save changes';
+  });
   document.getElementById('teamsBody').addEventListener('click', function(e){ var b=e.target.closest('button[data-roster]'); if(!b) return; var t=TEAMS.find(function(x){ return (x.slug||x.id)===b.dataset.roster; }); if(t) openRosterView(t); });
 
   // ── PRICES / CONTENT (Firestore site_content when live; localStorage in demo) ──

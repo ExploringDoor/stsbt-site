@@ -89,8 +89,11 @@ service cloud.firestore {
                     && !('team_id' in request.resource.data));
       // PII read scoped per-document by the entry's stored form_id.
       allow read:   if isSuper() || ownsEvent(resource.data.form_id);
-      // Edits/deletes are super-only (and the Admin-SDK server, which bypasses rules).
-      allow update, delete: if isSuper();
+      // A director may edit entries for an event they run — e.g. mark a team PAID once
+      // they collect a Venmo/cash payment. Scoped to their own events, and they can't
+      // move an entry to another event (form_id is pinned). Deletes stay super-only.
+      allow update: if isSuper() || (ownsEvent(resource.data.form_id) && formIdUnchanged());
+      allow delete: if isSuper();
     }
 
     // ── ADMINS (the crown jewels) ────────────────────────────────────
