@@ -73,6 +73,11 @@ async function writeActivity(event, r) {
 
 function money(c) { return c != null && c !== '' ? '$' + (Number(c) / 100).toFixed(2) : ''; }
 function slugify(s) { return String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+function fmtDob(v) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(v || ''))) return '';
+  const d = new Date(String(v) + 'T12:00:00'); if (isNaN(d)) return '';
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
 function fmtWhen(v) {
   if (!v) return '';
   const d = new Date(v); if (isNaN(d)) return String(v);
@@ -226,8 +231,16 @@ export function buildApprovalMessage(r) {
   const season = r.season || '2026';
   const coach = r.coach_name ? esc(r.coach_name) : 'Your coach';
   const link = r.link || `${site}/approve.html`;
+  const dob = fmtDob(r.player_dob);
+  const dobBox = dob
+    ? `<div style="margin-top:14px;background:#f1f5f9;border-radius:8px;padding:12px 14px">
+         <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Date of birth on file</div>
+         <div style="font-size:18px;font-weight:700;color:#00224f;font-family:Oswald,system-ui,sans-serif">${esc(dob)}</div>
+         <div style="color:#64748b;font-size:13px;margin-top:2px">Please check this is correct — if it's wrong, tell your coach <b>before</b> approving (it's used for age eligibility).</div>
+       </div>` : '';
   const body =
     `<div>${coach} added <b>${esc(player)}</b> to <b>${esc(team)}</b> for the ${esc(season)} season.</div>` +
+    dobBox +
     `<div style="margin-top:12px">As ${esc(player)}'s parent or guardian, please confirm and approve their participation — it's <b>one tap</b>, no account or password needed.</div>` +
     `<div style="margin-top:12px;color:#64748b;font-size:13px">If you don't recognize this, you can ignore this email or reply to your coach.</div>`;
   return {

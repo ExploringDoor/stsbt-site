@@ -35,7 +35,7 @@ const ROSTER_SAMPLE = {
   removed: ['Brandon Teal'],
 };
 const APPROVAL_SAMPLE = {
-  player_name: 'Jordan Mathis', team_name: 'Blacksox · 7U', coach_name: 'Tanir Horton',
+  player_name: 'Jordan Mathis', player_dob: '2018-03-04', team_name: 'Blacksox · 7U', coach_name: 'Tanir Horton',
   guardian_email: '', season: '2026', link: 'https://ststournaments.com/approve.html?team=blacksox&t=SAMPLE',
 };
 

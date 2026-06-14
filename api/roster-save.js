@@ -122,7 +122,7 @@ export default async function handler(req, res) {
         const link = `${site2 || 'https://ststournaments.com'}/approve.html?team=${encodeURIComponent(slug)}&t=${encodeURIComponent(p.approval_token)}`;
         if (site2) await fetch(`${site2}/api/notify-registration`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ event: 'approval', registration: { guardian_email: p.guardian_email, player_name: p.name, team_name: team.name, coach_name: team.coach_name || '', season: '2026', link } }),
+          body: JSON.stringify({ event: 'approval', registration: { guardian_email: p.guardian_email, player_name: p.name, player_dob: p.dob || '', team_name: team.name, coach_name: team.coach_name || '', season: '2026', link } }),
         });
       }
     } catch (e) { /* non-fatal */ }
