@@ -72,19 +72,23 @@
   <aside class="admin-side">
     <div class="brand"><img src="assets/sts-logo.png" alt="STS" style="object-fit:contain" onerror="stsLogoFallback(this,54)" /><b>STS Admin</b></div>
     <ul class="admin-nav" id="adminNav">
+      <li class="nav-sec">Registrations</li>
       <li><button data-panel="entries" class="active">📋 Entries</button></li>
-      <li><button data-panel="activity">🔔 Activity</button></li>
-      <li><button data-panel="schedule">📅 Schedule</button></li>
-      <li><button data-panel="analysis">📊 Analysis</button></li>
-      <li><button data-panel="forms">📝 Forms</button></li>
       <li><button data-panel="import">📥 Import</button></li>
-      <li><button data-panel="email">📣 Email</button></li>
-      <li><button data-panel="teams">⚾ Teams</button></li>
       <li><button data-panel="insurance">🛡️ Insurance</button></li>
+      <li class="nav-sec">Tournaments</li>
+      <li><button data-panel="schedule">📅 Schedule</button></li>
+      <li><button data-panel="teams">⚾ Teams</button></li>
       <li><button data-panel="champions">🏆 Champions</button></li>
-      <li><button data-panel="content">🏠 Homepage</button></li>
+      <li><button data-panel="analysis">📊 Analysis</button></li>
+      <li class="nav-sec">Communication</li>
+      <li><button data-panel="activity">🔔 Activity</button></li>
+      <li><button data-panel="email">📣 Email</button></li>
+      <li class="nav-sec">Setup</li>
+      <li><button data-panel="forms">📝 Forms</button></li>
       <li><button data-panel="prices">💲 Prices</button></li>
       <li><button data-panel="locations">📍 Locations</button></li>
+      <li><button data-panel="content">🏠 Homepage</button></li>
       <li><button data-panel="users">👥 Directors</button></li>
     </ul>
   </aside>
@@ -440,6 +444,16 @@
       b.closest('li').style.display = hide ? 'none' : '';
     });
     var nf = document.getElementById('newFormBtn'); if (nf) nf.style.display = isSuper() ? '' : 'none';
+    // hide a section header if every button under it is hidden
+    var items = Array.prototype.slice.call(document.querySelectorAll('#adminNav > li'));
+    items.forEach(function(li, i){
+      if (!li.classList.contains('nav-sec')) return;
+      var any = false;
+      for (var j = i+1; j < items.length && !items[j].classList.contains('nav-sec'); j++) {
+        if (items[j].style.display !== 'none') { any = true; break; }
+      }
+      li.style.display = any ? '' : 'none';
+    });
     var active = document.querySelector('#adminNav button.active');
     if (active && !isSuper() && superOnly.indexOf(active.dataset.panel) >= 0)
       document.querySelector('#adminNav button[data-panel="entries"]').click();
