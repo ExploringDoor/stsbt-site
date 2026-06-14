@@ -18,6 +18,7 @@
   .rgu input { width: 16px; height: 16px; accent-color: var(--sts-red); cursor: pointer; }
   .gev { font-family: var(--font-display); font-size: var(--text-xs); padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
   .gev.on { background: var(--sts-navy); border-color: var(--sts-navy); color: #fff; }
+  .gev.on.over { background: var(--sts-red); border-color: var(--sts-red); }
   @media (max-width: 640px){
     .roster-head { display: none; }
     .roster-row { grid-template-columns: 58px 1fr 42px; grid-template-areas: "j n x" "d d g" "u u u"; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
@@ -129,16 +130,24 @@
     if((p.guardian_email||'').trim()) return '<span class="muted" style="font-size:var(--text-xs)">📧 We’ll email a 1-click approval link when you Save</span><button type="button" class="btn btn-outline btn-sm" data-copy="'+i+'">🔗 Copy link</button>';
     return '<span class="muted" style="font-size:var(--text-xs)">Add a parent email — we’ll send them a 1-click approval link</span>';
   }
+  // How many pickup (guest) players are listed for each tournament, across the roster.
+  function pickupTally(){
+    var t={}; roster.forEach(function(p){ if(p.guest && Array.isArray(p.guest_events)) p.guest_events.forEach(function(ev){ t[ev]=(t[ev]||0)+1; }); }); return t;
+  }
   // Per-event guest picker: a Guest plays only in the tournament(s) you tick here.
+  // Pickups are capped at 3 per event — each chip shows the live count.
   function guestEventsCtl(p,i){
     if(!p.guest) return '';
     var sel = Array.isArray(p.guest_events) ? p.guest_events : [];
+    var tally = pickupTally();
     var chips = TOURNEYS.map(function(f){
       var on = sel.indexOf(f.title) !== -1;
-      return '<button type="button" class="gev'+(on?' on':'')+'" data-gev="'+i+'" data-title="'+esc(f.title)+'">'+(on?'✓ ':'')+esc(f.title)+'</button>';
+      var n = tally[f.title]||0, over = n>3;
+      var cnt = on ? ' <span style="opacity:.8">('+n+'/3)</span>' : '';
+      return '<button type="button" class="gev'+(on?' on':'')+(on&&over?' over':'')+'" data-gev="'+i+'" data-title="'+esc(f.title)+'">'+(on?'✓ ':'')+esc(f.title)+cnt+'</button>';
     }).join('');
     return '<div style="grid-column:1/-1;margin-top:6px;padding-top:8px;border-top:1px dashed var(--line)">'+
-      '<div class="muted" style="font-size:var(--text-xs);margin-bottom:6px"><b>Guest player</b> — pick the tournament(s) they’ll play in'+(TOURNEYS.length?'':' (no tournaments set up yet)')+':</div>'+
+      '<div class="muted" style="font-size:var(--text-xs);margin-bottom:6px"><b>Guest / pickup player</b> — pick the tournament(s) they’ll play in (max <b>3 pickups per event</b>)'+(TOURNEYS.length?'':' — no tournaments set up yet')+':</div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:6px">'+chips+'</div></div>';
   }
   function renderRows(){

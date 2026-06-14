@@ -597,7 +597,12 @@ export async function saveTeamRoster(teamId, roster, code) {
   }
   t.roster = roster;
   var active = activeHere.length;
-  var warning = active < 9 ? ('Heads up: this roster has only ' + active + ' active player' + (active === 1 ? '' : 's') + '. A season roster needs at least 9 active players — you can keep saving and add the rest later.') : '';
+  var warns = [];
+  if (active < 9) warns.push('this roster has only ' + active + ' active player' + (active === 1 ? '' : 's') + ' — a season roster needs at least 9 active players (you can add the rest later)');
+  var perEvent = {};
+  roster.forEach(function (p) { if (p.guest && Array.isArray(p.guest_events)) p.guest_events.forEach(function (ev) { perEvent[ev] = (perEvent[ev] || 0) + 1; }); });
+  Object.keys(perEvent).forEach(function (ev) { if (perEvent[ev] > 3) warns.push(perEvent[ev] + ' pickup players are listed for "' + ev + '" — the limit is 3 per event'); });
+  var warning = warns.length ? ('Heads up: ' + warns.join('; ') + '.') : '';
   return { ok: true, count: roster.length, active: active, warning: warning };
 }
 // Admin-only FULL roster (includes dob for eligibility). The PUBLIC teams doc no

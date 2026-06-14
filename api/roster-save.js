@@ -134,9 +134,17 @@ export default async function handler(req, res) {
 
     // Season rosters need ≥9 active players — WARN (don't block), surfaced to the coach.
     const activeCount = activeNow.length;
-    const warning = activeCount < 9
-      ? `Heads up: this roster has only ${activeCount} active player${activeCount === 1 ? '' : 's'}. A season roster needs at least 9 active players — you can keep saving and add the rest later.`
-      : '';
+    const warns = [];
+    if (activeCount < 9) warns.push(`this roster has only ${activeCount} active player${activeCount === 1 ? '' : 's'} — a season roster needs at least 9 active players (you can add the rest later)`);
+
+    // Pickup (guest) players are capped at 3 PER EVENT — WARN if any tournament is over.
+    const PICKUP_CAP = 3;
+    const perEvent = {};
+    full.forEach(p => { if (p.guest && Array.isArray(p.guest_events)) p.guest_events.forEach(ev => { perEvent[ev] = (perEvent[ev] || 0) + 1; }); });
+    const over = Object.keys(perEvent).filter(ev => perEvent[ev] > PICKUP_CAP);
+    over.forEach(ev => warns.push(`${perEvent[ev]} pickup players are listed for "${ev}" — the limit is ${PICKUP_CAP} per event`));
+
+    const warning = warns.length ? ('Heads up: ' + warns.join('; ') + '.') : '';
 
     // Notify the admin of what changed (added/removed), with the coach + timestamp.
     try {
