@@ -4,8 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#002D72" />
-<title>2026 Schedule · Small Town Select Tournaments</title>
-<meta name="description" content="Game schedule and scores for Small Town Select Tournaments." />
+<title>2026 Scores · Small Town Select Tournaments</title>
+<meta name="description" content="Final scores and results for Small Town Select Tournaments." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -36,7 +36,7 @@
   .sch-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:var(--space-4); }
   .sch-card { background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; cursor:pointer; transition:transform .12s, box-shadow .12s; display:flex; flex-direction:column; }
   .sch-card:hover { transform:translateY(-3px); box-shadow:0 12px 26px rgba(0,45,114,.14); }
-  .sch-card { border-top:3px solid var(--sts-navy); }
+  .sch-card { border-top:3px solid #16794a; }
   .sch-chead { padding:11px 16px 9px; font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-xs); color:#fff; background:var(--sts-navy); }
   .sch-cbody { padding:6px 16px; }
   .sch-team { display:flex; align-items:center; gap:11px; padding:9px 0; }
@@ -67,7 +67,13 @@
 
 <div id="sts-nav"></div>
 
-<header class="page-banner"><img src="assets/headers/schedule.png" alt="2026 Schedule — Small Town Select Tournaments" style="object-position:center 52%" /><h1 class="sr-only">2026 Schedule</h1></header>
+<header class="reg-hero" style="background:linear-gradient(180deg,#00224f,#001a3d);color:#fff;padding:var(--space-7) 0">
+  <div class="container">
+    <div class="eyebrow" style="color:var(--gold)">Results</div>
+    <h1 style="color:#fff;margin:0">2026 Scores</h1>
+    <p style="color:rgba(255,255,255,.85);margin:8px 0 0">Final scores from every Small Town Select tournament. Tap any game for a recap.</p>
+  </div>
+</header>
 
 <main class="container section">
   <div class="sch-toolbar">
@@ -80,7 +86,7 @@
     <select class="input day-spacer" id="eventSel" style="max-width:260px"><option value="">All tournaments</option></select>
   </div>
   <div id="schedHead"></div>
-  <div id="scheduleOut"><div class="empty">Loading schedule…</div></div>
+  <div id="scheduleOut"><div class="empty">Loading scores…</div></div>
 </main>
 
 <div id="sts-footer"></div>
@@ -100,7 +106,7 @@
   function weekStart(ds){ var d=D(ds); d.setDate(d.getDate()-d.getDay()); return d.toISOString().slice(0,10); }
   function logo(name){ return window.STSlogos?STSlogos.html(name,30):''; }
 
-  var MODE='schedule';   // 'schedule' = games NOT yet final · 'scores' = final results only (scores.html overrides)
+  var MODE='scores';   // final results only (companion to schedule.html, which shows games NOT yet final)
   function isPlayed(g){ return g.done && g.away_score!=null && g.home_score!=null; }
   var GAMES=[], FORMS=[], filt={sport:'',event:''}, bracketTables={}, view='grid', curWeek='', curDay='';
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
@@ -124,7 +130,7 @@
   function daysInWeek(w){ var s={}; filtered().forEach(function(g){ if(weekStart(g.date)===w) s[g.date]=1; }); return Object.keys(s).sort(); }
 
   function gameCard(g){
-    var played=g.done && g.away_score!=null && g.home_score!=null, tie=played&&g.away_score===g.home_score;
+    var played=isPlayed(g), tie=played&&g.away_score===g.home_score;
     var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score;
     var A=sideName(g,g.away), H=sideName(g,g.home), city=cityFor(g.form_id);
     var head=[DOW[D(g.date).getDay()].toUpperCase()+' '+MON[D(g.date).getMonth()].toUpperCase()+' '+D(g.date).getDate(), fmtTime(g.time), (g.field?(city?city+' · '+g.field:g.field):'')].filter(Boolean).join(' · ');
@@ -136,7 +142,7 @@
       '<div class="sch-cfoot">'+foot+'</div></div>';
   }
   function gameRow(g){
-    var played=g.done && g.away_score!=null && g.home_score!=null, tie=played&&g.away_score===g.home_score;
+    var played=isPlayed(g), tie=played&&g.away_score===g.home_score;
     var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score, city=cityFor(g.form_id);
     var fLabel=g.field?(city?city+' · '+g.field:g.field):'';
     var fieldHTML=g.field?' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent([g.field,city].filter(Boolean).join(', '))+'" onclick="event.stopPropagation()">📍 '+esc(fLabel)+'</a>':'';
@@ -148,11 +154,10 @@
   function render(){
     var head=document.getElementById('schedHead'), out=document.getElementById('scheduleOut');
     var wk=weeks();
-    if(!wk.length){ head.innerHTML=''; out.innerHTML='<div class="empty">'+(MODE==='scores'?'No final scores yet — results show up here as games are completed.':'No upcoming games right now — check the Scores page for completed games.')+'</div>'; return; }
-    if(!wk.some(function(x){return x.w===curWeek;})) curWeek=wk[0].w;
+    if(!wk.length){ head.innerHTML=''; out.innerHTML='<div class="empty">No final scores yet — results show up here as games are completed.</div>'; return; }
+    if(!wk.some(function(x){return x.w===curWeek;})) curWeek=wk[wk.length-1].w;
     var days=daysInWeek(curWeek);
-    if(days.indexOf(curDay)<0) curDay=days[0];
-    // week tabs
+    if(days.indexOf(curDay)<0) curDay=days[days.length-1];
     var wkTabs='<div class="wk-bar"><button class="wk-arrow" id="wkPrev" aria-label="Previous">‹</button><div class="wk-scroll" id="wkScroll">'+
       wk.map(function(x){ return '<button class="wk'+(x.w===curWeek?' active':'')+'" data-w="'+x.w+'">'+esc(x.label)+'</button>'; }).join('')+
       '</div><button class="wk-arrow" id="wkNext" aria-label="Next">›</button></div>';
@@ -160,7 +165,6 @@
     var dayRow='<div class="day-row"><h2 class="day-title">'+esc(dowFull(curDay)+', '+MON[D(curDay).getMonth()]+' '+D(curDay).getDate())+'<span class="cnt">'+nGames+' game'+(nGames===1?'':'s')+'</span></h2>'+
       '<div class="day-chips">'+days.map(function(d){ return '<button class="day-chip'+(d===curDay?' active':'')+'" data-d="'+d+'">'+esc(fmtMD(d))+'</button>'; }).join('')+'</div></div>';
     head.innerHTML=wkTabs+dayRow;
-    // games for the selected day
     var gs=filtered().filter(function(g){return g.date===curDay;}).sort(function(a,b){ return String(a.time||'').localeCompare(String(b.time||''))||String(titleFor(a.form_id)).localeCompare(String(titleFor(b.form_id))); });
     out.innerHTML = view==='grid' ? '<div class="sch-grid">'+gs.map(gameCard).join('')+'</div>' : gs.map(gameRow).join('');
     if(window.STSfx) STSfx.arm(document);
@@ -184,13 +188,9 @@
       GAMES.forEach(function(g){ if(!g.sport) g.sport=(FORMS.find(function(f){return f.id===g.form_id;})||{}).sport||''; });
       var tf = FORMS.filter(function(f){ return f.type==='tournament' && f.schedule_published !== false; });
       document.getElementById('eventSel').innerHTML='<option value="">All tournaments</option>'+tf.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
-      var wk=weeks();
-      if(wk.length){
-        if(MODE==='scores'){ var last=wk[wk.length-1]; curWeek=last.w; var lds=daysInWeek(curWeek); curDay=lds[lds.length-1]; }  // most-recent results first
-        else { var today=new Date().toISOString().slice(0,10); var hit=wk.find(function(x){return x.days.indexOf(today)>=0;})||wk.find(function(x){return x.w>=weekStart(today);})||wk[0]; curWeek=hit.w; var ds=daysInWeek(curWeek); curDay=ds.indexOf(today)>=0?today:ds[0]; }
-      }
+      var wk=weeks(); if(wk.length){ var last=wk[wk.length-1]; curWeek=last.w; var lds=daysInWeek(curWeek); curDay=lds[lds.length-1]; }
       render();
-    } catch(e){ document.getElementById('scheduleOut').innerHTML='<div class="empty">Could not load the schedule.</div>'; }
+    } catch(e){ document.getElementById('scheduleOut').innerHTML='<div class="empty">Could not load scores.</div>'; }
   })();
 </script>
 

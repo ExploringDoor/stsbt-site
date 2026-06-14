@@ -24,7 +24,10 @@
   .rost-guest { display: inline-block; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-size: 9px; font-weight: 700; color: var(--sts-red); border: 1px solid var(--sts-red); border-radius: 4px; padding: 1px 5px; vertical-align: middle; margin-left: 5px; }
   .tbl tr[data-gid] { cursor: pointer; }
   .tbl tr[data-gid]:hover { background: rgba(0,45,114,.05); }
-  .g-cue { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--sts-navy); opacity: .55; }
+  .g-cue { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--sts-navy); opacity: .55; white-space: nowrap; }
+  .cell-spread { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+  .tf { display: inline-flex; align-items: baseline; gap: 22px; }
+  .tf .fld { color: var(--muted); }
   .tw-card { display: block; text-decoration: none; color: inherit; }
   .tw-card .cg-view { margin-top: 8px; color: var(--sts-navy); font-weight: 600; font-size: var(--text-sm); }
 </style>
@@ -85,13 +88,15 @@
       var opp = isAway?hN:aN;
       if(g.done && g.away_score!=null && g.home_score!=null){
         var my=isAway?g.away_score:g.home_score, op=isAway?g.home_score:g.away_score;
-        results.push({ gid:g.id, fid:g.form_id, date:g.date||'', event:titleFor(g.form_id), opp:opp, my:my, op:op, res:(my>op?'W':(op>my?'L':'T')), champ:isChamp(g) });
+        results.push({ gid:g.id, fid:g.form_id, date:g.date||'', time:g.time||'', event:titleFor(g.form_id), opp:opp, my:my, op:op, res:(my>op?'W':(op>my?'L':'T')), champ:isChamp(g) });
       } else {
         upcoming.push({ gid:g.id, fid:g.form_id, date:g.date||'', time:g.time||'', field:g.field||'', event:titleFor(g.form_id), opp:opp });
       }
     });
-    results.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-    upcoming.sort(function(a,b){ return (a.date||'').localeCompare(b.date||'') || (a.time||'').localeCompare(b.time||''); });
+    // chronological (earliest → latest) by full date+time; empty dates/times sort last
+    function gKey(r){ return (r.date||'9999-99-99')+'T'+(r.time||'99:99'); }
+    results.sort(function(a,b){ return gKey(a).localeCompare(gKey(b)); });
+    upcoming.sort(function(a,b){ return gKey(a).localeCompare(gKey(b)); });
     var rec={w:0,l:0,t:0,rs:0,ra:0};
     results.forEach(function(r){ rec.rs+=r.my; rec.ra+=r.op; if(r.res==='W')rec.w++; else if(r.res==='L')rec.l++; else rec.t++; });
     var gp=rec.w+rec.l+rec.t, ardiff=gp?((rec.rs-rec.ra)/gp):0;
@@ -115,19 +120,19 @@
           var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
           return '<tr data-gid="'+esc(r.gid)+'" tabindex="0" title="View recap"><td>'+esc(fmtDate(r.date))+'</td><td>'+esc(r.event)+(r.champ?' <span class="gh-trophy" title="Championship game">🏆</span>':'')+'</td>'+
             '<td>'+oppCell+'</td>'+
-            '<td class="'+rc+'"><b>'+r.res+'</b> '+r.my+'–'+r.op+' <span class="g-cue">Recap ›</span></td></tr>'; }).join('')+
+            '<td class="'+rc+'"><div class="cell-spread"><span><b>'+r.res+'</b> '+r.my+'–'+r.op+'</span><span class="g-cue">Recap ›</span></div></td></tr>'; }).join('')+
         '</tbody></table></div>'
       : '<div class="empty">No games played yet — results appear here as scores are posted.</div>';
     var upcomingHTML = upcoming.length
-      ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Event</th><th>Opponent</th><th>Time</th></tr></thead><tbody>'+
+      ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Event</th><th>Opponent</th><th>Time &amp; Field</th></tr></thead><tbody>'+
         upcoming.map(function(r){
           var oppSlug=slugify(r.opp);
           var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
           var rCity=(function(){ var l=(FORMS.find(function(x){return x.id===r.fid;})||{}).location||''; return l?l.split(',')[0].trim():''; })();
           var fieldLabel = r.field ? (rCity?rCity+' · '+r.field:r.field) : '';
-          var when=[fmtTime(r.time), fieldLabel].filter(Boolean).join(' · ')||'TBD';
           return '<tr data-gid="'+esc(r.gid)+'" tabindex="0" title="View preview"><td>'+esc(fmtDate(r.date))+'</td><td>'+esc(r.event)+'</td>'+
-            '<td>'+oppCell+'</td><td>'+esc(when)+' <span class="g-cue">Preview ›</span></td></tr>'; }).join('')+
+            '<td>'+oppCell+'</td>'+
+            '<td><span class="tf"><b>'+esc(fmtTime(r.time)||'TBD')+'</b>'+(fieldLabel?'<span class="fld">'+esc(fieldLabel)+'</span>':'')+'<span class="g-cue">Preview ›</span></span></td></tr>'; }).join('')+
         '</tbody></table></div>'
       : '';
 
