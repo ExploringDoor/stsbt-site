@@ -13,9 +13,14 @@
 <style>
   .team-card { display: flex; align-items: center; gap: var(--space-4); background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-4); text-decoration: none; color: var(--fg); transition: transform .15s ease, box-shadow .15s ease; }
   .team-card:hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(0,45,114,.14); text-decoration: none; }
-  .team-card .sts-logo { width: 54px; height: 54px; font-size: 18px; }
-  .team-card .tc-name { font-family: var(--font-display); font-weight: 600; color: var(--sts-navy); font-size: var(--text-lg); }
+  .team-card .sts-logo { width: 52px; height: 52px; font-size: 18px; }
+  .tc-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .team-card .tc-name { font-family: var(--font-display); font-weight: 600; color: var(--sts-navy); font-size: var(--text-lg); line-height: 1.15; }
   .team-card .tc-meta { font-size: var(--text-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+  .tc-pill { align-self: flex-start; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-size: 10px; font-weight: 600; padding: 2px 9px; border-radius: 20px; margin-top: 2px; }
+  .tc-rec { margin-left: auto; text-align: right; flex: none; padding-left: 8px; }
+  .tc-rec b { display: block; font-family: var(--font-display); font-weight: 700; font-size: var(--text-lg); color: var(--sts-navy); }
+  .tc-rec small { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
   .tm-class { margin-bottom: var(--space-6); }
   .tm-class-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 var(--space-3); border-bottom: 2px solid var(--sts-navy); padding-bottom: 6px; }
   .tm-class-head h2 { margin: 0; color: var(--sts-navy); font-size: var(--text-xl); }
@@ -47,15 +52,23 @@
 <script type="module">
   import * as STS from './js/sts-data.js';
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-  var ALL = [], filt = { q:'', sport:'' };
+  var ALL = [], filt = { q:'', sport:'' }, REC = {};
 
   function classOf(t){ return t.division || t.age_class || 'Other'; }
   function classOrder(){ var D=(window.LEAGUE_CONFIG&&LEAGUE_CONFIG.divisions)||{}, out=[]; ['baseball','softball'].forEach(function(s){ (D[s]||[]).forEach(function(d){ out.push(d.name); }); }); return out; }
+  var DIV_COLOR = { 'Minors':'#1D9E75', 'Triple-A':'#185FA5', 'Majors':'#B91C1C', 'Class A':'#7C3AED', 'Class B':'#C9A227', 'Class C':'#0F766E' };
+  function divColor(d){ return DIV_COLOR[d] || '#002D72'; }
   function teamCard(t){
-    var meta = [t.age_class, t.town, (t.coach_name?'Coach '+t.coach_name:'')].filter(Boolean).join(' · ');
-    var logo = window.STSlogos ? STSlogos.html(t.name, 54, t.slug||t.id) : '<span class="sts-logo">'+esc(STS.abbr(t.name))+'</span>';
+    var meta = [t.town, (t.coach_name?'Coach '+t.coach_name:'')].filter(Boolean).join(' · ');
+    var logo = window.STSlogos ? STSlogos.html(t.name, 52, t.slug||t.id) : '<span class="sts-logo">'+esc(STS.abbr(t.name))+'</span>';
+    var c = divColor(t.division);
+    var tag = t.age_class || t.division || '';
+    var pill = tag ? '<span class="tc-pill" style="background:'+c+'1f;color:'+c+'">'+esc(tag)+'</span>' : '';
+    var rc = REC[String(t.name).toLowerCase()] || { w:Number(t.w)||0, l:Number(t.l)||0, ties:Number(t.ties)||0 };
+    var gp = (rc.w||0)+(rc.l||0)+(rc.ties||0);
+    var rec = gp>0 ? '<span class="tc-rec"><b>'+(rc.w||0)+'–'+(rc.l||0)+((rc.ties||0)?'–'+rc.ties:'')+'</b><small>Record</small></span>' : '';
     return '<a class="team-card" href="team.html?id='+esc(t.slug||t.id)+'">'+logo+
-      '<span><span class="tc-name">'+esc(t.name)+'</span><br><span class="tc-meta">'+esc(meta)+'</span></span></a>';
+      '<span class="tc-main"><span class="tc-name">'+esc(t.name)+'</span>'+(meta?'<span class="tc-meta">'+esc(meta)+'</span>':'')+pill+'</span>'+rec+'</a>';
   }
   function render(){
     var grid = document.getElementById('teamGrid');
@@ -83,7 +96,18 @@
   }
   document.getElementById('teamSearch').addEventListener('input', function(e){ filt.q=e.target.value; render(); });
   document.getElementById('sportPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.sport=b.dataset.sport; document.querySelectorAll('#sportPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); render(); });
-  (async function(){ try { ALL = await STS.loadTeams(); render(); } catch(e){ document.getElementById('teamGrid').innerHTML = '<div class="empty">Could not load teams.</div>'; } })();
+  (async function(){
+    try {
+      ALL = await STS.loadTeams();
+      // records aren't stored on team docs — compute them from finished games
+      try {
+        var games = await STS.loadGames({});
+        var st = STS.computeStandings(games || []);
+        st.forEach(function(r){ var k=String(r.team||'').toLowerCase(); REC[k]={ w:r.w, l:r.l, ties:r.ties }; });
+      } catch(e){}
+      render();
+    } catch(e){ document.getElementById('teamGrid').innerHTML = '<div class="empty">Could not load teams.</div>'; }
+  })();
 </script>
 
 </body>
