@@ -140,7 +140,23 @@ var SAMPLE_GAMES = [
   { id: 'ip-b4', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', g: 4, away: 'LG-1', home: 'LG-2', date: '2026-06-13', time: '14:00', field: 'South', away_score: 7, home_score: 2, done: true },
   { id: 'ip-b5', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', g: 5, away: 'WG-4', home: 'LG-3', date: '2026-06-14', time: '10:00', field: 'North', away_score: 1, home_score: 9, done: true },
   { id: 'ip-b6', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', g: 6, away: 'WG-3', home: 'WG-5', date: '2026-06-14', time: '13:00', field: 'North', away_score: 4, home_score: 2, done: true },
-  { id: 'ip-b7', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', g: 7, away: 'WG-6', home: 'LG-6', date: '2026-06-14', time: '15:30', field: 'North', away_score: null, home_score: null, done: false }
+  { id: 'ip-b7', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', g: 7, away: 'WG-6', home: 'LG-6', date: '2026-06-14', time: '15:30', field: 'North', away_score: null, home_score: null, done: false },
+  // ── A full 8-team POOL-PLAY tournament (Georgetown) — round-robin → standings → bracket ──
+  { id: 'gp1', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', away: 'Georgetown Eagles', home: 'Taylor Ducks', date: '2026-06-20', time: '09:00', field: 'Field 1', away_score: 4, home_score: 3, done: true },
+  { id: 'gp2', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', away: 'Round Rock Express', home: 'Liberty Hill Lobos', date: '2026-06-20', time: '09:00', field: 'Field 2', away_score: 9, home_score: 6, done: true },
+  { id: 'gp3', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', away: 'Cedar Park Cobras', home: 'Hutto Hippos', date: '2026-06-20', time: '11:00', field: 'Field 1', away_score: 8, home_score: 3, done: true },
+  { id: 'gp4', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', away: 'Leander Lions', home: 'Pflugerville Panthers', date: '2026-06-20', time: '11:00', field: 'Field 2', away_score: 7, home_score: 6, done: true },
+  { id: 'gp5', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', away: 'Liberty Hill Lobos', home: 'Georgetown Eagles', date: '2026-06-20', time: '13:00', field: 'Field 1', away_score: 6, home_score: 3, done: true },
+  { id: 'gp6', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', away: 'Hutto Hippos', home: 'Taylor Ducks', date: '2026-06-20', time: '13:00', field: 'Field 2', away_score: 5, home_score: 6, done: true },
+  { id: 'gp7', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', away: 'Pflugerville Panthers', home: 'Round Rock Express', date: '2026-06-20', time: '15:00', field: 'Field 1', away_score: 4, home_score: 3, done: true },
+  { id: 'gp8', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', away: 'Leander Lions', home: 'Cedar Park Cobras', date: '2026-06-20', time: '15:00', field: 'Field 2', away_score: 9, home_score: 6, done: true },
+  { id: 'gt1', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', g: 1, away: 'Leander Lions', home: 'Hutto Hippos', date: '2026-06-21', time: '09:00', field: 'Field 1', away_score: 8, home_score: 2, done: true },
+  { id: 'gt2', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', g: 2, away: 'Round Rock Express', home: 'Pflugerville Panthers', date: '2026-06-21', time: '09:00', field: 'Field 2', away_score: 7, home_score: 4, done: true },
+  { id: 'gt3', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', g: 3, away: 'Taylor Ducks', home: 'Liberty Hill Lobos', date: '2026-06-21', time: '11:00', field: 'Field 1', away_score: 6, home_score: 5, done: true },
+  { id: 'gt4', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', g: 4, away: 'Georgetown Eagles', home: 'Cedar Park Cobras', date: '2026-06-21', time: '11:00', field: 'Field 2', away_score: 7, home_score: 5, done: true },
+  { id: 'gt5', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', g: 5, away: 'WG-1', home: 'WG-2', date: '2026-06-21', time: '14:00', field: 'Field 1', away_score: null, home_score: null, done: false },
+  { id: 'gt6', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', g: 6, away: 'WG-3', home: 'WG-4', date: '2026-06-21', time: '14:00', field: 'Field 2', away_score: null, home_score: null, done: false },
+  { id: 'gt7', form_id: 'georgetown-fathers-day', sport: 'baseball', division: '10U', g: 7, away: 'WG-5', home: 'WG-6', date: '2026-06-21', time: '17:00', field: 'Field 1', away_score: null, home_score: null, done: false }
 ];
 var _games = SAMPLE_GAMES.map(function (g) { return Object.assign({}, g); });
 var _gameSeq = 9000;   // unique sample-mode ids for batch-created games
