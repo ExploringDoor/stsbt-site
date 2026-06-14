@@ -342,8 +342,10 @@ table.tbl .actions { display: flex; gap: 6px; }
 .admin-side .brand img { width: 54px; height: 54px; border-radius: 0; background: transparent; object-fit: contain; }
 .admin-side .brand b { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .03em; font-size: var(--text-sm); }
 .admin-nav { list-style: none; margin: 0; padding: 0; }
-.admin-nav .nav-sec { padding: 15px var(--space-5) 5px; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; font-weight: 600; color: rgba(255,255,255,.42); }
-.admin-nav .nav-sec.first { padding-top: 2px; }
+.admin-nav .nav-more-toggle .caret { margin-left: auto; transition: transform .15s ease; }
+.admin-nav.more-open .nav-more-toggle .caret { transform: rotate(180deg); }
+.admin-nav .nav-more-item { display: none; }
+.admin-nav.more-open .nav-more-item { display: block; }
 .admin-nav button { width: 100%; text-align: left; background: none; border: 0; color: rgba(255,255,255,.85); font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-size: var(--text-sm); padding: 11px var(--space-5); cursor: pointer; display: flex; align-items: center; gap: 10px; border-left: 3px solid transparent; }
 .admin-nav button:hover { background: rgba(255,255,255,.08); color: #fff; }
 .admin-nav button.active { background: rgba(255,255,255,.12); color: #fff; border-left-color: var(--gold); }
