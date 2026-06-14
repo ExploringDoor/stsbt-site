@@ -20,6 +20,14 @@
   .seg button { border:0; background:#fff; font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-sm); padding:9px 20px; cursor:pointer; color:var(--sts-navy); }
   .seg button.active { background:var(--sts-navy); color:#fff; }
   .controls { display:flex; gap:var(--space-4); align-items:center; flex-wrap:wrap; }
+  .pp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px; margin-top:var(--space-3); }
+  .pp-game { display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--line); border-left:3px solid var(--sts-navy); border-radius:8px; padding:8px 12px; }
+  .pp-n { font-family:var(--font-display); font-weight:700; font-size:var(--text-xs); color:var(--muted); min-width:26px; }
+  .pp-t { font-family:var(--font-display); font-weight:600; color:var(--sts-navy); font-size:var(--text-sm); flex:1; }
+  .pp-t.h { text-align:right; }
+  .pp-vs { font-size:10px; color:var(--muted); text-transform:uppercase; }
+  .pp-note { margin-top:var(--space-3); font-size:var(--text-sm); color:var(--muted); border-top:1px dashed var(--line); padding-top:10px; }
+  .pp-note b { color:var(--sts-navy); }
 </style>
 </head>
 <body>
@@ -33,10 +41,10 @@
 <main class="container section">
   <div class="controls" style="margin-bottom:var(--space-5)">
     <span style="font-family:var(--font-display);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-size:var(--text-sm)">Format:</span>
-    <div class="seg" id="fmtSeg"><button data-fmt="single" class="active">Single Elimination</button><button data-fmt="double">Double Elimination</button></div>
-    <div class="bk-legend" style="padding:0"><span><span class="chip w"></span> Winners</span><span><span class="chip l"></span> Losers</span><span><span class="chip f"></span> Championship</span></div>
+    <div class="seg" id="fmtSeg"><button data-fmt="single" class="active">Single Elimination</button><button data-fmt="double">Double Elimination</button><button data-fmt="pool">Pool Play</button></div>
+    <div class="bk-legend" id="bkLegend" style="padding:0"><span><span class="chip w"></span> Winners</span><span><span class="chip l"></span> Losers</span><span><span class="chip f"></span> Championship</span></div>
   </div>
-  <p class="muted" style="font-size:var(--text-sm);margin-bottom:var(--space-4)">Round 1 shows the seeds; later games show “Winner of Game N”. Odd counts get byes. Hover a team to trace its path.</p>
+  <p class="muted" id="introNote" style="font-size:var(--text-sm);margin-bottom:var(--space-4)">Round 1 shows the seeds; later games show “Winner of Game N”. Odd counts get byes. Hover a team to trace its path.</p>
   <div id="gallery"><div class="bk-empty">Generating brackets…</div></div>
 </main>
 
@@ -51,16 +59,35 @@
     function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
     var COUNTS = [3,4,5,6,7,8,9,10,12,14,16,20];
     var fmt = 'single';
+    function poolHTML(n){
+      var teams = []; for (var i=1;i<=n;i++) teams.push('Team '+i);
+      var gpt = Math.min(3, n-1);
+      var games = STSgen.generatePool(teams, { gamesPerTeam: gpt });
+      var even = (n % 2 === 0);
+      var meta = gpt + ' game'+(gpt>1?'s':'')+' / team · ' + games.length + ' games total';
+      var rows = games.map(function(gm, i){
+        return '<div class="pp-game"><span class="pp-n">G'+(i+1)+'</span><span class="pp-t">'+esc(gm.away)+'</span><span class="pp-vs">vs</span><span class="pp-t h">'+esc(gm.home)+'</span></div>';
+      }).join('');
+      var note = '<div class="pp-note">Every team plays '+gpt+', then <b>final standings</b> (wins, then tiebreakers) <b>seed the bracket</b>.'+
+        (even ? '' : ' <em>Odd team count → a rotating bye each round, so a team or two may play one fewer.</em>')+'</div>';
+      return '<div class="ex"><div class="ex-head"><h2>'+n+' Teams</h2><span class="meta">'+esc(meta)+'</span></div><div class="pp-grid">'+rows+'</div>'+note+'</div>';
+    }
+    function bracketHTML(n){
+      var teams = []; for (var i=1;i<=n;i++) teams.push('Team '+i);
+      var games = STSgen.generateBracket({ format: fmt, teams: teams, startGame: 1 });
+      var byes = (function(){ var p=1; while(p<n) p<<=1; return p-n; })();
+      var meta = games.length + ' games' + (byes>0 ? ' · '+byes+' bye'+(byes>1?'s':'')+' (Round 1)' : '');
+      return '<div class="ex"><div class="ex-head"><h2>'+n+' Teams</h2><span class="meta">'+esc(meta)+'</span></div>'+STSbracketRender.render(games, {})+'</div>';
+    }
     function render(){
       var out = document.getElementById('gallery');
-      out.innerHTML = COUNTS.map(function(n){
-        var teams = []; for (var i=1;i<=n;i++) teams.push('Team '+i);
-        var games = STSgen.generateBracket({ format: fmt, teams: teams, startGame: 1 });
-        var byes = (function(){ var p=1; while(p<n) p<<=1; return p-n; })();
-        var meta = games.length + ' games' + (byes>0 ? ' · '+byes+' bye'+(byes>1?'s':'')+' (Round 1)' : '');
-        return '<div class="ex"><div class="ex-head"><h2>'+n+' Teams</h2><span class="meta">'+esc(meta)+'</span></div>'+STSbracketRender.render(games, {})+'</div>';
-      }).join('');
-      var g = document.getElementById('gallery'); STSbracketRender.wireHover(g);
+      var pool = fmt === 'pool';
+      document.getElementById('bkLegend').style.display = pool ? 'none' : '';
+      document.getElementById('introNote').textContent = pool
+        ? 'Pool play is a round-robin: every team plays a set number of games, then the standings decide who seeds where in the bracket.'
+        : 'Round 1 shows the seeds; later games show “Winner of Game N”. Odd counts get byes. Hover a team to trace its path.';
+      out.innerHTML = COUNTS.map(pool ? poolHTML : bracketHTML).join('');
+      if (!pool) STSbracketRender.wireHover(out);
       if (window.STSfx) STSfx.arm(document);
     }
     document.getElementById('fmtSeg').addEventListener('click', function(e){
