@@ -16,6 +16,8 @@
   .roster-row .del { background: none; border: 1px solid var(--line); border-radius: 8px; color: var(--sts-red); cursor: pointer; height: 44px; }
   .rgu { display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: var(--text-xs); color: var(--muted); cursor: pointer; user-select: none; }
   .rgu input { width: 16px; height: 16px; accent-color: var(--sts-red); cursor: pointer; }
+  .gev { font-family: var(--font-display); font-size: var(--text-xs); padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
+  .gev.on { background: var(--sts-navy); border-color: var(--sts-navy); color: #fff; }
   @media (max-width: 640px){
     .roster-head { display: none; }
     .roster-row { grid-template-columns: 58px 1fr 42px; grid-template-areas: "j n x" "d d g" "u u u"; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
@@ -71,7 +73,7 @@
 
   var teamId = qs('id');
   var preCode = qs('code') || (teamId ? localStorage.getItem('sts-code-'+teamId) : '') || '';
-  var TEAM = null, roster = [];
+  var TEAM = null, roster = [], TOURNEYS = [];
 
   if (!teamId){
     document.getElementById('gate').innerHTML = '<div class="empty"><h2>Almost there</h2><p class="muted">Your team page and roster unlock as soon as your registration payment clears. Keep your team code handy — we emailed it to you.</p><a class="btn btn-navy" href="teams.html">Browse teams</a></div>';
@@ -92,6 +94,7 @@
     localStorage.setItem('sts-code-'+teamId, code);
     roster = (TEAM.roster||[]).slice();
     if (!roster.length) roster.push({ num:'', name:'', dob:'', grade:'' });
+    try { TOURNEYS = (await STS.loadForms()).filter(function(f){ return f.type==='tournament' && !f.archived; }); } catch(_){ TOURNEYS = []; }
     document.getElementById('gate').classList.add('hidden');
     document.getElementById('editor').classList.remove('hidden');
     document.getElementById('reTitle').textContent = TEAM.name + ' — Roster';
@@ -110,6 +113,18 @@
     if((p.guardian_email||'').trim()) return '<span class="muted" style="font-size:var(--text-xs)">📧 We’ll email a 1-click approval link when you Save</span><button type="button" class="btn btn-outline btn-sm" data-copy="'+i+'">🔗 Copy link</button>';
     return '<span class="muted" style="font-size:var(--text-xs)">Add a parent email — we’ll send them a 1-click approval link</span>';
   }
+  // Per-event guest picker: a Guest plays only in the tournament(s) you tick here.
+  function guestEventsCtl(p,i){
+    if(!p.guest) return '';
+    var sel = Array.isArray(p.guest_events) ? p.guest_events : [];
+    var chips = TOURNEYS.map(function(f){
+      var on = sel.indexOf(f.title) !== -1;
+      return '<button type="button" class="gev'+(on?' on':'')+'" data-gev="'+i+'" data-title="'+esc(f.title)+'">'+(on?'✓ ':'')+esc(f.title)+'</button>';
+    }).join('');
+    return '<div style="grid-column:1/-1;margin-top:6px;padding-top:8px;border-top:1px dashed var(--line)">'+
+      '<div class="muted" style="font-size:var(--text-xs);margin-bottom:6px"><b>Guest player</b> — pick the tournament(s) they’ll play in'+(TOURNEYS.length?'':' (no tournaments set up yet)')+':</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px">'+chips+'</div></div>';
+  }
   function renderRows(){
     document.getElementById('rosterRows').innerHTML = roster.map(function(p,i){
       return '<div class="roster-row">'+
@@ -117,8 +132,9 @@
         '<input class="input rn" data-i="'+i+'" data-f="name" value="'+esc(p.name||'')+'" placeholder="Player full name">'+
         '<input class="input rd" type="date" data-i="'+i+'" data-f="dob" value="'+esc(p.dob||'')+'" aria-label="Date of birth">'+
         gradeSelect(i, p.grade)+
-        '<label class="rgu" title="Guest / pickup player for this team"><input type="checkbox" data-i="'+i+'" data-f="guest"'+(p.guest?' checked':'')+'><span>Guest</span></label>'+
+        '<label class="rgu" title="Guest / pickup player for one tournament"><input type="checkbox" data-i="'+i+'" data-f="guest"'+(p.guest?' checked':'')+'><span>Guest</span></label>'+
         '<button class="del rx" data-del="'+i+'" title="Remove" aria-label="Remove player">✕</button>'+
+        guestEventsCtl(p,i)+
         '<div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px;padding-top:8px;border-top:1px dashed var(--line)">'+
           '<input class="input" data-i="'+i+'" data-f="guardian_email" type="email" value="'+esc(p.guardian_email||'')+'" placeholder="Parent / guardian email" style="flex:1;min-width:200px;height:40px">'+
           approvalCtl(p,i)+
@@ -127,8 +143,10 @@
   }
   function onField(e){ var t=e.target; if(t.dataset && t.dataset.i!=null){ roster[+t.dataset.i][t.dataset.f] = (t.type==='checkbox') ? t.checked : t.value; } }
   document.getElementById('rosterRows').addEventListener('input', onField);
-  document.getElementById('rosterRows').addEventListener('change', function(e){ onField(e); if(e.target.dataset && e.target.dataset.f==='guardian_email') renderRows(); });   // date + grade select; re-render so the approval-link button appears
+  document.getElementById('rosterRows').addEventListener('change', function(e){ onField(e); if(e.target.dataset && (e.target.dataset.f==='guardian_email'||e.target.dataset.f==='guest')) renderRows(); });   // re-render so the approval-link button + guest-event picker appear
   document.getElementById('rosterRows').addEventListener('click', function(e){
+    var g=e.target.closest('[data-gev]');
+    if(g){ var gi=+g.dataset.gev, gp=roster[gi], title=g.dataset.title; if(!Array.isArray(gp.guest_events)) gp.guest_events=[]; var at=gp.guest_events.indexOf(title); if(at===-1) gp.guest_events.push(title); else gp.guest_events.splice(at,1); renderRows(); return; }
     var c=e.target.closest('[data-copy]');
     if(c){ var i=+c.dataset.copy, p=roster[i]; if(!(p.guardian_email||'').trim()) return; if(!p.approval_token) p.approval_token=STS.genApprovalToken();
       var link=location.origin+'/approve.html?team='+encodeURIComponent(TEAM.slug||TEAM.id)+'&t='+p.approval_token;
@@ -141,9 +159,12 @@
     var clean = roster.filter(function(p){ return (p.name||'').trim(); });
     var msg = document.getElementById('saveMsg');
     try {
-      await STS.saveTeamRoster(TEAM.slug||TEAM.id, clean, (document.getElementById('codeInput').value||'').trim().toUpperCase());
-      msg.className='notice notice-ok'; msg.textContent='Roster saved! '+clean.length+' player'+(clean.length===1?'':'s')+'.'; msg.classList.remove('hidden');
-    } catch(ex){ msg.className='notice notice-warn'; msg.textContent='Could not save: '+(ex.message||'try again'); msg.classList.remove('hidden'); }
+      var r = await STS.saveTeamRoster(TEAM.slug||TEAM.id, clean, (document.getElementById('codeInput').value||'').trim().toUpperCase()) || {};
+      var active = (r.active!=null) ? r.active : clean.filter(function(p){return !p.guest;}).length;
+      if (r.warning){ msg.className='notice notice-warn'; msg.innerHTML='<b>Saved</b> ('+clean.length+' player'+(clean.length===1?'':'s')+', '+active+' active). '+esc(r.warning); }
+      else { msg.className='notice notice-ok'; msg.textContent='Roster saved! '+clean.length+' player'+(clean.length===1?'':'s')+' ('+active+' active).'; }
+      msg.classList.remove('hidden');
+    } catch(ex){ msg.className='notice notice-warn'; msg.innerHTML='<b>Couldn’t save.</b> '+esc(ex.message||'Please try again.'); msg.classList.remove('hidden'); }
   });
 </script>
 

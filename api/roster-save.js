@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     // A coach re-editing can't see stored birthdates (the public doc has none), so an
     // empty incoming dob must KEEP the one already on file — never silently wipe it.
     // Also capture the previous player NAMES to diff added/removed for the notice.
-    let prevDob = {}, prevNames = [], prevAppr = {};
+    let prevDob = {}, prevNames = [], prevAppr = {}, prevActivePids = new Set();
     try {
       const prev = await fsGet(`team_rosters/${team.id}`);
       (prev && Array.isArray(prev.roster) ? prev.roster : []).forEach(p => {
@@ -53,6 +53,7 @@ export default async function handler(req, res) {
         // approval data from the gated doc by name so a re-save never wipes it.
         if (k) prevAppr[k] = { guardian_email: p.guardian_email || '', approval_token: p.approval_token || '', approved: !!p.approved, approved_at: p.approved_at || '', approval_sent: !!p.approval_sent };
         if (p.name) prevNames.push(String(p.name).trim());
+        if (!p.guest && p.pid) prevActivePids.add(p.pid);
       });
     } catch (e) {}
 
@@ -74,6 +75,7 @@ export default async function handler(req, res) {
           dob,
           grade: String(p.grade || '').slice(0, 4),
           guest: !!p.guest,
+          ...(p.guest && Array.isArray(p.guest_events) && p.guest_events.length ? { guest_events: p.guest_events.slice(0, 20).map(e => String(e).slice(0, 60)) } : {}),
           pid: playerId(name, dob),
           ...(guardian_email ? { guardian_email } : {}),
           ...(approval_token ? { approval_token } : {}),
@@ -89,11 +91,50 @@ export default async function handler(req, res) {
     // world-readable). age51 = derived age at the May 1 cutoff (Keith shows this
     // publicly for eligibility); pid lets the player page match a kid across teams.
     const pub = full.map(p => ({ num: p.num, name: p.name, grade: p.grade, guest: p.guest, pid: p.pid, age51: ageAsOfMay1(p.dob),
+      ...(p.guest_events ? { guest_events: p.guest_events } : {}),
       ...(p.approval_token ? { approval_token: p.approval_token } : {}),
       ...(p.approved ? { approved: true } : {}) }));
 
+    // ── Eligibility (Keith's rules) ──────────────────────────────────────────
+    // A player may be ACTIVE (non-guest) on only ONE roster. We keep a tiny
+    // cross-roster index in team_rosters/xp_<pid> = { team_id, team_name, player_name }
+    // (team_rosters is admin-gated, so the prefixed docs need no extra rule).
+    // HARD-BLOCK the save if any active player here is already active elsewhere.
+    const activeNow = full.filter(p => !p.guest && p.name && p.pid);
+    const activePidMap = new Map(activeNow.map(p => [p.pid, p]));   // dedupe within this roster
+    const conflicts = [];
+    for (const [pid, p] of activePidMap) {
+      try {
+        const idx = await fsGet(`team_rosters/xp_${pid}`);
+        if (idx && idx.team_id && idx.team_id !== team.id) {
+          conflicts.push({ player: p.name, team: idx.team_name || idx.team_id });
+        }
+      } catch (e) { /* missing index doc = no conflict */ }
+    }
+    if (conflicts.length) {
+      return res.status(409).json({ error: 'active_conflict', conflicts,
+        message: conflicts.map(c => `${c.player} is already an active player on "${c.team}". Mark them Guest here, or remove them from the other roster first.`).join(' ') });
+    }
+
     await fsPatch(`teams/${team.id}`, { roster: pub });
     await fsPatch(`team_rosters/${team.id}`, { team_id: team.id, roster: full });
+
+    // Maintain the active-player index: claim each active pid for this team, and
+    // free up any pid that was active here before but is now removed or made guest.
+    try {
+      for (const [pid, p] of activePidMap) {
+        await fsPatch(`team_rosters/xp_${pid}`, { team_id: team.id, team_name: team.name || '', player_name: p.name });
+      }
+      for (const pid of prevActivePids) {
+        if (!activePidMap.has(pid)) await fsPatch(`team_rosters/xp_${pid}`, { team_id: '', team_name: '', player_name: '' });
+      }
+    } catch (e) { /* index upkeep is best-effort */ }
+
+    // Season rosters need ≥9 active players — WARN (don't block), surfaced to the coach.
+    const activeCount = activeNow.length;
+    const warning = activeCount < 9
+      ? `Heads up: this roster has only ${activeCount} active player${activeCount === 1 ? '' : 's'}. A season roster needs at least 9 active players — you can keep saving and add the rest later.`
+      : '';
 
     // Notify the admin of what changed (added/removed), with the coach + timestamp.
     try {
@@ -127,7 +168,7 @@ export default async function handler(req, res) {
       }
     } catch (e) { /* non-fatal */ }
 
-    return res.status(200).json({ ok: true, count: full.length, approvals_sent: toSend.length });
+    return res.status(200).json({ ok: true, count: full.length, active: activeCount, approvals_sent: toSend.length, ...(warning ? { warning } : {}) });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
   }

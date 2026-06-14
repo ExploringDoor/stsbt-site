@@ -138,7 +138,8 @@
       ? '<div class="table-wrap"><table class="tbl roster-table"><thead><tr><th>#</th><th>Player</th><th title="Age as of the May 1 eligibility cutoff">Age (5/1)</th><th>Grade</th></tr></thead><tbody>'+
         roster.map(function(p,i){
           var nm=(p.name||'').trim();
-          var nameCell = nm ? '<a class="pl-namelink" href="player.html?t='+esc(t.slug||t.id)+'&i='+i+'">'+esc(nm)+'</a>'+(p.guest?' <span class="rost-guest">Guest</span>':'') : '';
+          var gev = (p.guest && Array.isArray(p.guest_events) && p.guest_events.length) ? ' <span class="rost-guest" style="color:var(--muted);border-color:var(--line)">'+esc(p.guest_events.join(' · '))+'</span>' : '';
+          var nameCell = nm ? '<a class="pl-namelink" href="player.html?t='+esc(t.slug||t.id)+'&i='+i+'">'+esc(nm)+'</a>'+(p.guest?' <span class="rost-guest">Guest</span>':'')+gev : '';
           return '<tr><td class="jersey">'+esc(p.num||'')+'</td><td>'+nameCell+'</td><td>'+esc(STS.playerAge(p))+'</td><td>'+esc(p.grade||'')+'</td></tr>'; }).join('')+
         '</tbody></table></div>'
       : '<div class="empty">No roster posted yet. The coach can add players with their team code.</div>';

@@ -566,14 +566,39 @@ export async function getTeam(id) {
 }
 export async function saveTeamRoster(teamId, roster, code) {
   // In production this routes through /api/roster-save.js (server re-checks the code).
+  // Returns { ok, count, active, warning? }. A 409 = eligibility hard-block (a player
+  // is already active on another roster) — surfaced as an Error with the server message.
   if (isConfigured) {
     var res = await fetch('/api/roster-save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teamId: teamId, roster: roster, code: code }) });
-    if (!res.ok) throw new Error('Save failed'); return;
+    var data = {}; try { data = await res.json(); } catch (e) {}
+    if (res.status === 409) { var er = new Error(data.message || 'A player is already active on another roster.'); er.conflicts = data.conflicts || []; throw er; }
+    if (!res.ok) throw new Error(data.error || 'Save failed');
+    return data;
   }
   var t = _teams.find(function (x) { return x.id === teamId || x.slug === teamId; });
   if (!t) throw new Error('Team not found');
   if (String(t.team_code) !== String(code)) throw new Error('Wrong team code');
+  // Demo mirror of the eligibility rules so the UI can be tested without the server.
+  function pid(p) { return (String(p.name || '').toLowerCase().trim() + '|' + String(p.dob || '')); }
+  var activeHere = roster.filter(function (p) { return !p.guest && (p.name || '').trim(); });
+  var conflicts = [];
+  activeHere.forEach(function (p) {
+    var k = pid(p);
+    _teams.forEach(function (other) {
+      if (other.id === t.id || other.slug === t.slug) return;
+      (other.roster || []).forEach(function (op) {
+        if (!op.guest && (op.name || '').trim() && pid(op) === k) conflicts.push({ player: p.name, team: other.name });
+      });
+    });
+  });
+  if (conflicts.length) {
+    var e2 = new Error(conflicts.map(function (c) { return c.player + ' is already an active player on "' + c.team + '". Mark them Guest here, or remove them from the other roster first.'; }).join(' '));
+    e2.conflicts = conflicts; throw e2;
+  }
   t.roster = roster;
+  var active = activeHere.length;
+  var warning = active < 9 ? ('Heads up: this roster has only ' + active + ' active player' + (active === 1 ? '' : 's') + '. A season roster needs at least 9 active players — you can keep saving and add the rest later.') : '';
+  return { ok: true, count: roster.length, active: active, warning: warning };
 }
 // Admin-only FULL roster (includes dob for eligibility). The PUBLIC teams doc no
 // longer carries dob — birthdates live in the gated team_rosters/{teamId} collection
