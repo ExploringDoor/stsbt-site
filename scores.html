@@ -188,7 +188,16 @@
       GAMES.forEach(function(g){ if(!g.sport) g.sport=(FORMS.find(function(f){return f.id===g.form_id;})||{}).sport||''; });
       var tf = FORMS.filter(function(f){ return f.type==='tournament' && f.schedule_published !== false; });
       document.getElementById('eventSel').innerHTML='<option value="">All tournaments</option>'+tf.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
-      var wk=weeks(); if(wk.length){ var last=wk[wk.length-1]; curWeek=last.w; var lds=daysInWeek(curWeek); curDay=lds[lds.length-1]; }
+      // open to the most recent day with finals that is ON OR BEFORE today
+      // (don't jump to future-dated results); fall back to the earliest if all are future
+      var wk=weeks();
+      if(wk.length){
+        var today=new Date().toISOString().slice(0,10);
+        var allDays=[]; wk.forEach(function(w){ w.days.forEach(function(d){ allDays.push(d); }); }); allDays.sort();
+        var past=allDays.filter(function(d){ return d<=today; });
+        var target = past.length ? past[past.length-1] : allDays[0];
+        curWeek=weekStart(target); curDay=target;
+      }
       render();
     } catch(e){ document.getElementById('scheduleOut').innerHTML='<div class="empty">Could not load scores.</div>'; }
   })();
