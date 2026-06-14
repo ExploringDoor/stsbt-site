@@ -15,11 +15,8 @@
   .day-head { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .06em; color: var(--sts-red); font-size: var(--text-sm); margin: var(--space-5) 0 var(--space-2); }
   .ev-head { display: flex; align-items: baseline; gap: 10px; margin: var(--space-6) 0 var(--space-2); }
   .ev-head h2 { margin: 0; color: var(--sts-navy); font-size: var(--text-2xl); }
-  .game { display: grid; grid-template-columns: 130px 1fr auto; gap: var(--space-3); align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 16px var(--space-5); margin-bottom: 9px; cursor: pointer; transition: border-color .14s ease, box-shadow .14s ease, transform .14s ease; }
+  .game { display: grid; grid-template-columns: 130px 1fr auto; gap: var(--space-3); align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 9px var(--space-5); margin-bottom: 8px; cursor: pointer; transition: border-color .14s ease, box-shadow .14s ease, transform .14s ease; }
   .game:hover { border-color: var(--sts-navy); box-shadow: 0 4px 14px rgba(0,45,114,.12); transform: translateY(-1px); }
-  .game:hover .gcue { opacity: 1; }
-  .gcue { grid-column: 2; font-family: var(--font-display); font-weight: 700; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--sts-navy); opacity: 0; transition: opacity .14s ease; }
-  @media (max-width:560px){ .gcue { display:none; } }
   .game .when { font-family: var(--font-display); font-size: var(--text-sm); color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
   .game .matchup { font-family: var(--font-display); font-weight: 600; color: var(--sts-ink); font-size: var(--text-xl); }
   .game .matchup .vs { color: var(--muted); font-weight: 400; margin: 0 8px; font-size: var(--text-sm); }
@@ -88,7 +85,7 @@
           var result = played ? '<div class="result">'+g.away_score+'–'+g.home_score+'</div>' : '<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+fieldHTML+'</div>';
           return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtTime(g.time)))+'</div>'+
             '<div class="matchup"><span class="'+(aWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.away))+'</span><span class="vs">vs</span><span class="'+(hWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.home))+'</span>'+(g.division?' <span class="muted" style="font-size:var(--text-xs)">· '+esc(g.division)+'</span>':'')+'</div>'+
-            result+'<div class="gcue">'+(played?'Recap':'Preview')+' ›</div></div>';
+            result+'</div>';
         }).join('');
         return '<div class="day-head">'+esc(fmtDate(d))+'</div>'+games;
       }).join('');

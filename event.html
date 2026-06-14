@@ -18,6 +18,9 @@
   .ev-hero .ev-fmt { display:inline-block; background: var(--gold); color: var(--sts-navy); font-family: var(--font-display); font-weight:700; text-transform:uppercase; letter-spacing:.05em; font-size:11px; padding:3px 11px; border-radius:999px; margin-top:10px; }
   .ev-tabs { display:flex; gap:4px; border-bottom:2px solid var(--line); margin: var(--space-5) 0 var(--space-5); flex-wrap:wrap; }
   .ev-tab { border:0; background:none; font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-sm); font-weight:600; color:var(--muted); padding:10px 16px; cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; }
+  .ev-team-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px; }
+  .ev-team { display:block; background:#fff; border:1px solid var(--line); border-left:3px solid var(--sts-navy); border-radius:8px; padding:11px 14px; text-decoration:none; color:var(--sts-navy); font-family:var(--font-display); font-weight:600; transition:transform .12s, box-shadow .12s; }
+  .ev-team:hover { transform:translateY(-2px); box-shadow:0 6px 16px rgba(0,45,114,.12); text-decoration:none; }
   .ev-tab.active { color:var(--sts-navy); border-bottom-color:var(--sts-red); }
   .ev-divpills { margin-bottom: var(--space-4); }
   .day-head { font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; color:var(--sts-red); font-size:var(--text-sm); font-weight:600; margin: var(--space-4) 0 8px; }
@@ -142,10 +145,19 @@
     return '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:true, venue: FORM.location||'' })+'</div>';
   }
 
-  var TABS = [['overview','Overview'],['schedule','Schedule'],['standings','Standings'],['bracket','Bracket']];
+  function renderTeams(){
+    var s={}; evGames().forEach(function(g){ [g.away,g.home].forEach(function(t){ if(t && !/^(WG|LG)-\d+$/.test(String(t)) && !/^(tbd|bye)$/i.test(String(t))) s[String(t)]=1; }); });
+    var teams=Object.keys(s).sort(function(a,b){ return a.localeCompare(b); });
+    if(!teams.length) return '<div class="empty" style="text-transform:none;letter-spacing:0">The team list appears here once the schedule or bracket is posted.</div>';
+    var demo=/[?&]demo=1/.test(location.search)?'&demo=1':'';
+    return '<p class="muted" style="text-transform:none;letter-spacing:0;margin-top:0">'+teams.length+' teams</p>'+
+      '<div class="ev-team-grid">'+teams.map(function(t){ var slug=String(t).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); return '<a class="ev-team" href="team.html?id='+encodeURIComponent(slug)+demo+'">'+esc(t)+'</a>'; }).join('')+'</div>';
+  }
+  var TABS = [['overview','Overview'],['teams','Teams'],['schedule','Schedule'],['standings','Standings'],['bracket','Bracket']];
   function renderTab(){
     var c = document.getElementById('evContent');
     if(tab==='overview') c.innerHTML = renderOverview();
+    else if(tab==='teams') c.innerHTML = renderTeams();
     else if(tab==='schedule') c.innerHTML = renderSchedule();
     else if(tab==='standings') c.innerHTML = renderStandings();
     else c.innerHTML = renderBracket();
@@ -193,7 +205,7 @@
     document.getElementById('evDivPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; curDiv=b.dataset.div; document.querySelectorAll('#evDivPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); document.getElementById('evFmt').innerHTML='<span class="ev-fmt">'+esc(detectFormat())+'</span>'; renderTab(); });
     // default tab: bracket if present, else schedule
     var want = (location.hash||'').replace('#','').split('/')[0];
-    if(['overview','schedule','standings','bracket'].indexOf(want)<0) want = bracketGames().length ? 'bracket' : 'schedule';
+    if(['overview','teams','schedule','standings','bracket'].indexOf(want)<0) want = bracketGames().length ? 'bracket' : 'schedule';
     selectTab(want);
   }
 
