@@ -200,7 +200,10 @@
     var divs=evAllDivs(); curDiv = (divs.indexOf(curDiv)>=0)?curDiv:(divs[0]||'');
     document.getElementById('evFmt').innerHTML = '<span class="ev-fmt">'+esc(detectFormat())+'</span>';
     buildDivPills();
-    document.getElementById('evTabs').innerHTML = TABS.map(function(t){ return '<button class="ev-tab" data-tab="'+t[0]+'">'+t[1]+'</button>'; }).join('');
+    // Standings only make sense for pool play — hide the tab for pure single/double elim.
+    var anyPool = GAMES.some(function(g){ return g.form_id===fid && g.g==null; });
+    var tabs = TABS.filter(function(t){ return t[0]!=='standings' || anyPool; });
+    document.getElementById('evTabs').innerHTML = tabs.map(function(t){ return '<button class="ev-tab" data-tab="'+t[0]+'">'+t[1]+'</button>'; }).join('');
     document.getElementById('evTabs').addEventListener('click', function(e){ var b=e.target.closest('.ev-tab'); if(b) selectTab(b.dataset.tab); });
     document.getElementById('evDivPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; curDiv=b.dataset.div; document.querySelectorAll('#evDivPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); document.getElementById('evFmt').innerHTML='<span class="ev-fmt">'+esc(detectFormat())+'</span>'; renderTab(); });
     // default tab: bracket if present, else schedule
