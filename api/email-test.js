@@ -6,11 +6,11 @@
 //   /api/email-test?type=roster     → just the "roster" one
 //   /api/email-test?to=me@x.com     → send to a specific inbox instead of ADMIN_EMAIL
 //
-// types: confirm | paid | order | insurance | roster | all
+// types: confirm | paid | order | insurance | roster | approval | all
 // Env: SENDGRID_API_KEY, MAIL_FROM, ADMIN_EMAIL (see api/_email.js).
 
 import { sendMail, emailConfigured, adminAddress } from './_email.js';
-import { buildMessage, buildCoachMessage, buildInsuranceMessage, buildMerchMessage, buildRosterMessage } from './notify-registration.js';
+import { buildMessage, buildCoachMessage, buildInsuranceMessage, buildMerchMessage, buildRosterMessage, buildApprovalMessage } from './notify-registration.js';
 
 const SAMPLE = {
   team_name: 'Brownwood Bandits', form_id: 'season-baseball',
@@ -34,6 +34,10 @@ const ROSTER_SAMPLE = {
   added: ['Joe Sessums', 'Jayden Castillon', 'Jorge Chavez', 'Miguel Sandoval', 'Martin Morales', 'Carlos Villarreal'],
   removed: ['Brandon Teal'],
 };
+const APPROVAL_SAMPLE = {
+  player_name: 'Jordan Mathis', team_name: 'Blacksox · 7U', coach_name: 'Tanir Horton',
+  guardian_email: '', season: '2026', link: 'https://ststournaments.com/approve.html?team=blacksox&t=SAMPLE',
+};
 
 export default async function handler(req, res) {
   const url = new URL(req.url, 'https://x');
@@ -44,14 +48,15 @@ export default async function handler(req, res) {
   if (!to) return res.status(200).json({ ok: false, reason: 'No recipient — set ADMIN_EMAIL or pass ?to=you@email.com' });
 
   // confirm=coach code · paid=admin alert · order=merch · insurance=carrier req · roster=change notice
-  const types = type === 'all' ? ['confirm', 'paid', 'order', 'insurance', 'roster'] : [type];
+  const types = type === 'all' ? ['confirm', 'paid', 'order', 'insurance', 'roster', 'approval'] : [type];
   const results = [];
   for (const t of types) {
-    const data = t === 'insurance' ? INSURANCE_SAMPLE : t === 'order' ? MERCH_SAMPLE : t === 'roster' ? ROSTER_SAMPLE : SAMPLE;
+    const data = t === 'insurance' ? INSURANCE_SAMPLE : t === 'order' ? MERCH_SAMPLE : t === 'roster' ? ROSTER_SAMPLE : t === 'approval' ? Object.assign({}, APPROVAL_SAMPLE, { guardian_email: to }) : SAMPLE;
     const msg = t === 'confirm' ? buildCoachMessage(data)
       : t === 'insurance' ? buildInsuranceMessage(data)
       : t === 'order' ? buildMerchMessage(data)
       : t === 'roster' ? buildRosterMessage(data)
+      : t === 'approval' ? buildApprovalMessage(data)
       : buildMessage(t, data);
     try {
       await sendMail({ to, subject: '[TEST] ' + msg.subject, html: msg.html, text: msg.text });
