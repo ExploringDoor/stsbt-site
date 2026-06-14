@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Approve Player · Small Town Select Tournaments</title>
+<meta name="description" content="One-click parent approval for your player." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  body { background: linear-gradient(180deg,#00224f,#001a3d); min-height: 100vh; }
+  .ap-wrap { max-width: 520px; margin: 0 auto; padding: 8vh var(--space-4); }
+  .ap-card { background: #fff; border-radius: 18px; box-shadow: 0 24px 70px rgba(0,0,0,.4); overflow: hidden; }
+  .ap-top { background: linear-gradient(150deg,var(--sts-navy),#001530); padding: 22px 26px; text-align: center; }
+  .ap-top .eyebrow { color: var(--gold); font-family: var(--font-display); text-transform: uppercase; letter-spacing: .14em; font-size: 11px; font-weight: 700; }
+  .ap-body { padding: 26px; text-align: center; }
+  .ap-badge { width: 76px; height: 76px; border-radius: 50%; background: var(--sts-navy); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 700; font-size: 26px; margin-bottom: 14px; }
+  .ap-name { font-family: var(--font-display); font-weight: 700; color: var(--sts-navy); font-size: var(--text-2xl); margin: 0; }
+  .ap-team { color: var(--muted); font-size: var(--text-base); margin: 4px 0 0; }
+  .ap-msg { color: var(--fg); line-height: 1.6; margin: 18px 0 22px; }
+  .ap-ok { width: 64px; height: 64px; border-radius: 50%; background: #DCFCE7; color: #166534; display: inline-flex; align-items: center; justify-content: center; font-size: 34px; margin-bottom: 12px; }
+  .ap-foot { font-size: var(--text-xs); color: var(--muted); margin-top: 18px; line-height: 1.5; }
+  .ap-demo { background: var(--gold); color: var(--sts-navy); font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; font-size: 11px; text-align: center; padding: 7px; }
+</style>
+</head>
+<body>
+<div class="ap-wrap">
+  <div class="ap-card">
+    <div class="ap-demo" id="apDemo" hidden>🎭 Demo — example approval, nothing is saved for real</div>
+    <div class="ap-top"><div class="eyebrow">Small Town Select Tournaments</div></div>
+    <div class="ap-body" id="apBody"><p class="muted">Loading…</p></div>
+  </div>
+</div>
+
+<script type="module">
+  import * as STS from './js/sts-data.js';
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function qs(k){ return new URLSearchParams(location.search).get(k); }
+  function initials(n){ var w=String(n||'').trim().split(/\s+/); return ((w[0]||'')[0]||'')+((w[1]||'')[0]||''); }
+  var body=document.getElementById('apBody');
+  var DEMO=/[?&]demo=1/.test(location.search);
+  var slug=qs('team')||'', token=qs('t')||'';
+  var season=(window.LEAGUE_CONFIG&&LEAGUE_CONFIG.season&&LEAGUE_CONFIG.season.label)||((window.LEAGUE_CONFIG&&LEAGUE_CONFIG.season&&LEAGUE_CONFIG.season.year)||'2026');
+
+  function showPlayer(name, team, real){
+    body.innerHTML =
+      '<div class="ap-badge">'+esc(initials(name).toUpperCase())+'</div>'+
+      '<h1 class="ap-name">'+esc(name)+'</h1><p class="ap-team">'+esc(team)+'</p>'+
+      '<p class="ap-msg">Please confirm you’re the parent or guardian of <b>'+esc(name)+'</b> and approve them to play for <b>'+esc(team)+'</b> this '+esc(season)+' season.</p>'+
+      '<button class="btn btn-red" id="apBtn" style="width:100%">✓ Approve '+esc(name.split(' ')[0])+'</button>'+
+      '<div class="ap-foot">By approving, you consent to your player participating in Small Town Select Tournaments events. Questions? Contact your team’s coach.</div>';
+    document.getElementById('apBtn').addEventListener('click', async function(){
+      var btn=this; btn.disabled=true; btn.textContent='Approving…';
+      try {
+        if(real){ await STS.approvePlayer(slug, token); }
+        showDone(name, team);
+      } catch(ex){ btn.disabled=false; btn.textContent='✓ Approve '+esc(name.split(' ')[0]); body.insertAdjacentHTML('beforeend','<div class="notice notice-warn mt-4" style="text-transform:none;letter-spacing:0">'+esc(ex.message||ex)+'</div>'); }
+    });
+  }
+  function showDone(name, team){
+    body.innerHTML='<div class="ap-ok">✓</div><h1 class="ap-name">All set!</h1>'+
+      '<p class="ap-msg"><b>'+esc(name)+'</b> is approved to play for <b>'+esc(team)+'</b>. Thanks — you can close this page.</p>'+
+      '<div class="ap-foot">The coach will see the approved checkmark on the roster.</div>';
+  }
+  function showInvalid(){
+    body.innerHTML='<h1 class="ap-name">Link not found</h1><p class="ap-msg">This approval link is invalid or has expired. Ask your coach to resend it.</p>';
+  }
+
+  (async function(){
+    try {
+      var team = slug ? await STS.getTeam(slug) : null;
+      var player = team ? (team.roster||[]).find(function(p){ return p.approval_token===token; }) : null;
+      if(team && player){
+        if(player.approved){ showDone(player.name, team.name); return; }
+        showPlayer(player.name, team.name, true); return;
+      }
+      // demo fallback so the flow is testable without a seeded link
+      if(DEMO){ document.getElementById('apDemo').hidden=false; showPlayer('Jordan Mathis', 'Blacksox · 7U', false); return; }
+      showInvalid();
+    } catch(e){ DEMO ? (document.getElementById('apDemo').hidden=false, showPlayer('Jordan Mathis','Blacksox · 7U', false)) : showInvalid(); }
+  })();
+</script>
+</body>
+</html>

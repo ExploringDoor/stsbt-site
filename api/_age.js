@@ -27,5 +27,10 @@ export function publicRoster(roster) {
     guest: !!p.guest,
     age51: ageAsOfMay1(String(p.dob || '')),
     ...(p.pid ? { pid: p.pid } : {}),
+    // approval status + opaque token are NOT PII (the parent already holds the token in
+    // their link); keep them on the public doc so the approve page can match the player.
+    // Guardian email stays OUT (PII) — it only lives in the gated team_rosters doc.
+    ...(p.approval_token ? { approval_token: p.approval_token } : {}),
+    ...(p.approved ? { approved: true } : {}),
   }));
 }

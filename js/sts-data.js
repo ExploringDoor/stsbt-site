@@ -519,6 +519,27 @@ export async function deleteImportedRegistrations() {
   _regs = _regs.filter(function (r) { return r.source !== 'quickscores'; });
   return before - _regs.length;
 }
+// Parent/guardian one-click approval of a player. The parent has no team code — they
+// arrive via a tokened link (approve.html?team=<slug>&t=<token>). In production this
+// routes through /api/approve (token-verified server write); in sample mode it flips the
+// player's approved flag in memory. Returns { player_name, team_name } or null if no match.
+export async function approvePlayer(slug, token) {
+  if (!slug || !token) return null;
+  if (isConfigured) {
+    var res = await fetch('/api/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ team: slug, token: token }) });
+    var j = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(j.error || 'Could not approve right now.');
+    return j;
+  }
+  var t = _teams.find(function (x) { return x.id === slug || x.slug === slug; });
+  if (t) { var p = (t.roster || []).find(function (pl) { return pl.approval_token === token; }); if (p) { p.approved = true; p.approved_at = new Date().toISOString(); return { player_name: p.name, team_name: t.name }; } }
+  return null;
+}
+export function genApprovalToken() {
+  var s = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', o = '';
+  for (var i = 0; i < 18; i++) o += s.charAt(Math.floor(Math.random() * s.length));
+  return o;
+}
 export async function getRegistrationBySession(sessionId) {
   if (isConfigured) {
     var snap = await getDocs(query(collection(db, 'registrations'), where('clover_session_id', '==', sessionId)));

@@ -105,6 +105,11 @@
     var grades=['K','1','2','3','4','5','6','7','8','9','10','11','12'];
     return '<select class="input rg" data-i="'+i+'" data-f="grade" aria-label="Grade"><option value="">Grade</option>'+grades.map(function(g){ return '<option'+(String(val||'')===g?' selected':'')+'>'+g+'</option>'; }).join('')+'</select>';
   }
+  function approvalCtl(p,i){
+    if(p.approved) return '<span style="font-family:var(--font-display);font-weight:600;font-size:var(--text-sm);color:#166534">✓ Parent approved</span>';
+    if((p.guardian_email||'').trim()) return '<button type="button" class="btn btn-outline btn-sm" data-copy="'+i+'">🔗 Copy approval link</button><span class="muted" style="font-size:var(--text-xs)">awaiting parent</span>';
+    return '<span class="muted" style="font-size:var(--text-xs)">Add a parent email to send a 1-click approval link</span>';
+  }
   function renderRows(){
     document.getElementById('rosterRows').innerHTML = roster.map(function(p,i){
       return '<div class="roster-row">'+
@@ -113,13 +118,24 @@
         '<input class="input rd" type="date" data-i="'+i+'" data-f="dob" value="'+esc(p.dob||'')+'" aria-label="Date of birth">'+
         gradeSelect(i, p.grade)+
         '<label class="rgu" title="Guest / pickup player for this team"><input type="checkbox" data-i="'+i+'" data-f="guest"'+(p.guest?' checked':'')+'><span>Guest</span></label>'+
-        '<button class="del rx" data-del="'+i+'" title="Remove" aria-label="Remove player">✕</button></div>';
+        '<button class="del rx" data-del="'+i+'" title="Remove" aria-label="Remove player">✕</button>'+
+        '<div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px;padding-top:8px;border-top:1px dashed var(--line)">'+
+          '<input class="input" data-i="'+i+'" data-f="guardian_email" type="email" value="'+esc(p.guardian_email||'')+'" placeholder="Parent / guardian email" style="flex:1;min-width:200px;height:40px">'+
+          approvalCtl(p,i)+
+        '</div></div>';
     }).join('');
   }
   function onField(e){ var t=e.target; if(t.dataset && t.dataset.i!=null){ roster[+t.dataset.i][t.dataset.f] = (t.type==='checkbox') ? t.checked : t.value; } }
   document.getElementById('rosterRows').addEventListener('input', onField);
-  document.getElementById('rosterRows').addEventListener('change', onField);   // date + grade select
-  document.getElementById('rosterRows').addEventListener('click', function(e){ var b=e.target.closest('[data-del]'); if(!b) return; roster.splice(+b.dataset.del,1); if(!roster.length) roster.push({num:'',name:'',dob:'',grade:''}); renderRows(); });
+  document.getElementById('rosterRows').addEventListener('change', function(e){ onField(e); if(e.target.dataset && e.target.dataset.f==='guardian_email') renderRows(); });   // date + grade select; re-render so the approval-link button appears
+  document.getElementById('rosterRows').addEventListener('click', function(e){
+    var c=e.target.closest('[data-copy]');
+    if(c){ var i=+c.dataset.copy, p=roster[i]; if(!(p.guardian_email||'').trim()) return; if(!p.approval_token) p.approval_token=STS.genApprovalToken();
+      var link=location.origin+'/approve.html?team='+encodeURIComponent(TEAM.slug||TEAM.id)+'&t='+p.approval_token;
+      try{ navigator.clipboard.writeText(link); }catch(_){}
+      c.textContent='✓ Copied — now Save'; setTimeout(function(){ c.textContent='🔗 Copy approval link'; }, 2200); return; }
+    var b=e.target.closest('[data-del]'); if(!b) return; roster.splice(+b.dataset.del,1); if(!roster.length) roster.push({num:'',name:'',dob:'',grade:''}); renderRows();
+  });
   document.getElementById('addRow').addEventListener('click', function(){ roster.push({num:'',name:'',dob:'',grade:''}); renderRows(); });
   document.getElementById('saveRoster').addEventListener('click', async function(){
     var clean = roster.filter(function(p){ return (p.name||'').trim(); });

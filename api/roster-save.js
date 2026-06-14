@@ -43,12 +43,15 @@ export default async function handler(req, res) {
     // A coach re-editing can't see stored birthdates (the public doc has none), so an
     // empty incoming dob must KEEP the one already on file — never silently wipe it.
     // Also capture the previous player NAMES to diff added/removed for the notice.
-    let prevDob = {}, prevNames = [];
+    let prevDob = {}, prevNames = [], prevAppr = {};
     try {
       const prev = await fsGet(`team_rosters/${team.id}`);
       (prev && Array.isArray(prev.roster) ? prev.roster : []).forEach(p => {
         const k = String(p.name || '').toLowerCase().trim();
         if (k && p.dob) prevDob[k] = p.dob;
+        // the coach loads the PUBLIC roster (no guardian email), so preserve guardian/
+        // approval data from the gated doc by name so a re-save never wipes it.
+        if (k) prevAppr[k] = { guardian_email: p.guardian_email || '', approval_token: p.approval_token || '', approved: !!p.approved, approved_at: p.approved_at || '' };
         if (p.name) prevNames.push(String(p.name).trim());
       });
     } catch (e) {}
@@ -59,7 +62,12 @@ export default async function handler(req, res) {
       .slice(0, 40)
       .map(p => {
         const name = String(p.name || '').slice(0, 60);
-        const dob = String(p.dob || '').slice(0, 10) || prevDob[name.toLowerCase().trim()] || '';
+        const key = name.toLowerCase().trim();
+        const dob = String(p.dob || '').slice(0, 10) || prevDob[key] || '';
+        const pa = prevAppr[key] || {};
+        const guardian_email = String(p.guardian_email || pa.guardian_email || '').slice(0, 200);
+        const approval_token = String(p.approval_token || pa.approval_token || '').slice(0, 40);
+        const approved = (p.approved != null ? !!p.approved : !!pa.approved);
         return {
           num: String(p.num || '').slice(0, 4),
           name,
@@ -67,12 +75,17 @@ export default async function handler(req, res) {
           grade: String(p.grade || '').slice(0, 4),
           guest: !!p.guest,
           pid: playerId(name, dob),
+          ...(guardian_email ? { guardian_email } : {}),
+          ...(approval_token ? { approval_token } : {}),
+          ...(approved ? { approved: true, approved_at: p.approved_at || pa.approved_at || '' } : {}),
         };
       });
     // Public roster (NO dob — birthdates are minors' PII and the teams collection is
     // world-readable). age51 = derived age at the May 1 cutoff (Keith shows this
     // publicly for eligibility); pid lets the player page match a kid across teams.
-    const pub = full.map(p => ({ num: p.num, name: p.name, grade: p.grade, guest: p.guest, pid: p.pid, age51: ageAsOfMay1(p.dob) }));
+    const pub = full.map(p => ({ num: p.num, name: p.name, grade: p.grade, guest: p.guest, pid: p.pid, age51: ageAsOfMay1(p.dob),
+      ...(p.approval_token ? { approval_token: p.approval_token } : {}),
+      ...(p.approved ? { approved: true } : {}) }));
 
     await fsPatch(`teams/${team.id}`, { roster: pub });
     await fsPatch(`team_rosters/${team.id}`, { team_id: team.id, roster: full });
