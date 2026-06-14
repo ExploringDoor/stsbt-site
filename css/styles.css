@@ -162,6 +162,9 @@ img.nav-crest { width: 62px; height: 62px; border-radius: 0; background: transpa
 /* ── Demo-mode banner (?demo=1) ── */
 .demo-banner { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; background: var(--gold); color: var(--sts-navy); font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; font-size: var(--text-xs); padding: 7px 16px; text-align: center; }
 .demo-banner a { color: var(--sts-navy); text-decoration: underline; }
+.demo-invite { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; background: var(--sts-navy); color: #fff; font-family: var(--font-display); font-size: var(--text-sm); padding: 8px 16px; text-align: center; }
+.demo-invite a { color: var(--gold); font-weight: 700; text-decoration: none; }
+.demo-invite a:hover { text-decoration: underline; }
 .spon-logo { max-height: 42px; max-width: 150px; display: block; object-fit: contain; }
 .spon-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .spon-row .spon-name, .spon-row .spon-url { flex: 1; min-width: 0; }

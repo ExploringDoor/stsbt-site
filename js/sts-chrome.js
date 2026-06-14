@@ -87,7 +87,9 @@
       '<div><h5>Connect</h5><ul>' +
         (FB ? '<li><a href="' + FB + '" target="_blank" rel="noopener">Facebook</a></li>' : '') +
         '<li><a href="mailto:' + GEN_EMAIL + '">' + GEN_EMAIL + '</a></li>' +
-        '<li><a href="admin.html">Admin Sign In</a></li></ul></div>' +
+        '<li><a href="admin.html">Admin Sign In</a></li>' +
+        (CFG.previewMode ? '<li><a href="?demo=1">🎭 Preview with sample data</a></li>' : '') +
+        '</ul></div>' +
     '</div>' +
     (DISCLAIMER ? '<div class="footer-disclaimer"><strong>Disclaimer:</strong> ' + DISCLAIMER + '</div>' : '') +
     '<div class="footer-bottom">' +
@@ -105,6 +107,11 @@
         bn.className = 'demo-banner';
         bn.innerHTML = '🎭 Demo mode — example data, not real registrations · <a href="?demo=0">Exit demo</a>';
         document.body.insertBefore(bn, document.body.firstChild);
+      } else if (!demoOn && CFG.previewMode && !document.querySelector('.demo-invite')) {
+        var iv = document.createElement('div');
+        iv.className = 'demo-invite';
+        iv.innerHTML = '👋 Want to see it in action? <a href="?demo=1">Preview the whole site with sample data →</a>';
+        document.body.insertBefore(iv, document.body.firstChild);
       }
     } catch (e) {}
     var n = document.getElementById('sts-nav'); if (n) n.outerHTML = navHTML;

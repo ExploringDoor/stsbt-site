@@ -34,6 +34,9 @@ function loginPage(showError) {
     display:flex;align-items:center;justify-content:center;padding:24px}
   .card{width:100%;max-width:380px;background:rgba(255,255,255,.06);
     border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:32px 28px;text-align:center}
+  .badge{width:66px;height:66px;border-radius:50%;margin:0 auto 18px;display:flex;align-items:center;
+    justify-content:center;background:rgba(246,196,83,.14);border:2px solid #f6c453;color:#f6c453;
+    font-weight:800;font-size:21px;letter-spacing:.04em}
   .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#f6c453;font-weight:700}
   h1{font-size:22px;margin:10px 0 4px;line-height:1.2}
   p{margin:0 0 22px;color:rgba(255,255,255,.7);font-size:14px}
@@ -45,9 +48,10 @@ function loginPage(showError) {
   .err{color:#ff9d9d;font-size:13px;margin-top:14px;min-height:16px}
 </style></head><body>
 <form class="card" method="POST" action="/__unlock">
+  <div class="badge">STS</div>
   <div class="eyebrow">Private Preview</div>
   <h1>Small Town Select Tournaments</h1>
-  <p>This site isn't public yet. Enter the password to continue.</p>
+  <p>This site isn't public yet. Enter the password to take a look.</p>
   <input type="password" name="pw" placeholder="Password" autofocus autocomplete="current-password" required>
   <button type="submit">Enter</button>
   <div class="err">${showError ? 'Incorrect password — try again.' : ''}</div>

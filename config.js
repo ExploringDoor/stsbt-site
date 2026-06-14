@@ -8,6 +8,9 @@
 
 (function () {
   var CONFIG = {
+    // Preview phase: shows a "Preview with sample data" invite (demo mode) sitewide.
+    // SET TO false AT LAUNCH so real visitors never see the demo invite.
+    previewMode: true,
     // ── Identity ─────────────────────────────────────────────────────────
     id: 'sts',
     name: 'Small Town Select',
