@@ -107,8 +107,8 @@
   }
   function approvalCtl(p,i){
     if(p.approved) return '<span style="font-family:var(--font-display);font-weight:600;font-size:var(--text-sm);color:#166534">✓ Parent approved</span>';
-    if((p.guardian_email||'').trim()) return '<button type="button" class="btn btn-outline btn-sm" data-copy="'+i+'">🔗 Copy approval link</button><span class="muted" style="font-size:var(--text-xs)">awaiting parent</span>';
-    return '<span class="muted" style="font-size:var(--text-xs)">Add a parent email to send a 1-click approval link</span>';
+    if((p.guardian_email||'').trim()) return '<span class="muted" style="font-size:var(--text-xs)">📧 We’ll email a 1-click approval link when you Save</span><button type="button" class="btn btn-outline btn-sm" data-copy="'+i+'">🔗 Copy link</button>';
+    return '<span class="muted" style="font-size:var(--text-xs)">Add a parent email — we’ll send them a 1-click approval link</span>';
   }
   function renderRows(){
     document.getElementById('rosterRows').innerHTML = roster.map(function(p,i){

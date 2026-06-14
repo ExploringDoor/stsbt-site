@@ -51,7 +51,7 @@ export default async function handler(req, res) {
         if (k && p.dob) prevDob[k] = p.dob;
         // the coach loads the PUBLIC roster (no guardian email), so preserve guardian/
         // approval data from the gated doc by name so a re-save never wipes it.
-        if (k) prevAppr[k] = { guardian_email: p.guardian_email || '', approval_token: p.approval_token || '', approved: !!p.approved, approved_at: p.approved_at || '' };
+        if (k) prevAppr[k] = { guardian_email: p.guardian_email || '', approval_token: p.approval_token || '', approved: !!p.approved, approved_at: p.approved_at || '', approval_sent: !!p.approval_sent };
         if (p.name) prevNames.push(String(p.name).trim());
       });
     } catch (e) {}
@@ -78,8 +78,13 @@ export default async function handler(req, res) {
           ...(guardian_email ? { guardian_email } : {}),
           ...(approval_token ? { approval_token } : {}),
           ...(approved ? { approved: true, approved_at: p.approved_at || pa.approved_at || '' } : {}),
+          ...((p.approval_sent != null ? p.approval_sent : pa.approval_sent) ? { approval_sent: true } : {}),
         };
       });
+    // Players who just got a parent email + token and haven't been sent or approved yet →
+    // auto-send them the one-click approval link. Mark approval_sent so we don't re-send.
+    const toSend = full.filter(p => p.guardian_email && p.approval_token && !p.approved && !p.approval_sent);
+    toSend.forEach(p => { p.approval_sent = true; });
     // Public roster (NO dob — birthdates are minors' PII and the teams collection is
     // world-readable). age51 = derived age at the May 1 cutoff (Keith shows this
     // publicly for eligibility); pid lets the player page match a kid across teams.
@@ -109,7 +114,20 @@ export default async function handler(req, res) {
       });
     } catch (e) { /* non-fatal */ }
 
-    return res.status(200).json({ ok: true, count: full.length });
+    // Auto-send the parent/guardian approval link for newly-added emails (best-effort).
+    try {
+      const site2 = process.env.SITE_URL || '';
+      const slug = team.slug || team.id || '';
+      for (const p of toSend) {
+        const link = `${site2 || 'https://ststournaments.com'}/approve.html?team=${encodeURIComponent(slug)}&t=${encodeURIComponent(p.approval_token)}`;
+        if (site2) await fetch(`${site2}/api/notify-registration`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: 'approval', registration: { guardian_email: p.guardian_email, player_name: p.name, team_name: team.name, coach_name: team.coach_name || '', season: '2026', link } }),
+        });
+      }
+    } catch (e) { /* non-fatal */ }
+
+    return res.status(200).json({ ok: true, count: full.length, approvals_sent: toSend.length });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
   }

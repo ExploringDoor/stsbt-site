@@ -29,6 +29,14 @@ export default async function handler(req, res) {
     catch (e) { return res.status(500).json({ error: String(e.message || e) }); }
   }
 
+  // PARENT/GUARDIAN approval link — emailed to the parent, no admin alert.
+  if (event === 'approval') {
+    if (!emailConfigured() || !r.guardian_email) return res.status(200).json({ skipped: true });
+    const m = buildApprovalMessage(r);
+    try { await sendMail({ to: r.guardian_email, subject: m.subject, html: m.html, text: m.text, replyTo: r.coach_email || undefined }); return res.status(200).json({ ok: true }); }
+    catch (e) { return res.status(500).json({ error: String(e.message || e) }); }
+  }
+
   // Log every admin-facing event to the activity feed (best-effort, independent of email).
   try { await writeActivity(event, r); } catch (e) { /* non-fatal */ }
 
@@ -207,5 +215,24 @@ export function buildCoachMessage(r) {
     subject: `You're registered — ${team} · Small Town Select`,
     text: `Thanks for registering ${team}.\nYour team code: ${code}\nManage your team: ${manage}`,
     html: shell('submitted', "You're Registered!", body, manage, 'Manage Your Team'),
+  };
+}
+
+// ── PARENT/GUARDIAN one-click approval request ───────────────────────
+export function buildApprovalMessage(r) {
+  const site = process.env.SITE_URL || 'https://ststournaments.com';
+  const player = r.player_name || 'your player';
+  const team = r.team_name || 'their team';
+  const season = r.season || '2026';
+  const coach = r.coach_name ? esc(r.coach_name) : 'Your coach';
+  const link = r.link || `${site}/approve.html`;
+  const body =
+    `<div>${coach} added <b>${esc(player)}</b> to <b>${esc(team)}</b> for the ${esc(season)} season.</div>` +
+    `<div style="margin-top:12px">As ${esc(player)}'s parent or guardian, please confirm and approve their participation — it's <b>one tap</b>, no account or password needed.</div>` +
+    `<div style="margin-top:12px;color:#64748b;font-size:13px">If you don't recognize this, you can ignore this email or reply to your coach.</div>`;
+  return {
+    subject: `Approve ${player} for ${team}`,
+    text: `${coach} added ${player} to ${team} for the ${season} season. Approve here: ${link}`,
+    html: shell('info', 'Player Approval Needed', body, link, `✓ Approve ${player}`),
   };
 }
