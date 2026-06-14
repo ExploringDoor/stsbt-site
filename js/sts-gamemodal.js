@@ -10,8 +10,9 @@
   var SB = global.STSbracket;
   function esc(s){ return s==null?'':String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function clean(s){ if(s==null) return ''; var t=String(s).trim(); return /^(n\/?a|tbd|tba|-+)$/i.test(t)?'':t; }
+  var GM_VENUE = '';   // host city to prefix field names (set per open())
   // Field name as a link to its map on the Locations page (don't close the modal on click).
-  function fieldLink(field){ var f=clean(field); return f?'<a class="gm-fieldlink" href="locations.html?find='+encodeURIComponent(f)+'" onclick="event.stopPropagation()">📍 '+esc(f)+'</a>':''; }
+  function fieldLink(field){ var f=clean(field); if(!f) return ''; var label=GM_VENUE?GM_VENUE+' · '+f:f, query=[f,GM_VENUE].filter(Boolean).join(', '); return '<a class="gm-fieldlink" href="locations.html?find='+encodeURIComponent(query)+'" onclick="event.stopPropagation()">📍 '+esc(label)+'</a>'; }
   function fmtTime(t){ t=clean(t); if(!t) return ''; var p=String(t).split(':'); var h=+p[0],m=p[1]||'00'; if(isNaN(h)) return ''; var ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+m+' '+ap; }
   function fmtDate(d, opt){ d=clean(d); if(!d) return ''; var dt=new Date(d+'T12:00:00'); if(isNaN(dt)) return ''; return dt.toLocaleDateString('en-US', opt||{weekday:'short',month:'short',day:'numeric'}); }
   function slug(s){ return String(s==null?'':s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
@@ -185,8 +186,9 @@
     document.addEventListener('keydown', function(e){ if(e.key==='Escape') close(); });
     return overlay;
   }
-  function open(tournamentName, games, game){
+  function open(tournamentName, games, game, venue){
     if(!game) return; ensureShell();
+    GM_VENUE = venue ? String(venue).split(',')[0].trim() : '';
     var name=tournamentName||'Tournament';
     var isBracket=game.g!=null;
     var played=isPlayed(game), crumb, body;

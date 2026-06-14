@@ -77,7 +77,8 @@
     var standsHTML = poolStandingsHTML();
     if(!bg.length){ out.innerHTML = standsHTML || '<div class="bk-empty">No bracket posted for this event yet.</div>'; return; }
     var name = titleFor(cur) + (curDiv ? ' — '+curDiv : '');
-    out.innerHTML = standsHTML + '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: name, teamLinks: true })+'</div>';
+    var venue = (FORMS.find(function(x){return x.id===cur;})||{}).location || '';
+    out.innerHTML = standsHTML + '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: name, teamLinks: true, venue: venue })+'</div>';
     STSbracketRender.wireHover(out);
     ZOOM=1; applyZoom();
     if (window.STSfx) STSfx.arm(document);
@@ -88,7 +89,7 @@
     var card = e.target.closest('.bk-match[data-g]'); if(!card) return;
     var gn = card.getAttribute('data-g');
     var g = CURBG.find(function(x){ return String(x.g)===gn; });
-    if(g && window.STSgameModal) STSgameModal.open(titleFor(cur), CURBG, g);
+    if(g && window.STSgameModal) STSgameModal.open(titleFor(cur), CURBG, g, (FORMS.find(function(x){return x.id===cur;})||{}).location||'');
   });
   document.getElementById('eventSel').addEventListener('change', function(e){ cur=e.target.value; curDiv=''; render(); location.hash=cur; });
   document.getElementById('zoomIn').addEventListener('click', function(){ ZOOM=Math.min(1.4,Math.round((ZOOM+0.1)*10)/10); applyZoom(); });

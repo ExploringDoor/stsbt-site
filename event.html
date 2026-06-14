@@ -114,7 +114,9 @@
         var played = g.done && g.away_score!=null && g.home_score!=null;
         var tie = played && g.away_score===g.home_score;
         var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score;
-        var fieldHTML = g.field ? ' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent(g.field)+'" onclick="event.stopPropagation()">📍 '+esc(g.field)+'</a>' : '';
+        var evCity = (FORM.location||'').split(',')[0].trim();
+        var fLabel = g.field ? (evCity?evCity+' · '+g.field:g.field) : '';
+        var fieldHTML = g.field ? ' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent([g.field,evCity].filter(Boolean).join(', '))+'" onclick="event.stopPropagation()">📍 '+esc(fLabel)+'</a>' : '';
         var result = played ? '<div class="result">'+g.away_score+'–'+g.home_score+'</div>' : '<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+fieldHTML+'</div>';
         var tag = g.g!=null ? ' <span class="muted" style="font-size:10px">· Game '+g.g+'</span>' : '';
         return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtTime(g.time)))+'</div>'+
@@ -137,7 +139,7 @@
   function renderBracket(){
     var bg = bracketGames();
     if(!bg.length) return '<div class="empty" style="text-transform:none;letter-spacing:0">No bracket posted yet — it appears once pool play wraps and seeding is set.</div>';
-    return '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:true })+'</div>';
+    return '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:true, venue: FORM.location||'' })+'</div>';
   }
 
   var TABS = [['overview','Overview'],['schedule','Schedule'],['standings','Standings'],['bracket','Bracket']];
@@ -152,10 +154,10 @@
     if(window.STSgameModal){
       var all = evGames();
       c.querySelectorAll('.game[data-gid]').forEach(function(el){
-        el.addEventListener('click', function(){ var g=all.find(function(x){ return String(x.id)===el.dataset.gid; }); if(g) STSgameModal.open(FORM.title, all, g); });
+        el.addEventListener('click', function(){ var g=all.find(function(x){ return String(x.id)===el.dataset.gid; }); if(g) STSgameModal.open(FORM.title, all, g, FORM.location||''); });
       });
       c.querySelectorAll('.bk-match[data-g]').forEach(function(el){
-        el.addEventListener('click', function(){ var g=bracketGames().find(function(x){ return String(x.g)===el.dataset.g; }); if(g) STSgameModal.open(FORM.title, bracketGames(), g); });
+        el.addEventListener('click', function(){ var g=bracketGames().find(function(x){ return String(x.g)===el.dataset.g; }); if(g) STSgameModal.open(FORM.title, bracketGames(), g, FORM.location||''); });
       });
     }
     if(window.STSfx) STSfx.arm(document);

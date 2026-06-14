@@ -151,10 +151,11 @@
     var tourneyHTML = tList.length
       ? '<div class="card-grid">'+tList.map(function(f){
           var hb=hasBracket(f.id);
+          var meta=[f.event_dates, f.location].filter(Boolean).join(' · ');
           var body='<div class="eyebrow">'+(hb?'Tournament':'Registered')+'</div><h3 style="margin:4px 0 0">'+esc(f.title)+'</h3>'+
-            (f.location?'<div class="muted" style="font-size:var(--text-sm);margin-top:4px">'+esc(f.location)+'</div>':'')+
-            (hb?'<div class="cg-view">View bracket →</div>':'');
-          return hb ? '<a class="card tw-card" href="brackets.html#'+esc(f.id)+'">'+body+'</a>' : '<div class="card">'+body+'</div>';
+            (meta?'<div class="muted" style="font-size:var(--text-sm);margin-top:4px">'+esc(meta)+'</div>':'')+
+            '<div class="cg-view">View tournament →</div>';
+          return '<a class="card tw-card" href="event.html?id='+encodeURIComponent(f.id)+'">'+body+'</a>';
         }).join('')+'</div>'
       : '<div class="empty">Not registered for any tournaments yet.</div>';
     var record = gp ? ('<span>'+rec.w+'–'+rec.l+(rec.t?'–'+rec.t:'')+' record</span>'+(titles?'<span>'+titles+'× 🏆 Champion</span>':'')) : '';
@@ -179,7 +180,7 @@
       var g = ALL.find(function(x){ return String(x.id)===String(row.getAttribute('data-gid')); });
       if(!g) return;
       var evGames = ALL.filter(function(x){ return x.form_id===g.form_id; });
-      STSgameModal.open(titleFor(g.form_id), evGames, g);
+      STSgameModal.open(titleFor(g.form_id), evGames, g, (FORMS.find(function(x){return x.id===g.form_id;})||{}).location||'');
     }
     root.addEventListener('click', function(e){
       if(e.target.closest('a')) return;            // let opponent/team links navigate

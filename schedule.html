@@ -82,7 +82,9 @@
           var played = g.done && g.away_score!=null && g.home_score!=null;
           var tie = played && g.away_score===g.home_score;
           var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score;
-          var fieldHTML = g.field ? ' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent(g.field)+'" onclick="event.stopPropagation()">📍 '+esc(g.field)+'</a>' : '';
+          var gCity = (function(){ var l=(FORMS.find(function(x){return x.id===g.form_id;})||{}).location||''; return l?l.split(',')[0].trim():''; })();
+          var fLabel = g.field ? (gCity?gCity+' · '+g.field:g.field) : '';
+          var fieldHTML = g.field ? ' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent([g.field,gCity].filter(Boolean).join(', '))+'" onclick="event.stopPropagation()">📍 '+esc(fLabel)+'</a>' : '';
           var result = played ? '<div class="result">'+g.away_score+'–'+g.home_score+'</div>' : '<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+fieldHTML+'</div>';
           return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtTime(g.time)))+'</div>'+
             '<div class="matchup"><span class="'+(aWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.away))+'</span><span class="vs">vs</span><span class="'+(hWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.home))+'</span>'+(g.division?' <span class="muted" style="font-size:var(--text-xs)">· '+esc(g.division)+'</span>':'')+'</div>'+
@@ -100,7 +102,7 @@
   function openGame(gid){
     var g = GAMES.find(function(x){ return String(x.id)===String(gid); }); if(!g || !window.STSgameModal) return;
     var evGames = GAMES.filter(function(x){ return x.form_id===g.form_id; });
-    STSgameModal.open(titleFor(g.form_id), evGames, g);
+    STSgameModal.open(titleFor(g.form_id), evGames, g, (FORMS.find(function(x){return x.id===g.form_id;})||{}).location||'');
   }
   document.getElementById('scheduleOut').addEventListener('click', function(e){ var row=e.target.closest('.game[data-gid]'); if(row) openGame(row.getAttribute('data-gid')); });
   document.getElementById('scheduleOut').addEventListener('keydown', function(e){ if(e.key!=='Enter'&&e.key!==' ') return; var row=e.target.closest('.game[data-gid]'); if(row){ e.preventDefault(); openGame(row.getAttribute('data-gid')); } });

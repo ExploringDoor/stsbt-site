@@ -12,6 +12,7 @@
   var SB = global.STSbracket;
   var CARD_W = 210, CARD_H = 134, COL_GAP = 76, ROW_GAP = 24, Y_PAD = 24;
   var LINK_TEAMS = false;   // when true, concrete team names link to their team page
+  var VENUE = '';           // host city to prefix field names (e.g. "Gatesville · Arnold Field")
   function slugify(s){ return String(s==null?'':s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
 
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
@@ -45,8 +46,10 @@
     var dStr = (cd&&!isNaN(cd)) ? cd.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) : '';
     var when = [dStr||null, g.time?fmtTime(g.time):null].filter(Boolean).join(' · ');
     var field = g.field?String(g.field):'';
+    var fieldLabel = field ? (VENUE ? VENUE+' · '+field : field) : '';
+    var fieldQuery = [field, VENUE].filter(Boolean).join(', ');
     // field name links to its map on the Locations page (don't trigger the card's modal)
-    var fieldHTML = field ? '<a class="bk-field" href="locations.html?find='+encodeURIComponent(field)+'" onclick="event.stopPropagation()">📍 '+esc(field)+'</a>' : '<span class="bk-field"></span>';
+    var fieldHTML = field ? '<a class="bk-field" href="locations.html?find='+encodeURIComponent(fieldQuery)+'" onclick="event.stopPropagation()">📍 '+esc(fieldLabel)+'</a>' : '<span class="bk-field"></span>';
     // show the date even after a game is final (was just "Final" before)
     var whenHTML = played ? '<span class="fin">Final</span>'+(dStr?' · '+esc(dStr):'') : esc(when||'TBD');
     return '<div class="bk-match acc-'+cls+'" data-g="'+g.g+'" style="left:'+x+'px;top:'+y+'px">'+
@@ -161,6 +164,7 @@
   function render(games, meta){
     meta = meta || {};
     LINK_TEAMS = !!meta.teamLinks;
+    VENUE = meta.venue ? String(meta.venue).split(',')[0].trim() : '';
     if (!games || !games.length) return '<div class="bk-empty">No bracket games yet.</div>';
     var t = { games: games };
     var cls = SB.classify(t);
