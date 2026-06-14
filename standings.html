@@ -16,6 +16,8 @@
   .ev-head h2 { margin: 0; color: var(--sts-navy); }
   .div-sub { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .05em; color: var(--sts-red); font-size: var(--text-sm); margin: var(--space-4) 0 6px; }
   table.tbl td.team-cell { white-space: normal; font-weight: 600; color: var(--sts-navy); }
+  .team-link { color: var(--sts-navy); text-decoration: none; }
+  .team-link:hover { text-decoration: underline; }
   table.tbl .rank { color: var(--muted); width: 36px; }
 </style>
 </head>
@@ -49,13 +51,16 @@
 <script type="module">
   import * as STS from './js/sts-data.js';
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function slugify(s){ return String(s==null?'':s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+  var DEMO = /[?&]demo=1/.test(location.search) ? '&demo=1' : '';
+  function teamLink(name){ return '<a class="team-link" href="team.html?id='+encodeURIComponent(slugify(name))+DEMO+'">'+esc(name)+'</a>'; }
   var GAMES=[], FORMS=[], filt={sport:'',event:''};
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
   function sportFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.sport:''; }
 
   function table(rows){
     return '<div class="table-wrap"><table class="tbl"><thead><tr><th class="rank">#</th><th>Team</th><th>W</th><th>L</th><th>T</th><th>PCT</th><th>RS</th><th>RA</th><th>Diff</th><th title="Average Run Differential">ARDiff</th></tr></thead><tbody>'+
-      rows.map(function(r,i){ return '<tr><td class="rank">'+(i+1)+'</td><td class="team-cell">'+esc(r.team)+'</td><td>'+r.w+'</td><td>'+r.l+'</td><td>'+r.ties+'</td><td class="num">'+r.pct.toFixed(3).replace(/^0/,'')+'</td><td>'+r.rs+'</td><td>'+r.ra+'</td><td>'+(r.diff>0?'+':'')+r.diff+'</td><td class="num">'+(r.ardiff>0?'+':'')+r.ardiff.toFixed(1)+'</td></tr>'; }).join('')+
+      rows.map(function(r,i){ return '<tr><td class="rank">'+(i+1)+'</td><td class="team-cell">'+teamLink(r.team)+'</td><td>'+r.w+'</td><td>'+r.l+'</td><td>'+r.ties+'</td><td class="num">'+r.pct.toFixed(3).replace(/^0/,'')+'</td><td>'+r.rs+'</td><td>'+r.ra+'</td><td>'+(r.diff>0?'+':'')+r.diff+'</td><td class="num">'+(r.ardiff>0?'+':'')+r.ardiff.toFixed(1)+'</td></tr>'; }).join('')+
       '</tbody></table></div>';
   }
   function schedPublic(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return !f || f.schedule_published !== false; }

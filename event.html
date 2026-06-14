@@ -128,7 +128,9 @@
     var pool = poolGames();
     if(!pool.length) return '<div class="empty" style="text-transform:none;letter-spacing:0">This tournament goes straight to a bracket — no pool standings. See the <b>Bracket</b> tab.</div>';
     var st = STS.computeStandings(pool); if(!st.length) return '<div class="empty">No standings yet.</div>';
-    var rows = st.map(function(r,i){ return '<tr><td class="rank">'+(i+1)+'</td><td>'+esc(r.team)+'</td><td>'+r.w+'</td><td>'+r.l+'</td><td>'+r.ties+'</td><td class="num">'+r.pct.toFixed(3).replace(/^0/,'')+'</td><td>'+r.rs+'</td><td>'+r.ra+'</td><td>'+(r.diff>0?'+':'')+r.diff+'</td></tr>'; }).join('');
+    var demo=/[?&]demo=1/.test(location.search)?'&demo=1':'';
+    function tlink(n){ return '<a href="team.html?id='+encodeURIComponent(String(n).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''))+demo+'" style="color:var(--sts-navy);text-decoration:none" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+esc(n)+'</a>'; }
+    var rows = st.map(function(r,i){ return '<tr><td class="rank">'+(i+1)+'</td><td>'+tlink(r.team)+'</td><td>'+r.w+'</td><td>'+r.l+'</td><td>'+r.ties+'</td><td class="num">'+r.pct.toFixed(3).replace(/^0/,'')+'</td><td>'+r.rs+'</td><td>'+r.ra+'</td><td>'+(r.diff>0?'+':'')+r.diff+'</td></tr>'; }).join('');
     return '<p class="muted" style="text-transform:none;letter-spacing:0;margin-top:0">Pool standings — these seed the bracket.</p>'+
       '<div class="table-wrap"><table class="tbl"><thead><tr><th class="rank">#</th><th>Team</th><th>W</th><th>L</th><th>T</th><th>PCT</th><th>RS</th><th>RA</th><th>Diff</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   }

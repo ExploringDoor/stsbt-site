@@ -513,10 +513,10 @@ a.gm-tlink:hover, a.gm-tlink:focus-visible { border-bottom-color:currentColor; }
 .gm-sb-final { display:inline-block; background:#EFC04A; color:#3a2c00; font-family:var(--font-display); font-weight:700; font-size:11px; letter-spacing:.1em; padding:3px 11px; border-radius:999px; text-transform:uppercase; margin-bottom:8px; }
 .gm-sb-srow { display:flex; align-items:center; gap:13px; padding:6px 0; }
 .gm-sb-srow .gm-badge2 { width:40px; height:40px; font-size:15px; }
-.gm-sb-srow .gm-tn { flex:1; font-family:var(--font-display); font-weight:600; font-size:18px; color:rgba(255,255,255,.66); text-decoration:none; word-break:break-word; }
+.gm-sb-srow .gm-tn { font-family:var(--font-display); font-weight:600; font-size:18px; color:rgba(255,255,255,.66); text-decoration:none; word-break:break-word; }
 .gm-sb-srow.win .gm-tn { color:#EFC04A; }
 .gm-sb-srow .gm-tn.gm-tlink:hover { text-decoration:underline; }
-.gm-sb-sc { font-family:var(--font-display); font-weight:700; font-size:30px; color:rgba(255,255,255,.55); min-width:34px; text-align:right; }
+.gm-sb-sc { font-family:var(--font-display); font-weight:700; font-size:30px; color:rgba(255,255,255,.55); min-width:34px; text-align:right; margin-left:auto; }
 .gm-sb-srow.win .gm-sb-sc { color:#EFC04A; }
 .gm-sb-meta { background:#0a1730; color:rgba(255,255,255,.82); font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:12.5px; padding:9px 18px; border-radius:0 0 14px 14px; }
 .gm-sb-meta .gm-fieldlink { color:#EFC04A; text-decoration:none; }
