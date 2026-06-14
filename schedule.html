@@ -36,17 +36,20 @@
   .sch-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:var(--space-4); }
   .sch-card { background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; cursor:pointer; transition:transform .12s, box-shadow .12s; display:flex; flex-direction:column; }
   .sch-card:hover { transform:translateY(-3px); box-shadow:0 12px 26px rgba(0,45,114,.14); }
-  .sch-chead { padding:11px 16px 9px; font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-xs); color:var(--muted); border-bottom:1px solid var(--line); }
+  .sch-card { border-top:3px solid var(--sts-navy); }
+  .sch-chead { padding:11px 16px 9px; font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-xs); color:#fff; background:var(--sts-navy); }
   .sch-cbody { padding:6px 16px; }
   .sch-team { display:flex; align-items:center; gap:11px; padding:9px 0; }
   .sch-team + .sch-team { border-top:1px solid #f1f3f7; }
   .sch-team .sts-logo { width:30px; height:30px; font-size:11px; }
   .sch-team .tn { flex:1; font-family:var(--font-display); font-weight:600; font-size:var(--text-lg); color:var(--sts-ink); }
-  .sch-team.win .tn { color:var(--sts-navy); }
+  .sch-team.win .tn { color:#16794a; font-weight:700; }
+  .sch-team.win .tn::after { content:' ✓'; color:#16794a; }
   .sch-team.lose .tn { color:var(--muted); }
   .sch-team .sc { font-family:var(--font-display); font-weight:700; font-size:var(--text-xl); color:var(--muted); }
-  .sch-team.win .sc { color:var(--sts-navy); }
-  .sch-cfoot { margin-top:auto; padding:10px 16px; border-top:1px solid var(--line); font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-xs); color:var(--muted); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .sch-team.win .sc { color:#16794a; }
+  .sch-cfoot { margin-top:auto; padding:10px 16px; border-top:1px solid var(--line); background:#fafbfc; font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-xs); color:var(--muted); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .sch-cfoot .tour { color:var(--sts-red); }
   .sch-cfoot .cue { color:var(--sts-navy); font-weight:700; }
   /* list view rows */
   .game { display:grid; grid-template-columns:120px 1fr auto; gap:var(--space-3); align-items:center; background:#fff; border:1px solid var(--line); border-radius:10px; padding:9px var(--space-5); margin-bottom:8px; cursor:pointer; transition:border-color .14s, box-shadow .14s, transform .14s; }
@@ -125,7 +128,7 @@
     var A=sideName(g,g.away), H=sideName(g,g.home), city=cityFor(g.form_id);
     var head=[DOW[D(g.date).getDay()].toUpperCase()+' '+MON[D(g.date).getMonth()].toUpperCase()+' '+D(g.date).getDate(), fmtTime(g.time), (g.field?(city?city+' · '+g.field:g.field):'')].filter(Boolean).join(' · ');
     function row(nm,sc,win,lose){ return '<div class="sch-team'+(win?' win':'')+(lose?' lose':'')+'">'+logo(nm)+'<span class="tn">'+esc(nm)+'</span>'+(played?'<span class="sc">'+sc+'</span>':'')+'</div>'; }
-    var foot='<span>'+esc(titleFor(g.form_id))+(g.division?' · '+esc(g.division):'')+'</span><span class="cue">'+(played?'Recap':'Preview')+' ›</span>';
+    var foot='<span class="tour">'+esc(titleFor(g.form_id))+(g.division?' · '+esc(g.division):'')+'</span><span class="cue">'+(played?'Recap':'Preview')+' ›</span>';
     return '<div class="sch-card" data-gid="'+esc(g.id)+'" role="button" tabindex="0">'+
       '<div class="sch-chead">'+esc(head)+'</div>'+
       '<div class="sch-cbody">'+row(A,g.away_score,aWin,played&&!tie&&!aWin)+row(H,g.home_score,hWin,played&&!tie&&!hWin)+'</div>'+
