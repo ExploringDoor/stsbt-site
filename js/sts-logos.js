@@ -17,15 +17,23 @@
     if (w.length === 1) return w[0].slice(0, 3).toUpperCase();
     return (w[0][0] + w[1][0] + (w[2] ? w[2][0] : '')).toUpperCase();
   }
-  // a circle showing the initials, with a logo image overlaid if the file exists.
-  // onerror removes the <img>, revealing the initials behind it — so a missing
-  // logo never breaks the layout.
+  // Deterministic, vivid, jersey-like color from the team name — stable per team,
+  // so a team shows the SAME color everywhere (badges, scoreboard, pages). Matches
+  // the game-modal algorithm so colors are consistent site-wide.
+  function teamColor(name) {
+    var h = 0, s = String(name || '');
+    for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) >>> 0; }
+    return 'hsl(' + (h % 360) + ',' + (60 + (h >> 3) % 20) + '%,' + (34 + (h >> 5) % 12) + '%)';
+  }
+  // a circle showing the initials on the team's color, with a real logo image
+  // overlaid if assets/logos/<slug>.png exists. onerror removes the <img>,
+  // revealing the colored initials behind it — so a missing logo never breaks layout.
   function html(name, size, slug) {
     size = size || 28;
     var s = slug || slugify(name), ab = abbr(name);
-    var style = 'width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.4) + 'px';
+    var style = 'width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.4) + 'px;background:' + teamColor(name);
     var img = s ? '<img src="' + BASE + esc(s) + '.png" alt="' + esc(name) + ' logo" loading="lazy" decoding="async" onerror="this.remove()">' : '';
     return '<span class="sts-logo" style="' + style + '">' + img + esc(ab) + '</span>';
   }
-  global.STSlogos = { html: html, slug: slugify, abbr: abbr };
+  global.STSlogos = { html: html, slug: slugify, abbr: abbr, color: teamColor };
 })(window);

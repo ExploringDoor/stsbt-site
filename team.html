@@ -40,6 +40,7 @@
 <div id="sts-footer"></div>
 
 <script src="js/sts-bracket.js"></script>
+<script src="js/sts-logos.js"></script>
 <script src="js/sts-gamemodal.js"></script>
 <script src="js/sts-chrome.js"></script>
 <script type="module">
@@ -160,7 +161,7 @@
 
     root.innerHTML =
       '<div class="team-hero"><div class="container"><div class="th-inner">'+
-        '<div class="team-logo">'+logo+'</div>'+
+        '<div class="team-logo" style="background:'+(window.STSlogos?STSlogos.color(t.name):'var(--sts-navy)')+';color:#fff">'+logo+'</div>'+
         '<div><h1>'+esc(t.name)+'</h1><div class="th-meta">'+meta+record+'</div></div>'+
         '<div style="margin-left:auto"><a class="btn btn-gold btn-sm" href="roster-edit.html?id='+esc(t.slug||t.id)+'">Edit Roster</a></div>'+
       '</div></div></div>'+

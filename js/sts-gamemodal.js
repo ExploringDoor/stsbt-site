@@ -24,23 +24,29 @@
   }
   function isPlaceholder(name, tbd){ var raw=String(name==null?'':name).trim(); return !!(tbd || !clean(raw) || /^(tbd|bye)$/i.test(raw) || /^(winner|loser) of game/i.test(raw)); }
   // deterministic team color from the name — vivid, jersey-like, stable per team (no manual logos)
-  function teamColor(name){ var h=0, s=String(name||''); for(var i=0;i<s.length;i++){ h=(h*31 + s.charCodeAt(i))>>>0; } var hue=h%360, sat=60+(h>>3)%20, lig=34+(h>>5)%12; return 'hsl('+hue+','+sat+'%,'+lig+'%)'; }
+  function teamHash(name){ var h=0, s=String(name||''); for(var i=0;i<s.length;i++){ h=(h*31 + s.charCodeAt(i))>>>0; } return h; }
+  function teamColor(name, shift){ var h=teamHash(name); var hue=(((h%360)+(shift||0))%360+360)%360; return 'hsl('+hue+','+(60+(h>>3)%20)+'%,'+(34+(h>>5)%12)+'%)'; }
+  function teamHue(name){ return teamHash(name)%360; }
+  function hueGap(a,b){ var d=Math.abs(a-b)%360; return Math.min(d,360-d); }
   function monogram(name){ var w=String(name||'').replace(/[^A-Za-z0-9 ]/g,'').split(/\s+/).filter(function(x){ return x && !/^(the|of|a|an)$/i.test(x); }); if(!w.length) return '?'; return (w.length===1 ? w[0].slice(0,2) : (w[0][0]+w[w.length-1][0])).toUpperCase(); }
-  function badgeHTML(name, tbd){ if(isPlaceholder(name,tbd)) return '<span class="gm-badge2 ph">?</span>'; return '<span class="gm-badge2" style="background:'+teamColor(name)+'">'+esc(monogram(name))+'</span>'; }
+  function badgeHTML(name, tbd, shift){ if(isPlaceholder(name,tbd)) return '<span class="gm-badge2 ph">?</span>'; return '<span class="gm-badge2" style="background:'+teamColor(name,shift)+'">'+esc(monogram(name))+'</span>'; }
+  // when two teams' colors are too close, rotate the home badge so they read apart
+  function homeShift(An, Hn){ return hueGap(teamHue(An), teamHue(Hn)) < 35 ? 60 : 0; }
   // Scoreboard matchup header (navy) for previews
   function matchupHeader(An, At, Hn, Ht){
+    var hs=homeShift(An,Hn);
     return '<div class="gm-sb">'+
       '<div class="gm-sb-row">'+badgeHTML(An,At)+tnHTML(An,At)+'</div>'+
       '<div class="gm-sb-vs">VS</div>'+
-      '<div class="gm-sb-row">'+badgeHTML(Hn,Ht)+tnHTML(Hn,Ht)+'</div></div>';
+      '<div class="gm-sb-row">'+badgeHTML(Hn,Ht,hs)+tnHTML(Hn,Ht)+'</div></div>';
   }
   // Scoreboard with scores (recaps) — winner's name + score go gold
   function scoreboard(An, At, as, Hn, Ht, hs){
-    var aWin=as>hs, hWin=hs>as;
+    var aWin=as>hs, hWin=hs>as, sh=homeShift(An,Hn);
     return '<div class="gm-sb">'+
       '<div class="gm-sb-final">Final</div>'+
       '<div class="gm-sb-srow'+(aWin?' win':'')+'">'+badgeHTML(An,At)+tnHTML(An,At)+'<span class="gm-sb-sc">'+as+'</span></div>'+
-      '<div class="gm-sb-srow'+(hWin?' win':'')+'">'+badgeHTML(Hn,Ht)+tnHTML(Hn,Ht)+'<span class="gm-sb-sc">'+hs+'</span></div></div>';
+      '<div class="gm-sb-srow'+(hWin?' win':'')+'">'+badgeHTML(Hn,Ht,sh)+tnHTML(Hn,Ht)+'<span class="gm-sb-sc">'+hs+'</span></div></div>';
   }
   function metaBar(g){
     var when=[fmtDate(g.date),fmtTime(g.time)].filter(Boolean).join(' · '), f=clean(g.field);
