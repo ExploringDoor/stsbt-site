@@ -123,7 +123,9 @@
         upcoming.map(function(r){
           var oppSlug=slugify(r.opp);
           var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
-          var when=[fmtTime(r.time), r.field].filter(Boolean).join(' · ')||'TBD';
+          var rCity=(function(){ var l=(FORMS.find(function(x){return x.id===r.fid;})||{}).location||''; return l?l.split(',')[0].trim():''; })();
+          var fieldLabel = r.field ? (rCity?rCity+' · '+r.field:r.field) : '';
+          var when=[fmtTime(r.time), fieldLabel].filter(Boolean).join(' · ')||'TBD';
           return '<tr data-gid="'+esc(r.gid)+'" tabindex="0" title="View preview"><td>'+esc(fmtDate(r.date))+'</td><td>'+esc(r.event)+'</td>'+
             '<td>'+oppCell+'</td><td>'+esc(when)+' <span class="g-cue">Preview ›</span></td></tr>'; }).join('')+
         '</tbody></table></div>'
