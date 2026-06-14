@@ -31,7 +31,7 @@
   function html(name, size, slug) {
     size = size || 28;
     var s = slug || slugify(name), ab = abbr(name);
-    var style = 'width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.4) + 'px;background:' + teamColor(name);
+    var style = 'width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.4) + 'px';
     var img = s ? '<img src="' + BASE + esc(s) + '.png" alt="' + esc(name) + ' logo" loading="lazy" decoding="async" onerror="this.remove()">' : '';
     return '<span class="sts-logo" style="' + style + '">' + img + esc(ab) + '</span>';
   }
