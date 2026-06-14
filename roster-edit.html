@@ -71,7 +71,7 @@
         <div class="field" style="flex:1;min-width:150px"><label>Coverage start</label><input class="input" type="date" id="insStart"></div>
         <div class="field" style="flex:1;min-width:150px"><label>Coverage end</label><input class="input" type="date" id="insEnd"></div>
       </div>
-      <div class="field"><label>Certificate of Insurance (PDF)</label><input class="input" type="file" id="insFile" accept="application/pdf"><div class="form-note" style="font-size:var(--text-xs)" id="insFileNote">Optional now, required before your first game. PDF up to ~700&nbsp;KB.</div></div>
+      <div class="field"><label>Certificate of Insurance (PDF)</label><input class="input" type="file" id="insFile" accept="application/pdf"><div class="form-note" style="font-size:var(--text-xs)" id="insFileNote">Optional now, required before your first game. PDF up to 3&nbsp;MB.</div></div>
       <button class="btn btn-navy" id="insSubmit">Submit for review</button>
       <div id="insMsg" class="notice hidden mt-4"></div>
     </div>
@@ -193,7 +193,7 @@
                      : '<span class="muted" style="font-size:var(--text-xs)">No policy on file</span>';
     // director email for the "email instead" fallback
     var dir=(window.LEAGUE_CONFIG&&LEAGUE_CONFIG.contact&&LEAGUE_CONFIG.contact.director&&LEAGUE_CONFIG.contact.director.email)||'';
-    if(dir){ var n=document.getElementById('insFileNote'); if(n) n.innerHTML='Optional now, required before your first game. PDF up to ~700&nbsp;KB — larger? Email it to <a href="mailto:'+esc(dir)+'">'+esc(dir)+'</a>.'; }
+    if(dir){ var n=document.getElementById('insFileNote'); if(n) n.innerHTML='Optional now, required before your first game. PDF up to 3&nbsp;MB — larger? Email it to <a href="mailto:'+esc(dir)+'">'+esc(dir)+'</a>.'; }
   }
   function fileToDataURL(f){ return new Promise(function(res,rej){ var r=new FileReader(); r.onload=function(){res(r.result);}; r.onerror=rej; r.readAsDataURL(f); }); }
   document.getElementById('insSubmit').addEventListener('click', async function(){
@@ -204,7 +204,7 @@
     var data={ carrier:carrier, policy_no:policy, coverage_start:document.getElementById('insStart').value||'', coverage_end:document.getElementById('insEnd').value||'' };
     var f=document.getElementById('insFile').files[0];
     if(f){
-      if(f.size>720*1024){ msg.className='notice notice-warn'; msg.innerHTML='That PDF is over ~700&nbsp;KB — please email it to your director instead (you can still submit the details now).'; msg.classList.remove('hidden'); return; }
+      if(f.size>3*1024*1024){ msg.className='notice notice-warn'; msg.innerHTML='That PDF is over 3&nbsp;MB — please email it to your director instead (you can still submit the details now).'; msg.classList.remove('hidden'); return; }
       try{ data.doc_data=await fileToDataURL(f); data.doc_name=f.name; }catch(_){}
     }
     btn.disabled=true; btn.textContent='Submitting…';

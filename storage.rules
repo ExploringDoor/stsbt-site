@@ -1,0 +1,18 @@
+rules_version = '2';
+// Firebase Storage rules — only authenticated admins (incl. the dedicated server
+// admin user that api/insurance-save.js signs in as) may upload/read insurance PDFs.
+// Coaches are NOT authenticated; their uploads go THROUGH the server, which is.
+// Admins view a file via its tokened download URL (?alt=media&token=…), which is
+// stored only on the admin-gated team_insurance doc.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /insurance/{teamId}/{fileName} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null
+                   && request.resource.size < 6 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
+    }
+    // everything else: locked
+    match /{allPaths=**} { allow read, write: if false; }
+  }
+}
