@@ -50,6 +50,16 @@
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
 
   function applyZoom(){ var z=document.querySelector('#bracketOut .bk-zoomable'); if(z) z.style.zoom=ZOOM; document.getElementById('zoomLabel').textContent=Math.round(ZOOM*100)+'%'; }
+  // pool standings for the selected event/division (the games that seed this bracket)
+  function poolStandingsHTML(){
+    var pool = GAMES.filter(function(g){ return g.form_id===cur && g.g==null && (g.division||'')===curDiv; });
+    if(!pool.length) return '';
+    var st = STS.computeStandings(pool); if(!st.length) return '';
+    var rows = st.map(function(r,i){ return '<tr><td class="rank">'+(i+1)+'</td><td>'+esc(r.team)+'</td><td>'+r.w+'</td><td>'+r.l+'</td><td>'+r.ties+'</td><td class="num">'+r.pct.toFixed(3).replace(/^0/,'')+'</td><td>'+(r.diff>0?'+':'')+r.diff+'</td></tr>'; }).join('');
+    return '<div style="margin-bottom:var(--space-5)">'+
+      '<h3 style="color:var(--sts-navy);margin:0 0 8px;font-size:var(--text-lg)">Pool Standings <span class="muted" style="font-weight:400;font-size:var(--text-sm)">— seeds the bracket below</span></h3>'+
+      '<div class="table-wrap"><table class="tbl"><thead><tr><th class="rank">#</th><th>Team</th><th>W</th><th>L</th><th>T</th><th>PCT</th><th>Diff</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+  }
   function render(){
     var out=document.getElementById('bracketOut'), tierBar=document.getElementById('tierBar');
     var all = GAMES.filter(function(g){ return g.g!=null && g.form_id===cur; });
@@ -62,9 +72,10 @@
     } else { tierBar.style.display='none'; tierBar.innerHTML=''; curDiv=divs[0]||''; }
     var bg = all.filter(function(g){ return (g.division||'')===curDiv; });
     CURBG = bg;
-    if(!bg.length){ out.innerHTML='<div class="bk-empty">No bracket posted for this event yet.</div>'; return; }
+    var standsHTML = poolStandingsHTML();
+    if(!bg.length){ out.innerHTML = standsHTML || '<div class="bk-empty">No bracket posted for this event yet.</div>'; return; }
     var name = titleFor(cur) + (curDiv ? ' — '+curDiv : '');
-    out.innerHTML = '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: name, teamLinks: true })+'</div>';
+    out.innerHTML = standsHTML + '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: name, teamLinks: true })+'</div>';
     STSbracketRender.wireHover(out);
     ZOOM=1; applyZoom();
     if (window.STSfx) STSfx.arm(document);
