@@ -8,6 +8,8 @@
 import crypto from 'crypto';
 import { fsGet, fsPatch, fsQuery, fbConfigured, fbAdminConfigured } from './_firestore.js';
 import { ageAsOfMay1 } from './_age.js';
+import { sendMail, emailConfigured, adminAddress } from './_email.js';
+import { buildRosterMessage, buildApprovalMessage } from './notify-registration.js';
 
 // Stable, non-reversible player id from name+dob. SALTED with a server-only secret
 // so the pid on the PUBLIC team doc can't be brute-forced back to a child's birthdate.
@@ -144,27 +146,29 @@ export default async function handler(req, res) {
       const removed = prevNames.filter(p => !newNames.some(n => lc(n) === lc(p)));
       let coachEmail = '';
       try { if (team.reg_id) { const reg = await fsGet(`registrations/${team.reg_id}`); coachEmail = (reg && reg.coach_email) || ''; } } catch (e) {}
-      const site = process.env.SITE_URL || '';
-      if (site) await fetch(`${site}/api/notify-registration`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: 'roster', registration: {
+      // Send DIRECTLY (not via a self-HTTP call) — the public site sits behind the
+      // SITE_GATE password, so a fetch to our own /api would 401 and never email.
+      const adminTo = adminAddress();
+      if (emailConfigured() && adminTo && (added.length || removed.length)) {
+        const msg = buildRosterMessage({
           team_name: team.name, coach_name: team.coach_name || '', coach_email: coachEmail,
           age_class: team.age_class || '', sport: team.sport || '',
           added, removed, player_count: full.length, updated_at: new Date().toISOString(),
-        } }),
-      });
+        });
+        await sendMail({ to: adminTo, subject: msg.subject, html: msg.html, text: msg.text, replyTo: coachEmail || undefined });
+      }
     } catch (e) { /* non-fatal */ }
 
     // Auto-send the parent/guardian approval link for newly-added emails (best-effort).
+    // Direct send for the same reason — the self-HTTP path is blocked by SITE_GATE.
     try {
-      const site2 = process.env.SITE_URL || '';
+      const base = process.env.SITE_URL || 'https://ststournaments.com';
       const slug = team.slug || team.id || '';
       for (const p of toSend) {
-        const link = `${site2 || 'https://ststournaments.com'}/approve.html?team=${encodeURIComponent(slug)}&t=${encodeURIComponent(p.approval_token)}`;
-        if (site2) await fetch(`${site2}/api/notify-registration`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ event: 'approval', registration: { guardian_email: p.guardian_email, player_name: p.name, player_dob: p.dob || '', team_name: team.name, coach_name: team.coach_name || '', season: '2026', link } }),
-        });
+        if (!emailConfigured() || !p.guardian_email) continue;
+        const link = `${base}/approve.html?team=${encodeURIComponent(slug)}&t=${encodeURIComponent(p.approval_token)}`;
+        const msg = buildApprovalMessage({ guardian_email: p.guardian_email, player_name: p.name, player_dob: p.dob || '', team_name: team.name, coach_name: team.coach_name || '', season: '2026', link });
+        await sendMail({ to: p.guardian_email, subject: msg.subject, html: msg.html, text: msg.text });
       }
     } catch (e) { /* non-fatal */ }
 
