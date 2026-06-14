@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Tournament · Small Town Select Tournaments</title>
+<meta name="description" content="Everything for one tournament — schedule, standings, and bracket in one place." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  .ev-hero { background: linear-gradient(180deg,#00224f,#001a3d); color:#fff; padding: var(--space-6) 0 var(--space-5); }
+  .ev-hero h1 { color:#fff; margin:0 0 6px; font-size: var(--text-2xl); }
+  .ev-hero .ev-meta { color: rgba(255,255,255,.82); font-family: var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size: var(--text-sm); display:flex; flex-wrap:wrap; gap:6px 14px; }
+  .ev-hero .ev-fmt { display:inline-block; background: var(--gold); color: var(--sts-navy); font-family: var(--font-display); font-weight:700; text-transform:uppercase; letter-spacing:.05em; font-size:11px; padding:3px 11px; border-radius:999px; margin-top:10px; }
+  .ev-tabs { display:flex; gap:4px; border-bottom:2px solid var(--line); margin: var(--space-5) 0 var(--space-5); flex-wrap:wrap; }
+  .ev-tab { border:0; background:none; font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-sm); font-weight:600; color:var(--muted); padding:10px 16px; cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; }
+  .ev-tab.active { color:var(--sts-navy); border-bottom-color:var(--sts-red); }
+  .ev-divpills { margin-bottom: var(--space-4); }
+  .day-head { font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; color:var(--sts-red); font-size:var(--text-sm); font-weight:600; margin: var(--space-4) 0 8px; }
+  .game { display:grid; grid-template-columns:80px 1fr auto auto; align-items:center; gap:12px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin-bottom:7px; cursor:pointer; transition:box-shadow .12s, transform .12s; }
+  .game:hover { box-shadow:0 6px 16px rgba(0,45,114,.1); transform:translateY(-1px); }
+  .game .when { font-family:var(--font-display); font-weight:600; color:var(--muted); font-size:var(--text-xs); text-transform:uppercase; }
+  .game .matchup { font-family:var(--font-display); font-weight:600; color:var(--sts-navy); }
+  .game .matchup .vs { color:var(--muted); font-weight:400; margin:0 6px; font-size:var(--text-xs); }
+  .game .matchup .winner { color:var(--sts-navy); } .game .matchup .loser { color:var(--muted); }
+  .game .result { font-family:var(--font-display); font-weight:700; color:var(--sts-navy); }
+  .game .result.sched { font-weight:500; color:var(--muted); font-size:var(--text-sm); }
+  .game .sch-fieldlink { color:var(--sts-red); text-decoration:none; } .game .sch-fieldlink:hover { text-decoration:underline; }
+  .game .gcue { font-family:var(--font-display); text-transform:uppercase; letter-spacing:.03em; font-size:10px; color:var(--muted); white-space:nowrap; }
+  .ev-stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:var(--space-5); }
+  .ev-stat { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .ev-stat .n { font-family:var(--font-display); font-weight:700; color:var(--sts-navy); font-size:var(--text-xl); }
+  .ev-stat .l { font-size:var(--text-xs); color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  @media (max-width:560px){ .game { grid-template-columns:60px 1fr auto; } .game .gcue { display:none; } }
+</style>
+</head>
+<body>
+
+<div id="sts-nav"></div>
+
+<header class="ev-hero"><div class="container narrow">
+  <a href="brackets.html" class="muted" style="color:rgba(255,255,255,.7);font-size:var(--text-sm)">← All tournaments</a>
+  <h1 id="evTitle">Loading…</h1>
+  <div class="ev-meta" id="evMeta"></div>
+  <div id="evFmt"></div>
+</div></header>
+
+<main class="container narrow section">
+  <div class="ev-divpills pill-tabs" id="evDivPills" style="display:none"></div>
+  <div class="ev-tabs" id="evTabs"></div>
+  <div id="evContent"><div class="empty">Loading…</div></div>
+</main>
+
+<div id="sts-footer"></div>
+
+<script src="js/sts-bracket.js"></script>
+<script src="js/sts-bracket-render.js"></script>
+<script src="js/sts-gamemodal.js"></script>
+<script src="js/sts-chrome.js"></script>
+<script type="module">
+  import * as STS from './js/sts-data.js';
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function qs(k){ return new URLSearchParams(location.search).get(k); }
+  var DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtDate(s){ if(!s) return 'Date TBD'; var d=new Date(s+'T12:00:00'); if(isNaN(d)) return s; return DOW[d.getDay()]+', '+MON[d.getMonth()]+' '+d.getDate(); }
+  function fmtTime(t){ if(!t) return ''; var p=String(t).split(':'); var h=+p[0],m=p[1]||'00'; if(isNaN(h)) return t; var ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+m+' '+ap; }
+
+  var FORM=null, GAMES=[], FORMS=[], curDiv='', tab='', fid='';
+
+  function evGames(){ return GAMES.filter(function(g){ return g.form_id===fid && (g.division||'')===curDiv; }); }
+  function poolGames(){ return evGames().filter(function(g){ return g.g==null; }); }
+  function bracketGames(){ return evGames().filter(function(g){ return g.g!=null; }); }
+  function bt(){ return { name: FORM ? FORM.title : '', games: bracketGames() }; }
+  function sideName(raw){ if(!window.STSbracket) return raw||'TBD'; return STSbracket.sideDisplay(bt(), raw).name; }
+
+  function detectFormat(){
+    var p=poolGames().length, b=bracketGames();
+    var dbl = b.some(function(g){ return /(^|[^A-Z])LG-\d+/.test(String(g.away)+' '+String(g.home)); });
+    var parts=[];
+    if(p) parts.push('Pool play');
+    if(b.length) parts.push(dbl?'Double elim':'Single elim');
+    return parts.join(' → ') || 'Round robin';
+  }
+  function teamCount(){
+    var s={}; evGames().forEach(function(g){ [g.away,g.home].forEach(function(x){ if(x!=null && !/^(WG|LG)-\d+$/.test(String(x)) && !/^(tbd|bye)$/i.test(String(x))) s[String(x).toLowerCase()]=x; }); });
+    // for pure-bracket events the round-1 names cover everyone; for pool, pool names do
+    return Object.keys(s).length;
+  }
+
+  // ── tab renderers ──
+  function renderOverview(){
+    var dates = FORM.event_dates || '', loc = FORM.location || '';
+    var played = evGames().filter(function(g){ return g.done && g.away_score!=null; }).length;
+    var total = evGames().length;
+    return '<div class="ev-stat-grid">'+
+      '<div class="ev-stat"><div class="n">'+teamCount()+'</div><div class="l">Teams</div></div>'+
+      '<div class="ev-stat"><div class="n">'+total+'</div><div class="l">Games</div></div>'+
+      '<div class="ev-stat"><div class="n">'+played+'</div><div class="l">Played</div></div>'+
+      '<div class="ev-stat"><div class="n">'+(total-played)+'</div><div class="l">Upcoming</div></div></div>'+
+      '<p class="muted" style="text-transform:none;letter-spacing:0">'+
+        '<b>Format:</b> '+esc(detectFormat())+(dates?' &nbsp;·&nbsp; <b>When:</b> '+esc(dates):'')+(loc?' &nbsp;·&nbsp; <b>Where:</b> '+esc(loc):'')+'</p>'+
+      '<p class="muted" style="text-transform:none;letter-spacing:0">Use the tabs above for the full <b>schedule</b> (with every game’s result), the <b>standings</b>, and the <b>bracket</b>.</p>';
+  }
+  function renderSchedule(){
+    var gs = evGames().slice().sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')) || String(a.time||'').localeCompare(String(b.time||'')) || (a.g||0)-(b.g||0); });
+    if(!gs.length) return '<div class="empty">No games posted yet.</div>';
+    var byDay={}; gs.forEach(function(g){ (byDay[g.date||'']=byDay[g.date||'']||[]).push(g); });
+    return Object.keys(byDay).sort().map(function(d){
+      var rows = byDay[d].map(function(g){
+        var played = g.done && g.away_score!=null && g.home_score!=null;
+        var tie = played && g.away_score===g.home_score;
+        var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score;
+        var fieldHTML = g.field ? ' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent(g.field)+'" onclick="event.stopPropagation()">📍 '+esc(g.field)+'</a>' : '';
+        var result = played ? '<div class="result">'+g.away_score+'–'+g.home_score+'</div>' : '<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+fieldHTML+'</div>';
+        var tag = g.g!=null ? ' <span class="muted" style="font-size:10px">· Game '+g.g+'</span>' : '';
+        return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtTime(g.time)))+'</div>'+
+          '<div class="matchup"><span class="'+(aWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g.away))+'</span><span class="vs">vs</span><span class="'+(hWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g.home))+'</span>'+tag+'</div>'+
+          result+'<div class="gcue">'+(played?'Recap':'Preview')+' ›</div></div>';
+      }).join('');
+      return '<div class="day-head">'+esc(fmtDate(d))+'</div>'+rows;
+    }).join('');
+  }
+  function renderStandings(){
+    var pool = poolGames();
+    if(!pool.length) return '<div class="empty" style="text-transform:none;letter-spacing:0">This tournament goes straight to a bracket — no pool standings. See the <b>Bracket</b> tab.</div>';
+    var st = STS.computeStandings(pool); if(!st.length) return '<div class="empty">No standings yet.</div>';
+    var rows = st.map(function(r,i){ return '<tr><td class="rank">'+(i+1)+'</td><td>'+esc(r.team)+'</td><td>'+r.w+'</td><td>'+r.l+'</td><td>'+r.ties+'</td><td class="num">'+r.pct.toFixed(3).replace(/^0/,'')+'</td><td>'+r.rs+'</td><td>'+r.ra+'</td><td>'+(r.diff>0?'+':'')+r.diff+'</td></tr>'; }).join('');
+    return '<p class="muted" style="text-transform:none;letter-spacing:0;margin-top:0">Pool standings — these seed the bracket.</p>'+
+      '<div class="table-wrap"><table class="tbl"><thead><tr><th class="rank">#</th><th>Team</th><th>W</th><th>L</th><th>T</th><th>PCT</th><th>RS</th><th>RA</th><th>Diff</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }
+  function renderBracket(){
+    var bg = bracketGames();
+    if(!bg.length) return '<div class="empty" style="text-transform:none;letter-spacing:0">No bracket posted yet — it appears once pool play wraps and seeding is set.</div>';
+    return '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:true })+'</div>';
+  }
+
+  var TABS = [['overview','Overview'],['schedule','Schedule'],['standings','Standings'],['bracket','Bracket']];
+  function renderTab(){
+    var c = document.getElementById('evContent');
+    if(tab==='overview') c.innerHTML = renderOverview();
+    else if(tab==='schedule') c.innerHTML = renderSchedule();
+    else if(tab==='standings') c.innerHTML = renderStandings();
+    else c.innerHTML = renderBracket();
+    if(tab==='bracket') STSbracketRender.wireHover(c);
+    // wire game clicks (schedule rows + bracket cards) → preview/recap modal
+    if(window.STSgameModal){
+      var all = evGames();
+      c.querySelectorAll('.game[data-gid]').forEach(function(el){
+        el.addEventListener('click', function(){ var g=all.find(function(x){ return String(x.id)===el.dataset.gid; }); if(g) STSgameModal.open(FORM.title, all, g); });
+      });
+      c.querySelectorAll('.bk-match[data-g]').forEach(function(el){
+        el.addEventListener('click', function(){ var g=bracketGames().find(function(x){ return String(x.g)===el.dataset.g; }); if(g) STSgameModal.open(FORM.title, bracketGames(), g); });
+      });
+    }
+    if(window.STSfx) STSfx.arm(document);
+  }
+  function selectTab(t){
+    tab=t;
+    document.querySelectorAll('.ev-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===t); });
+    renderTab(); location.hash = curDiv ? (t+'/'+curDiv) : t;
+  }
+
+  function buildDivPills(){
+    var divs=[], seen={}; evAllDivs().forEach(function(d){ if(!seen[d]){ seen[d]=1; divs.push(d); } });
+    var bar=document.getElementById('evDivPills');
+    if(divs.length>1 || (divs.length===1 && divs[0])){
+      bar.style.display=''; bar.innerHTML = divs.map(function(d){ return '<button class="pill'+(d===curDiv?' active':'')+'" data-div="'+esc(d)+'">'+esc(d||'Main')+'</button>'; }).join('');
+    } else { bar.style.display='none'; }
+  }
+  function evAllDivs(){ var s=[],seen={}; GAMES.filter(function(g){return g.form_id===fid;}).forEach(function(g){ var d=g.division||''; if(!seen[d]){seen[d]=1;s.push(d);} }); return s; }
+
+  function boot(){
+    FORM = FORMS.find(function(f){ return f.id===fid; });
+    if(!FORM){ document.getElementById('evTitle').textContent='Tournament not found'; document.getElementById('evContent').innerHTML='<div class="empty">We couldn’t find that tournament. <a href="brackets.html">See all tournaments</a>.</div>'; document.getElementById('evTabs').innerHTML=''; return; }
+    document.title = FORM.title + ' · Small Town Select';
+    document.getElementById('evTitle').textContent = FORM.title;
+    var meta=[]; if(FORM.event_dates) meta.push('<span>📅 '+esc(FORM.event_dates)+'</span>'); if(FORM.location) meta.push('<span>📍 '+esc(FORM.location)+'</span>'); if(FORM.sport && FORM.sport!=='both') meta.push('<span>'+esc(FORM.sport)+'</span>');
+    document.getElementById('evMeta').innerHTML = meta.join('');
+    // divisions
+    var divs=evAllDivs(); curDiv = (divs.indexOf(curDiv)>=0)?curDiv:(divs[0]||'');
+    document.getElementById('evFmt').innerHTML = '<span class="ev-fmt">'+esc(detectFormat())+'</span>';
+    buildDivPills();
+    document.getElementById('evTabs').innerHTML = TABS.map(function(t){ return '<button class="ev-tab" data-tab="'+t[0]+'">'+t[1]+'</button>'; }).join('');
+    document.getElementById('evTabs').addEventListener('click', function(e){ var b=e.target.closest('.ev-tab'); if(b) selectTab(b.dataset.tab); });
+    document.getElementById('evDivPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; curDiv=b.dataset.div; document.querySelectorAll('#evDivPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); document.getElementById('evFmt').innerHTML='<span class="ev-fmt">'+esc(detectFormat())+'</span>'; renderTab(); });
+    // default tab: bracket if present, else schedule
+    var want = (location.hash||'').replace('#','').split('/')[0];
+    if(['overview','schedule','standings','bracket'].indexOf(want)<0) want = bracketGames().length ? 'bracket' : 'schedule';
+    selectTab(want);
+  }
+
+  (async function(){
+    fid = qs('id') || '';
+    var h=(location.hash||'').replace('#','').split('/'); if(h[1]) curDiv=decodeURIComponent(h[1]);
+    try { FORMS = await STS.loadForms(); GAMES = await STS.loadGames(); }
+    catch(e){ document.getElementById('evContent').innerHTML='<div class="empty">Could not load this tournament.</div>'; return; }
+    boot();
+  })();
+</script>
+
+</body>
+</html>

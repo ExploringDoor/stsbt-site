@@ -90,7 +90,8 @@
         }).join('');
         return '<div class="day-head">'+esc(fmtDate(d))+'</div>'+games;
       }).join('');
-      return '<div class="ev-head"><h2>'+esc(titleFor(fid))+'</h2></div>'+days;
+      var demo=/[?&]demo=1/.test(location.search)?'&demo=1':'';
+      return '<div class="ev-head"><h2><a href="event.html?id='+encodeURIComponent(fid)+demo+'" style="color:inherit;text-decoration:none">'+esc(titleFor(fid))+' ↗</a></h2></div>'+days;
     }).join('');
   }
   document.getElementById('sportPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.sport=b.dataset.sport; document.querySelectorAll('#sportPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); render(); });

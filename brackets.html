@@ -21,6 +21,7 @@
 <main class="container section">
   <div class="toolbar" style="align-items:center">
     <select class="input" id="eventSel" style="max-width:340px"></select>
+    <a class="btn btn-navy btn-sm" id="hubLink" href="#" style="white-space:nowrap">Full tournament page ↗</a>
     <div class="bk-legend">
       <span><span class="chip w"></span> Winners bracket</span>
       <span><span class="chip l"></span> Losers bracket</span>
@@ -62,6 +63,7 @@
   }
   function render(){
     var out=document.getElementById('bracketOut'), tierBar=document.getElementById('tierBar');
+    var hub=document.getElementById('hubLink'); if(hub && cur){ var demo=/[?&]demo=1/.test(location.search)?'&demo=1':''; hub.href='event.html?id='+encodeURIComponent(cur)+demo; }
     var all = GAMES.filter(function(g){ return g.g!=null && g.form_id===cur; });
     // distinct tiers/divisions in this event (Diamond/Platinum/Gold, or 8U/10U…)
     var divs=[], seen={}; all.forEach(function(g){ var d=g.division||''; if(!seen[d]){ seen[d]=1; divs.push(d); } });
