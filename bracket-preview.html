@@ -28,6 +28,12 @@
   .pp-vs { font-size:10px; color:var(--muted); text-transform:uppercase; }
   .pp-note { margin-top:var(--space-3); font-size:var(--text-sm); color:var(--muted); border-top:1px dashed var(--line); padding-top:10px; }
   .pp-note b { color:var(--sts-navy); }
+  .pp-sc { font-family:var(--font-display); font-weight:700; color:var(--sts-navy); font-size:var(--text-sm); white-space:nowrap; }
+  .pp-t.wln { color:var(--sts-navy); }
+  .pp-t:not(.wln) { color:var(--muted); }
+  .step { font-family:var(--font-display); text-transform:uppercase; letter-spacing:.05em; font-size:var(--text-sm); font-weight:600; color:var(--sts-red); margin:var(--space-5) 0 8px; }
+  .step:first-of-type { margin-top:var(--space-3); }
+  .gallery-divider { font-family:var(--font-display); color:var(--sts-navy); font-size:var(--text-lg); margin:var(--space-6) 0 var(--space-4); border-bottom:2px solid var(--sts-navy); padding-bottom:6px; }
 </style>
 </head>
 <body>
@@ -79,6 +85,30 @@
       var meta = games.length + ' games' + (byes>0 ? ' · '+byes+' bye'+(byes>1?'s':'')+' (Round 1)' : '');
       return '<div class="ex"><div class="ex-head"><h2>'+n+' Teams</h2><span class="meta">'+esc(meta)+'</span></div>'+STSbracketRender.render(games, {})+'</div>';
     }
+    // a complete pool tournament, played out: pool games → standings → seeded bracket
+    function poolWorked(){
+      var names = ['Brownwood Bombers','CTX Wolfpack','Blacksox','DTX Rangers','Hill Co Vipers','Iowa Park Hawks','Belton Mustangs','Waco Aces'];
+      var pool = STSgen.generatePool(names, { gamesPerTeam: 2 });
+      var tally = {}; names.forEach(function(t){ tally[t] = { team:t, w:0, l:0, rf:0, ra:0 }; });
+      pool.forEach(function(g, i){
+        var as = 3 + ((i*7) % 7), hs = 2 + ((i*4) % 7); if (as === hs) as += 2;   // deterministic sample scores, no ties
+        g.as = as; g.hs = hs;
+        var A = tally[g.away], H = tally[g.home];
+        A.rf += as; A.ra += hs; H.rf += hs; H.ra += as;
+        if (as > hs){ A.w++; H.l++; } else { H.w++; A.l++; }
+      });
+      var st = names.map(function(t){ return tally[t]; }).sort(function(a,b){ return b.w-a.w || ((b.rf-b.ra)-(a.rf-a.ra)) || (b.rf-a.rf); });
+      var bracket = STSgen.generateBracket({ format:'single', teams: st.map(function(r){ return r.team; }), startGame:1 });
+      var poolRows = pool.map(function(g, i){ var aw = g.as > g.hs;
+        return '<div class="pp-game"><span class="pp-n">G'+(i+1)+'</span><span class="pp-t'+(aw?' wln':'')+'">'+esc(g.away)+'</span><span class="pp-sc">'+g.as+'–'+g.hs+'</span><span class="pp-t h'+(!aw?' wln':'')+'">'+esc(g.home)+'</span></div>'; }).join('');
+      var standRows = st.map(function(r, i){ var d = r.rf-r.ra;
+        return '<tr><td class="rank">'+(i+1)+'</td><td>'+esc(r.team)+'</td><td>'+r.w+'–'+r.l+'</td><td>'+(d>0?'+':'')+d+'</td></tr>'; }).join('');
+      return '<div class="ex">'+
+        '<div class="ex-head"><h2>A pool tournament, start to finish</h2><span class="meta">8 teams · 2 pool games each</span></div>'+
+        '<div class="step">Step 1 — Pool play (everyone plays 2)</div><div class="pp-grid">'+poolRows+'</div>'+
+        '<div class="step">Step 2 — Standings set the seeds</div><div class="table-wrap"><table class="tbl"><thead><tr><th class="rank">#</th><th>Team</th><th>Pool W–L</th><th>Run Diff</th></tr></thead><tbody>'+standRows+'</tbody></table></div>'+
+        '<div class="step">Step 3 — Championship bracket, seeded #1 vs #8 …</div>'+STSbracketRender.render(bracket, {})+'</div>';
+    }
     function render(){
       var out = document.getElementById('gallery');
       var pool = fmt === 'pool';
@@ -86,8 +116,9 @@
       document.getElementById('introNote').textContent = pool
         ? 'Pool play is a round-robin: every team plays a set number of games, then the standings decide who seeds where in the bracket.'
         : 'Round 1 shows the seeds; later games show “Winner of Game N”. Odd counts get byes. Hover a team to trace its path.';
-      out.innerHTML = COUNTS.map(pool ? poolHTML : bracketHTML).join('');
-      if (!pool) STSbracketRender.wireHover(out);
+      out.innerHTML = (pool ? poolWorked() + '<div class="gallery-divider">Round-robin schedule, by team count</div>' : '')
+        + COUNTS.map(pool ? poolHTML : bracketHTML).join('');
+      STSbracketRender.wireHover(out);
       if (window.STSfx) STSfx.arm(document);
     }
     document.getElementById('fmtSeg').addEventListener('click', function(e){
