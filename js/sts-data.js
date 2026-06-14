@@ -623,10 +623,40 @@ export async function getTeamInsurance(teamId) {
   return all.find(function (x) { return x.team_id === teamId || x.id === teamId; }) || null;
 }
 // Admin approve/reject (admin.html is signed-in super → may write team_insurance).
+// Also mirror the STATUS word (not the policy details) onto the public team doc so
+// the coach can see it on their code-gated page (team_insurance itself is admin-only).
 export async function setInsuranceStatus(teamId, patch) {
-  if (isConfigured) { await setDoc(doc(db, 'team_insurance', teamId), patch, { merge: true }); return; }
+  if (isConfigured) {
+    await setDoc(doc(db, 'team_insurance', teamId), patch, { merge: true });
+    if (patch.status) { try { await setDoc(doc(db, 'teams', teamId), { insurance_status: patch.status }, { merge: true }); } catch (e) {} }
+    return;
+  }
   var rec = _insurance.find(function (x) { return x.team_id === teamId; });
   if (rec) Object.assign(rec, patch); else _insurance.push(Object.assign({ team_id: teamId }, patch));
+  if (patch.status) { var t = _teams.find(function (x) { return x.id === teamId || x.slug === teamId; }); if (t) t.insurance_status = patch.status; }
+}
+
+// Coach uploads their OWN policy (code-gated). Routes through /api/insurance-save,
+// which re-checks the team code server-side and writes a PENDING record for Keith.
+// data = { carrier, policy_no, coverage_start, coverage_end, doc_name, doc_data }
+export async function saveTeamInsurance(teamId, code, data) {
+  if (isConfigured) {
+    var res = await fetch('/api/insurance-save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ teamId: teamId, code: code }, data)) });
+    var out = {}; try { out = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error(out.error || 'Could not submit');
+    return out;
+  }
+  var t = _teams.find(function (x) { return x.id === teamId || x.slug === teamId; });
+  if (!t) throw new Error('Team not found');
+  if (String(t.team_code).toUpperCase() !== String(code).toUpperCase()) throw new Error('Wrong team code');
+  var rec = _insurance.find(function (x) { return x.team_id === t.id; });
+  var fields = { team_id: t.id, team_name: t.name, status: 'pending', source: 'uploaded',
+    carrier: data.carrier || '', policy_no: data.policy_no || '', coverage_start: data.coverage_start || '',
+    coverage_end: data.coverage_end || '', doc_name: data.doc_name || '', doc_url: data.doc_data || '',
+    submitted_at: new Date().toISOString(), reviewed_at: '', note: '' };
+  if (rec) Object.assign(rec, fields); else _insurance.push(fields);
+  t.insurance_status = 'pending';
+  return { ok: true, status: 'pending' };
 }
 
 // ── Activity feed (admin) ────────────────────────────────────────────

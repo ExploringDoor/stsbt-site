@@ -60,6 +60,21 @@
       <div class="total-line" style="border:0"><span></span><button class="btn btn-red" id="saveRoster">Save Roster</button></div>
       <div id="saveMsg" class="notice notice-ok hidden"></div>
     </div>
+
+    <!-- Team insurance (coach uploads their own policy for review) -->
+    <div class="card" style="margin-top:var(--space-5)">
+      <div class="spread" style="margin-bottom:var(--space-4)"><h3 style="margin:0">Team Insurance</h3><span id="insStatusBadge"></span></div>
+      <p class="form-note" style="margin-top:0">Every team must carry insurance with <b>Small Town Select listed as additionally insured</b>. Upload your Certificate of Insurance below for your director to review (or buy a policy through the site on the Register page).</p>
+      <div class="field"><label>Insurance carrier</label><input class="input" id="insCarrier" placeholder="e.g. K&amp;K Insurance, Sadler Sports…"></div>
+      <div class="field"><label>Policy number</label><input class="input" id="insPolicy" placeholder="Policy #"></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div class="field" style="flex:1;min-width:150px"><label>Coverage start</label><input class="input" type="date" id="insStart"></div>
+        <div class="field" style="flex:1;min-width:150px"><label>Coverage end</label><input class="input" type="date" id="insEnd"></div>
+      </div>
+      <div class="field"><label>Certificate of Insurance (PDF)</label><input class="input" type="file" id="insFile" accept="application/pdf"><div class="form-note" style="font-size:var(--text-xs)" id="insFileNote">Optional now, required before your first game. PDF up to ~700&nbsp;KB.</div></div>
+      <button class="btn btn-navy" id="insSubmit">Submit for review</button>
+      <div id="insMsg" class="notice hidden mt-4"></div>
+    </div>
   </div>
 </main>
 
@@ -95,6 +110,7 @@
     roster = (TEAM.roster||[]).slice();
     if (!roster.length) roster.push({ num:'', name:'', dob:'', grade:'' });
     try { TOURNEYS = (await STS.loadForms()).filter(function(f){ return f.type==='tournament' && !f.archived; }); } catch(_){ TOURNEYS = []; }
+    renderInsStatus();
     document.getElementById('gate').classList.add('hidden');
     document.getElementById('editor').classList.remove('hidden');
     document.getElementById('reTitle').textContent = TEAM.name + ' — Roster';
@@ -165,6 +181,39 @@
       else { msg.className='notice notice-ok'; msg.textContent='Roster saved! '+clean.length+' player'+(clean.length===1?'':'s')+' ('+active+' active).'; }
       msg.classList.remove('hidden');
     } catch(ex){ msg.className='notice notice-warn'; msg.innerHTML='<b>Couldn’t save.</b> '+esc(ex.message||'Please try again.'); msg.classList.remove('hidden'); }
+  });
+
+  // ── Team insurance (coach upload) ──────────────────────────────────
+  function renderInsStatus(){
+    var el=document.getElementById('insStatusBadge'); if(!el||!TEAM) return;
+    var s=TEAM.insurance_status||'';
+    var map={ approved:['✓ Approved','#166534','#dcfce7'], pending:['⏳ Pending review','#9a3412','#ffedd5'], rejected:['✕ Needs re-upload','#b91c1c','#fee2e2'] };
+    var m=map[s];
+    el.innerHTML = m ? '<span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-xs);letter-spacing:.04em;text-transform:uppercase;color:'+m[1]+';background:'+m[2]+';padding:4px 12px;border-radius:999px">'+m[0]+'</span>'
+                     : '<span class="muted" style="font-size:var(--text-xs)">No policy on file</span>';
+    // director email for the "email instead" fallback
+    var dir=(window.LEAGUE_CONFIG&&LEAGUE_CONFIG.contact&&LEAGUE_CONFIG.contact.director&&LEAGUE_CONFIG.contact.director.email)||'';
+    if(dir){ var n=document.getElementById('insFileNote'); if(n) n.innerHTML='Optional now, required before your first game. PDF up to ~700&nbsp;KB — larger? Email it to <a href="mailto:'+esc(dir)+'">'+esc(dir)+'</a>.'; }
+  }
+  function fileToDataURL(f){ return new Promise(function(res,rej){ var r=new FileReader(); r.onload=function(){res(r.result);}; r.onerror=rej; r.readAsDataURL(f); }); }
+  document.getElementById('insSubmit').addEventListener('click', async function(){
+    var msg=document.getElementById('insMsg'), btn=this;
+    var carrier=(document.getElementById('insCarrier').value||'').trim();
+    var policy=(document.getElementById('insPolicy').value||'').trim();
+    if(!carrier||!policy){ msg.className='notice notice-warn'; msg.textContent='Enter at least the carrier and policy number.'; msg.classList.remove('hidden'); return; }
+    var data={ carrier:carrier, policy_no:policy, coverage_start:document.getElementById('insStart').value||'', coverage_end:document.getElementById('insEnd').value||'' };
+    var f=document.getElementById('insFile').files[0];
+    if(f){
+      if(f.size>720*1024){ msg.className='notice notice-warn'; msg.innerHTML='That PDF is over ~700&nbsp;KB — please email it to your director instead (you can still submit the details now).'; msg.classList.remove('hidden'); return; }
+      try{ data.doc_data=await fileToDataURL(f); data.doc_name=f.name; }catch(_){}
+    }
+    btn.disabled=true; btn.textContent='Submitting…';
+    try{
+      await STS.saveTeamInsurance(TEAM.slug||TEAM.id, (document.getElementById('codeInput').value||'').trim().toUpperCase(), data);
+      TEAM.insurance_status='pending'; renderInsStatus();
+      msg.className='notice notice-ok'; msg.innerHTML='<b>Submitted!</b> Your director will review it and you’ll see the status update here.'; msg.classList.remove('hidden');
+    }catch(ex){ msg.className='notice notice-warn'; msg.innerHTML='<b>Couldn’t submit.</b> '+esc(ex.message||'Please try again.'); msg.classList.remove('hidden'); }
+    btn.disabled=false; btn.textContent='Submit for review';
   });
 </script>
 
