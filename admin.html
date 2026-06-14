@@ -1486,7 +1486,7 @@
           var gs=cell[f+'|'+tm]||[], dbl=gs.length>1;
           var cards=gs.map(function(g){
             var cf=conflict(g), sc=(g.done&&g.away_score!=null&&g.home_score!=null)?(g.away_score+'–'+g.home_score):'';
-            return '<div class="grid-card" draggable="true" data-gid="'+esc(g.id)+'"'+(cf?' style="border-color:var(--sts-red)"':'')+'>'+
+            return '<div class="grid-card" draggable="true" data-gid="'+esc(g.id)+'" title="Click to edit · drag to move" style="cursor:pointer'+(cf?';border-color:var(--sts-red)':'')+'">'+
               '<div class="gc-teams">'+esc(g.away||'TBD')+'<span class="muted"> v </span>'+esc(g.home||'TBD')+'</div>'+
               (sc?'<div class="gc-score">'+sc+'</div>':'<div class="gc-st muted">scheduled</div>')+
               (cf?'<div class="gc-warn">⚠ team double-booked</div>':'')+'</div>';
@@ -1502,7 +1502,7 @@
       '<button class="btn btn-navy btn-sm" id="gridSave"'+(n?'':' disabled')+'>💾 Save changes</button>'+
       '<button class="btn btn-outline btn-sm" id="gridUndo"'+(n?'':' disabled')+'>↶ Undo last move</button>'+
       '<span style="font-size:var(--text-sm)">'+(n?'<b style="color:var(--sts-red)">'+n+' unsaved change'+(n===1?'':'s')+'</b>':'<span class="muted">No unsaved changes</span>')+'</span></div>';
-    var howto='<div class="notice notice-info" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm);margin-bottom:12px"><b>How this works:</b> columns are <b>fields</b>, rows are <b>start times</b>, and each card is a game. <b>Drag a card</b> into a different field or time to move it. A <b style="color:var(--sts-red)">red card</b> = a team is booked twice at once; an <b style="color:#b45309">orange cell</b> = two games share one field+time. <b>Nothing saves until you click “Save changes.”</b></div>';
+    var howto='<div class="notice notice-info" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm);margin-bottom:12px"><b>How this works:</b> columns are <b>fields</b>, rows are <b>start times</b>, and each card is a game. <b>Drag a card</b> to move it to a different field/time, or <b>click a card</b> to edit its teams, time, field, or score. New games (and new times/fields) come from <b>“+ Add Game”</b> up top. A <b style="color:var(--sts-red)">red card</b> = a team is booked twice at once; an <b style="color:#b45309">orange cell</b> = two games share one field+time. <b>Drag changes don’t save until you click “Save changes.”</b></div>';
     wrap.innerHTML=toolbar+howto+html;
   }
   // delegated drag-and-drop (listeners attached once; cells re-render under them)
@@ -1533,7 +1533,11 @@
           for(var id in gids){ var g=GAMES.find(function(x){return String(x.id)===String(id);}); if(g) await STS.saveGame(g); }
           GAMES=await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule();
         } catch(ex){ alert('Couldn\'t save: '+(ex&&ex.message||ex)); btn.disabled=false; btn.textContent='💾 Save changes'; }
+        return;
       }
+      // click a card (without dragging) → open the full editor (teams, time, field, score)
+      var card=e.target.closest('.grid-card');
+      if(card){ var g=GAMES.find(function(x){return String(x.id)===String(card.getAttribute('data-gid'));}); if(g) openGameModal(g); }
     });
   })();
   document.getElementById('schedViewToggle').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; schedView=b.dataset.view; document.querySelectorAll('#schedViewToggle .pill').forEach(function(p){p.classList.toggle('active',p===b);}); renderSchedule(); });
@@ -1600,7 +1604,7 @@
       '<div class="field"><label for="g_hs">Home Score</label><input class="input" id="g_hs" type="number" inputmode="numeric" value="'+(g.home_score!=null?g.home_score:'')+'"></div></div>'+
       '<div class="field check"><input type="checkbox" id="g_done"'+(g.done?' checked':'')+'><label for="g_done" style="text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500">Final — count this game in standings</label></div>';
     document.getElementById('gmDelete').style.display = isNew ? 'none' : '';
-    document.getElementById('gmDelete').onclick = async function(){ if(g.id){ await STS.deleteGame(g.id); GAMES = await STS.loadGamesScoped(ME, {}); renderSchedule(); } closeModal('gameModal'); };
+    document.getElementById('gmDelete').onclick = async function(){ if(g.id){ await STS.deleteGame(g.id); GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule(); } closeModal('gameModal'); };
     document.getElementById('gmSave').onclick = async function(){
       var fid = isBracket ? g.form_id : document.getElementById('g_form').value;
       if (!fid){ alert('Pick an event for this game.'); return; }
@@ -1608,7 +1612,7 @@
       await STS.saveGame({ id:g.id, form_id:fid, g:(isBracket?g.g:undefined), sport:(f&&f.sport)||g.sport||'baseball', division:val('g_div'),
         away:(isBracket?g.away:val('g_away')), home:(isBracket?g.home:val('g_home')), field:val('g_field'), date:val('g_date'), time:val('g_time'),
         away_score:val('g_as'), home_score:val('g_hs'), done:document.getElementById('g_done').checked });
-      GAMES = await STS.loadGamesScoped(ME, {}); renderSchedule(); closeModal('gameModal');
+      GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule(); closeModal('gameModal');
     };
     openModal('gameModal');
   }
