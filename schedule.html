@@ -12,19 +12,53 @@
 <script src="config.js"></script>
 <link rel="stylesheet" href="css/styles.css" />
 <style>
-  .day-head { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .06em; color: var(--sts-red); font-size: var(--text-sm); margin: var(--space-5) 0 var(--space-2); }
-  .ev-head { display: flex; align-items: baseline; gap: 10px; margin: var(--space-6) 0 var(--space-2); }
-  .ev-head h2 { margin: 0; color: var(--sts-navy); font-size: var(--text-2xl); }
-  .game { display: grid; grid-template-columns: 130px 1fr auto; gap: var(--space-3); align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 9px var(--space-5); margin-bottom: 8px; cursor: pointer; transition: border-color .14s ease, box-shadow .14s ease, transform .14s ease; }
-  .game:hover { border-color: var(--sts-navy); box-shadow: 0 4px 14px rgba(0,45,114,.12); transform: translateY(-1px); }
-  .game .when { font-family: var(--font-display); font-size: var(--text-sm); color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
-  .game .matchup { font-family: var(--font-display); font-weight: 600; color: var(--sts-ink); font-size: var(--text-xl); }
-  .game .matchup .vs { color: var(--muted); font-weight: 400; margin: 0 8px; font-size: var(--text-sm); }
-  .game .winner { color: var(--sts-navy); }
-  .game .loser { color: var(--muted); }
-  .game .result { font-family: var(--font-display); font-weight: 700; font-size: var(--text-2xl); color: var(--sts-navy); white-space: nowrap; }
-  .game .result.sched { color: var(--muted); font-weight: 500; font-size: var(--text-base); }
-  @media (max-width:560px){ .game { grid-template-columns: 90px 1fr; } .game .result { grid-column: 2; text-align: left; } }
+  .sch-toolbar { display:flex; align-items:center; gap:var(--space-4); flex-wrap:wrap; margin-bottom:var(--space-4); }
+  .seg { display:inline-flex; background:#eef1f6; border-radius:999px; padding:4px; }
+  .seg button { border:0; background:none; font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-sm); font-weight:600; color:var(--muted); padding:7px 18px; border-radius:999px; cursor:pointer; }
+  .seg button.active { background:#fff; color:var(--sts-navy); box-shadow:0 1px 4px rgba(0,0,0,.12); }
+  /* week tabs */
+  .wk-bar { display:flex; align-items:center; gap:4px; border-bottom:2px solid var(--line); margin-bottom:var(--space-4); }
+  .wk-scroll { display:flex; gap:2px; overflow-x:auto; flex:1; scrollbar-width:none; }
+  .wk-scroll::-webkit-scrollbar{ display:none; }
+  .wk { border:0; background:none; font-family:var(--font-display); font-weight:600; font-size:var(--text-base); color:var(--muted); padding:10px 18px; cursor:pointer; white-space:nowrap; border-bottom:3px solid transparent; margin-bottom:-2px; }
+  .wk.active { color:var(--sts-navy); border-bottom-color:var(--sts-navy); }
+  .wk-arrow { border:0; background:none; color:var(--muted); font-size:20px; cursor:pointer; padding:4px 8px; flex:none; }
+  .wk-arrow:hover { color:var(--sts-navy); }
+  /* day row */
+  .day-row { display:flex; align-items:center; gap:var(--space-4); flex-wrap:wrap; margin-bottom:var(--space-4); }
+  .day-title { font-family:var(--font-display); font-weight:700; color:var(--sts-navy); font-size:var(--text-2xl); margin:0; }
+  .day-title .cnt { color:var(--muted); font-size:var(--text-sm); font-weight:500; margin-left:8px; }
+  .day-chips { display:flex; gap:8px; flex-wrap:wrap; }
+  .day-chip { border:1.5px solid var(--line); background:#fff; border-radius:999px; font-family:var(--font-display); font-weight:600; font-size:var(--text-sm); color:var(--sts-navy); padding:8px 16px; cursor:pointer; }
+  .day-chip.active { background:var(--sts-navy); color:#fff; border-color:var(--sts-navy); }
+  .day-spacer { margin-left:auto; }
+  /* card grid */
+  .sch-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:var(--space-4); }
+  .sch-card { background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; cursor:pointer; transition:transform .12s, box-shadow .12s; display:flex; flex-direction:column; }
+  .sch-card:hover { transform:translateY(-3px); box-shadow:0 12px 26px rgba(0,45,114,.14); }
+  .sch-chead { padding:11px 16px 9px; font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-xs); color:var(--muted); border-bottom:1px solid var(--line); }
+  .sch-cbody { padding:6px 16px; }
+  .sch-team { display:flex; align-items:center; gap:11px; padding:9px 0; }
+  .sch-team + .sch-team { border-top:1px solid #f1f3f7; }
+  .sch-team .sts-logo { width:30px; height:30px; font-size:11px; }
+  .sch-team .tn { flex:1; font-family:var(--font-display); font-weight:600; font-size:var(--text-lg); color:var(--sts-ink); }
+  .sch-team.win .tn { color:var(--sts-navy); }
+  .sch-team.lose .tn { color:var(--muted); }
+  .sch-team .sc { font-family:var(--font-display); font-weight:700; font-size:var(--text-xl); color:var(--muted); }
+  .sch-team.win .sc { color:var(--sts-navy); }
+  .sch-cfoot { margin-top:auto; padding:10px 16px; border-top:1px solid var(--line); font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-xs); color:var(--muted); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .sch-cfoot .cue { color:var(--sts-navy); font-weight:700; }
+  /* list view rows */
+  .game { display:grid; grid-template-columns:120px 1fr auto; gap:var(--space-3); align-items:center; background:#fff; border:1px solid var(--line); border-radius:10px; padding:9px var(--space-5); margin-bottom:8px; cursor:pointer; transition:border-color .14s, box-shadow .14s, transform .14s; }
+  .game:hover { border-color:var(--sts-navy); box-shadow:0 4px 14px rgba(0,45,114,.12); transform:translateY(-1px); }
+  .game .when { font-family:var(--font-display); font-size:var(--text-sm); color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+  .game .matchup { font-family:var(--font-display); font-weight:600; color:var(--sts-ink); font-size:var(--text-xl); }
+  .game .matchup .vs { color:var(--muted); font-weight:400; margin:0 8px; font-size:var(--text-sm); }
+  .game .winner { color:var(--sts-navy); } .game .loser { color:var(--muted); }
+  .game .result { font-family:var(--font-display); font-weight:700; font-size:var(--text-2xl); color:var(--sts-navy); white-space:nowrap; }
+  .game .result.sched { color:var(--muted); font-weight:500; font-size:var(--text-base); }
+  .sch-fieldlink { color:var(--sts-red); text-decoration:none; } .sch-fieldlink:hover { text-decoration:underline; }
+  @media (max-width:560px){ .game { grid-template-columns:84px 1fr; } .game .result { grid-column:2; text-align:left; } .day-title { font-size:var(--text-xl); } }
 </style>
 </head>
 <body>
@@ -34,83 +68,120 @@
 <header class="page-banner"><img src="assets/headers/schedule.png" alt="2026 Schedule — Small Town Select Tournaments" style="object-position:center 52%" /><h1 class="sr-only">2026 Schedule</h1></header>
 
 <main class="container section">
-  <div class="toolbar">
+  <div class="sch-toolbar">
+    <div class="seg" id="viewSeg"><button data-view="grid" class="active">▦ Grid</button><button data-view="list">☰ List</button></div>
     <div class="pill-tabs" id="sportPills">
       <button class="pill active" data-sport="">All</button>
       <button class="pill" data-sport="baseball">Baseball</button>
       <button class="pill" data-sport="softball">Softball</button>
     </div>
-    <select class="input" id="eventSel" style="max-width:280px"><option value="">All events</option></select>
+    <select class="input day-spacer" id="eventSel" style="max-width:260px"><option value="">All tournaments</option></select>
   </div>
+  <div id="schedHead"></div>
   <div id="scheduleOut"><div class="empty">Loading schedule…</div></div>
 </main>
 
 <div id="sts-footer"></div>
 
 <script src="js/sts-bracket.js"></script>
+<script src="js/sts-logos.js"></script>
 <script src="js/sts-gamemodal.js"></script>
 <script src="js/sts-chrome.js"></script>
 <script type="module">
   import * as STS from './js/sts-data.js';
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   var DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  function fmtDate(s){ if(!s) return 'Date TBD'; var d=new Date(s+'T12:00:00'); if(isNaN(d)) return s; return DOW[d.getDay()]+', '+MON[d.getMonth()]+' '+d.getDate(); }
+  function D(ds){ return new Date(ds+'T12:00:00'); }
+  function dowFull(ds){ var d=D(ds); return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()]; }
+  function fmtMD(ds){ var d=D(ds); return MON[d.getMonth()]+' '+d.getDate(); }
   function fmtTime(t){ if(!t) return ''; var p=String(t).split(':'); var h=+p[0],m=p[1]||'00'; if(isNaN(h)) return t; var ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+m+' '+ap; }
+  function weekStart(ds){ var d=D(ds); d.setDate(d.getDate()-d.getDay()); return d.toISOString().slice(0,10); }
+  function logo(name){ return window.STSlogos?STSlogos.html(name,30):''; }
 
-  var GAMES=[], FORMS=[], filt={sport:'',event:''}, bracketTables={};
+  var GAMES=[], FORMS=[], filt={sport:'',event:''}, bracketTables={}, view='grid', curWeek='', curDay='';
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
+  function cityFor(fid){ var l=(FORMS.find(function(x){return x.id===fid;})||{}).location||''; return l?l.split(',')[0].trim():''; }
   function sideName(g, raw){
     if (g.g==null || !window.STSbracket) return raw||'TBD';
     var bt = bracketTables[g.form_id] || (bracketTables[g.form_id]={games:GAMES.filter(function(x){return x.form_id===g.form_id && x.g!=null;})});
     return STSbracket.sideDisplay(bt, raw).name;
   }
-
   function schedPublic(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return !f || f.schedule_published !== false; }
+  function filtered(){ return GAMES.filter(function(g){ if(!schedPublic(g.form_id)) return false; if(!g.date) return false; if(filt.sport&&g.sport!==filt.sport) return false; if(filt.event&&g.form_id!==filt.event) return false; return true; }); }
+
+  function weeks(){
+    var byW={}; filtered().forEach(function(g){ var w=weekStart(g.date); (byW[w]=byW[w]||[]).push(g.date); });
+    return Object.keys(byW).sort().map(function(w){
+      var ds=byW[w].slice().sort(), min=ds[0], max=ds[ds.length-1];
+      var label = min===max ? fmtMD(min) : (D(min).getMonth()===D(max).getMonth() ? MON[D(min).getMonth()]+' '+D(min).getDate()+'–'+D(max).getDate() : fmtMD(min)+'–'+fmtMD(max));
+      return { w:w, label:label, days:Array.from(new Set(ds)).sort() };
+    });
+  }
+  function daysInWeek(w){ var s={}; filtered().forEach(function(g){ if(weekStart(g.date)===w) s[g.date]=1; }); return Object.keys(s).sort(); }
+
+  function gameCard(g){
+    var played=g.done && g.away_score!=null && g.home_score!=null, tie=played&&g.away_score===g.home_score;
+    var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score;
+    var A=sideName(g,g.away), H=sideName(g,g.home), city=cityFor(g.form_id);
+    var head=[DOW[D(g.date).getDay()].toUpperCase()+' '+MON[D(g.date).getMonth()].toUpperCase()+' '+D(g.date).getDate(), fmtTime(g.time), (g.field?(city?city+' · '+g.field:g.field):'')].filter(Boolean).join(' · ');
+    function row(nm,sc,win,lose){ return '<div class="sch-team'+(win?' win':'')+(lose?' lose':'')+'">'+logo(nm)+'<span class="tn">'+esc(nm)+'</span>'+(played?'<span class="sc">'+sc+'</span>':'')+'</div>'; }
+    var foot='<span>'+esc(titleFor(g.form_id))+(g.division?' · '+esc(g.division):'')+'</span><span class="cue">'+(played?'Recap':'Preview')+' ›</span>';
+    return '<div class="sch-card" data-gid="'+esc(g.id)+'" role="button" tabindex="0">'+
+      '<div class="sch-chead">'+esc(head)+'</div>'+
+      '<div class="sch-cbody">'+row(A,g.away_score,aWin,played&&!tie&&!aWin)+row(H,g.home_score,hWin,played&&!tie&&!hWin)+'</div>'+
+      '<div class="sch-cfoot">'+foot+'</div></div>';
+  }
+  function gameRow(g){
+    var played=g.done && g.away_score!=null && g.home_score!=null, tie=played&&g.away_score===g.home_score;
+    var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score, city=cityFor(g.form_id);
+    var fLabel=g.field?(city?city+' · '+g.field:g.field):'';
+    var fieldHTML=g.field?' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent([g.field,city].filter(Boolean).join(', '))+'" onclick="event.stopPropagation()">📍 '+esc(fLabel)+'</a>':'';
+    var result=played?'<div class="result">'+g.away_score+'–'+g.home_score+'</div>':'<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+fieldHTML+'</div>';
+    return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtTime(g.time)))+'</div>'+
+      '<div class="matchup"><span class="'+(aWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.away))+'</span><span class="vs">vs</span><span class="'+(hWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.home))+'</span>'+(g.division?' <span class="muted" style="font-size:var(--text-xs)">· '+esc(g.division)+'</span>':'')+'</div>'+result+'</div>';
+  }
+
   function render(){
-    var out=document.getElementById('scheduleOut');
-    var rows=GAMES.filter(function(g){ if(!schedPublic(g.form_id)) return false; if(filt.sport&&g.sport!==filt.sport) return false; if(filt.event&&g.form_id!==filt.event) return false; return true; });
-    if(!rows.length){ out.innerHTML='<div class="empty">No games posted yet — check back soon.</div>'; return; }
-    var byEvent={}; rows.forEach(function(g){ (byEvent[g.form_id]=byEvent[g.form_id]||[]).push(g); });
-    out.innerHTML = Object.keys(byEvent).map(function(fid){
-      var gs=byEvent[fid], byDay={};
-      gs.forEach(function(g){ (byDay[g.date||'']=byDay[g.date||'']||[]).push(g); });
-      var days = Object.keys(byDay).sort().map(function(d){
-        var games = byDay[d].map(function(g){
-          var played = g.done && g.away_score!=null && g.home_score!=null;
-          var tie = played && g.away_score===g.home_score;
-          var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score;
-          var gCity = (function(){ var l=(FORMS.find(function(x){return x.id===g.form_id;})||{}).location||''; return l?l.split(',')[0].trim():''; })();
-          var fLabel = g.field ? (gCity?gCity+' · '+g.field:g.field) : '';
-          var fieldHTML = g.field ? ' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent([g.field,gCity].filter(Boolean).join(', '))+'" onclick="event.stopPropagation()">📍 '+esc(fLabel)+'</a>' : '';
-          var result = played ? '<div class="result">'+g.away_score+'–'+g.home_score+'</div>' : '<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+fieldHTML+'</div>';
-          return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtTime(g.time)))+'</div>'+
-            '<div class="matchup"><span class="'+(aWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.away))+'</span><span class="vs">vs</span><span class="'+(hWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.home))+'</span>'+(g.division?' <span class="muted" style="font-size:var(--text-xs)">· '+esc(g.division)+'</span>':'')+'</div>'+
-            result+'</div>';
-        }).join('');
-        return '<div class="day-head">'+esc(fmtDate(d))+'</div>'+games;
-      }).join('');
-      var demo=/[?&]demo=1/.test(location.search)?'&demo=1':'';
-      return '<div class="ev-head"><h2><a href="event.html?id='+encodeURIComponent(fid)+demo+'" style="color:inherit;text-decoration:none">'+esc(titleFor(fid))+' ↗</a></h2></div>'+days;
-    }).join('');
+    var head=document.getElementById('schedHead'), out=document.getElementById('scheduleOut');
+    var wk=weeks();
+    if(!wk.length){ head.innerHTML=''; out.innerHTML='<div class="empty">No games posted yet — check back soon.</div>'; return; }
+    if(!wk.some(function(x){return x.w===curWeek;})) curWeek=wk[0].w;
+    var days=daysInWeek(curWeek);
+    if(days.indexOf(curDay)<0) curDay=days[0];
+    // week tabs
+    var wkTabs='<div class="wk-bar"><button class="wk-arrow" id="wkPrev" aria-label="Previous">‹</button><div class="wk-scroll" id="wkScroll">'+
+      wk.map(function(x){ return '<button class="wk'+(x.w===curWeek?' active':'')+'" data-w="'+x.w+'">'+esc(x.label)+'</button>'; }).join('')+
+      '</div><button class="wk-arrow" id="wkNext" aria-label="Next">›</button></div>';
+    var nGames=filtered().filter(function(g){return g.date===curDay;}).length;
+    var dayRow='<div class="day-row"><h2 class="day-title">'+esc(dowFull(curDay)+', '+MON[D(curDay).getMonth()]+' '+D(curDay).getDate())+'<span class="cnt">'+nGames+' game'+(nGames===1?'':'s')+'</span></h2>'+
+      '<div class="day-chips">'+days.map(function(d){ return '<button class="day-chip'+(d===curDay?' active':'')+'" data-d="'+d+'">'+esc(fmtMD(d))+'</button>'; }).join('')+'</div></div>';
+    head.innerHTML=wkTabs+dayRow;
+    // games for the selected day
+    var gs=filtered().filter(function(g){return g.date===curDay;}).sort(function(a,b){ return String(a.time||'').localeCompare(String(b.time||''))||String(titleFor(a.form_id)).localeCompare(String(titleFor(b.form_id))); });
+    out.innerHTML = view==='grid' ? '<div class="sch-grid">'+gs.map(gameCard).join('')+'</div>' : gs.map(gameRow).join('');
+    if(window.STSfx) STSfx.arm(document);
   }
-  document.getElementById('sportPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; filt.sport=b.dataset.sport; document.querySelectorAll('#sportPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); render(); });
+
+  document.getElementById('viewSeg').addEventListener('click', function(e){ var b=e.target.closest('button[data-view]'); if(!b)return; view=b.dataset.view; document.querySelectorAll('#viewSeg button').forEach(function(p){p.classList.toggle('active',p===b);}); render(); });
+  document.getElementById('sportPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b)return; filt.sport=b.dataset.sport; document.querySelectorAll('#sportPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); render(); });
   document.getElementById('eventSel').addEventListener('change', function(e){ filt.event=e.target.value; render(); });
-  // click a game row → preview (upcoming) / recap (final) modal
-  function openGame(gid){
-    var g = GAMES.find(function(x){ return String(x.id)===String(gid); }); if(!g || !window.STSgameModal) return;
-    var evGames = GAMES.filter(function(x){ return x.form_id===g.form_id; });
-    STSgameModal.open(titleFor(g.form_id), evGames, g, (FORMS.find(function(x){return x.id===g.form_id;})||{}).location||'');
-  }
-  document.getElementById('scheduleOut').addEventListener('click', function(e){ var row=e.target.closest('.game[data-gid]'); if(row) openGame(row.getAttribute('data-gid')); });
-  document.getElementById('scheduleOut').addEventListener('keydown', function(e){ if(e.key!=='Enter'&&e.key!==' ') return; var row=e.target.closest('.game[data-gid]'); if(row){ e.preventDefault(); openGame(row.getAttribute('data-gid')); } });
+  document.getElementById('schedHead').addEventListener('click', function(e){
+    var w=e.target.closest('.wk[data-w]'); if(w){ curWeek=w.dataset.w; curDay=''; render(); return; }
+    var d=e.target.closest('.day-chip[data-d]'); if(d){ curDay=d.dataset.d; render(); return; }
+    if(e.target.closest('#wkPrev')||e.target.closest('#wkNext')){ var wk=weeks(), i=wk.findIndex(function(x){return x.w===curWeek;}); i+=e.target.closest('#wkPrev')?-1:1; if(i>=0&&i<wk.length){ curWeek=wk[i].w; curDay=''; render(); } }
+  });
+  function openGame(gid){ var g=GAMES.find(function(x){return String(x.id)===String(gid);}); if(!g||!window.STSgameModal) return; var ev=GAMES.filter(function(x){return x.form_id===g.form_id;}); STSgameModal.open(titleFor(g.form_id), ev, g, (FORMS.find(function(x){return x.id===g.form_id;})||{}).location||''); }
+  document.getElementById('scheduleOut').addEventListener('click', function(e){ var c=e.target.closest('[data-gid]'); if(c) openGame(c.getAttribute('data-gid')); });
+  document.getElementById('scheduleOut').addEventListener('keydown', function(e){ if(e.key!=='Enter'&&e.key!==' ') return; var c=e.target.closest('[data-gid]'); if(c){ e.preventDefault(); openGame(c.getAttribute('data-gid')); } });
 
   (async function(){
     try {
-      FORMS = await STS.loadForms();
-      GAMES = await STS.loadGames();
+      FORMS = await STS.loadForms(); GAMES = await STS.loadGames();
       GAMES.forEach(function(g){ if(!g.sport) g.sport=(FORMS.find(function(f){return f.id===g.form_id;})||{}).sport||''; });
       var tf = FORMS.filter(function(f){ return f.type==='tournament' && f.schedule_published !== false; });
-      document.getElementById('eventSel').innerHTML='<option value="">All events</option>'+tf.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
+      document.getElementById('eventSel').innerHTML='<option value="">All tournaments</option>'+tf.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
+      // default to the week nearest today
+      var wk=weeks(); if(wk.length){ var today=new Date().toISOString().slice(0,10); var hit=wk.find(function(x){return x.days.indexOf(today)>=0;})||wk.find(function(x){return x.w>=weekStart(today);})||wk[0]; curWeek=hit.w; var ds=daysInWeek(curWeek); curDay=ds.indexOf(today)>=0?today:ds[0]; }
       render();
     } catch(e){ document.getElementById('scheduleOut').innerHTML='<div class="empty">Could not load the schedule.</div>'; }
   })();
