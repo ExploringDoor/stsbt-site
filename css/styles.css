@@ -156,7 +156,7 @@ img.nav-crest { width: 62px; height: 62px; border-radius: 0; background: transpa
    Cap the height and cover-crop (trims the busy top/bottom edges, keeping the title at the
    same size). Per-page object-position (inline on each <img>) keeps that banner's title
    centered in the cropped strip. */
-.page-banner img { display: block; width: 100%; height: clamp(120px, 16vw, 225px); object-fit: cover; object-position: center 50%; }
+.page-banner img { display: block; width: 100%; height: clamp(150px, 21vw, 300px); object-fit: cover; object-position: center 40%; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
 /* ── Demo-mode banner (?demo=1) ── */
