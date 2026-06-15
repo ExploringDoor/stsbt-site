@@ -103,7 +103,7 @@
         <div class="hint">Your confirmation and team-code go here.</div>
       </div>
 
-      <div class="field">
+      <div class="field" id="availField">
         <label>Scheduling Availability <span class="muted">(optional)</span></label>
         <div class="field-row">
           <input class="input" name="avail_earliest" type="time" aria-label="Earliest start" />
@@ -195,11 +195,12 @@
     var needAge = perAge && ageAddon === 0;                // tournament w/o a division picked yet
     var entry = baseFee + ageAddon;
     var total = conv + entry;
+    var pickWord = (FORM.type === 'product') ? 'an option' : 'a division';
     document.getElementById('convAmt').textContent = STS.money(conv);
-    document.getElementById('entryAmt').textContent = needAge ? 'Pick a division ↑' : STS.money(entry);
+    document.getElementById('entryAmt').textContent = needAge ? ('Pick ' + pickWord + ' ↑') : STS.money(entry);
     document.getElementById('totalAmt').textContent = needAge ? '—' : STS.money(total);
     var btn = document.getElementById('submitBtn');
-    btn.textContent = needAge ? 'Select your division above' : (total > 0 ? 'Continue to Payment' : 'Complete Registration');
+    btn.textContent = needAge ? ('Select ' + pickWord + ' above') : (total > 0 ? 'Continue to Payment' : 'Complete Registration');
     return needAge ? 0 : total;
   }
 
@@ -216,10 +217,13 @@
       '<div class="muted" style="font-size:var(--text-sm)">'+esc([FORM.event_dates, FORM.location].filter(Boolean).join(' · '))+'</div></div>'+
       (FORM.sport==='both'?'':'<span class="badge badge-navy">'+esc(FORM.sport)+'</span>')+'</div>';
 
-    // division options
+    // Scheduling availability only matters for TOURNAMENT entries (the scheduler honors it).
+    document.getElementById('availField').classList.toggle('hidden', FORM.type !== 'tournament');
+
+    // division options — products (baseballs/insurance) have no team division
     var divSel = document.querySelector('[name=division]');
     var divs = (FORM.divisions && FORM.divisions.length) ? FORM.divisions : divisionNames(FORM.sport);
-    if (!divs.length){ document.getElementById('divisionField').classList.add('hidden'); divSel.required=false; }
+    if (FORM.type === 'product' || !divs.length){ document.getElementById('divisionField').classList.add('hidden'); divSel.required=false; }
     else { divSel.innerHTML = '<option value="">Select one…</option>' + divs.map(function(d){ return '<option>'+esc(d)+'</option>'; }).join(''); }
 
     // age / price options
@@ -237,7 +241,8 @@
       document.getElementById('ageField').classList.add('hidden'); ageSel.required = false;
       ageSel.innerHTML = '<option data-cents="'+((opts[0]&&opts[0].cents)||0)+'" selected>'+esc((opts[0]&&opts[0].label)||'Registration')+'</option>';
     } else {
-      document.getElementById('ageLabel').innerHTML = 'Team Age (as of '+esc(STS.ageCutoffLabel())+') <span class="req">*</span>';
+      // multi-option: tournament = age division (priced); product = quantity/option (priced)
+      document.getElementById('ageLabel').innerHTML = (FORM.type==='product' ? 'Quantity / Option' : 'Team Age (as of '+esc(STS.ageCutoffLabel())+')') + ' <span class="req">*</span>';
       ageSel.innerHTML = '<option value="">Select one…</option>' + opts.map(function(o){
         var add = o.cents ? ' (+'+STS.money(o.cents)+')' : '';
         return '<option data-cents="'+o.cents+'">'+esc(o.label)+add+'</option>';
