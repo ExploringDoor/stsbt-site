@@ -75,7 +75,7 @@
       '<div><h5>Small Town Select Tournaments</h5>' +
         '<p style="color:rgba(255,255,255,.7);max-width:46ch;">Select baseball &amp; softball tournaments across Texas — team registration, rosters, schedules, and brackets in one place.</p>' +
         '<p style="color:rgba(255,255,255,.55);font-size:var(--text-xs);margin-top:12px;">' + (DIRECTOR.name || 'Keith Philips') + ' — Director<br>' +
-        '<a href="mailto:' + CONTACT + '" style="font-size:var(--text-xs);color:rgba(255,255,255,.7)">' + CONTACT + '</a>' + (DIRECTOR.phone ? ' · ' + DIRECTOR.phone : '') + '</p></div>' +
+        '<a href="mailto:' + CONTACT + '" style="font-size:var(--text-xs);color:rgba(255,255,255,.7)">' + CONTACT + '</a>' + (DIRECTOR.phone ? ' · <a href="tel:' + DIRECTOR.phone.replace(/[^0-9]/g, '') + '" style="font-size:var(--text-xs);color:rgba(255,255,255,.7)">' + DIRECTOR.phone + '</a>' : '') + '</p></div>' +
       '<div><h5>Play</h5><ul>' +
         '<li><a href="register.html">Register a Team</a></li><li><a href="teams.html">Teams</a></li>' +
         '<li><a href="schedule.html">Schedule</a></li><li><a href="scores.html">Scores</a></li>' +

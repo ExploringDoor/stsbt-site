@@ -128,7 +128,7 @@ export function buildInsuranceMessage(r) {
     ['Town', r.town || ''],
     ['Sport / Division / Age', [r.sport, r.division, r.age_class].filter(Boolean).join(' · ')],
     ['Players', r.player_count != null ? r.player_count : ''],
-    ['Coverage period', 'Aug 1, 2025 – Jul 31, 2026'],
+    ['Coverage period', 'Aug 1, 2026 – Jul 31, 2027 (2026 Fall + 2027 Spring season)'],
     ['Purchased', fmtWhen(r.paid_at || r.created_at)],
   ].filter((x) => x[1] !== '' && x[1] != null);
 
