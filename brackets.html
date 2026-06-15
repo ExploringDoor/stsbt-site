@@ -21,6 +21,7 @@
 <main class="container section">
   <div class="toolbar" style="align-items:center">
     <select class="input" id="eventSel" style="max-width:340px"></select>
+    <a class="btn btn-navy btn-sm" id="hubLink" href="#" style="white-space:nowrap;display:none">Full tournament page ↗</a>
     <div class="bk-legend">
       <span><span class="chip w"></span> Winners bracket</span>
       <span><span class="chip l"></span> Losers bracket</span>
@@ -66,8 +67,9 @@
   }
   function render(){
     var out=document.getElementById('bracketOut'), tierBar=document.getElementById('tierBar');
-    // Pool-play tournament → send to its full tournament page (overview/teams/schedule/standings/bracket).
-    if(cur && isPool(cur)){ location.replace('event.html?id='+encodeURIComponent(cur)+demoQS()); return; }
+    // Pool-play tournament → also offer its full hub (standings show inline below). Pure elim → bracket only.
+    var hub=document.getElementById('hubLink');
+    if(hub){ if(cur && isPool(cur)){ hub.style.display=''; hub.href='event.html?id='+encodeURIComponent(cur)+demoQS(); } else hub.style.display='none'; }
     var all = GAMES.filter(function(g){ return g.g!=null && g.form_id===cur; });
     // distinct tiers/divisions in this event (Diamond/Platinum/Gold, or 8U/10U…)
     var divs=[], seen={}; all.forEach(function(g){ var d=g.division||''; if(!seen[d]){ seen[d]=1; divs.push(d); } });
