@@ -21,7 +21,7 @@
     ['champions.html', 'Champions'],
   ];
   var MORE = [
-    ['rules.html', 'Rules & Ages'],
+    ['rules.html', 'Ages & Rules'],
     ['locations.html', 'Locations'],
     ['directors.html', 'Directors'],
     ['contact.html', 'Contact'],
@@ -81,7 +81,7 @@
         '<li><a href="schedule.html">Schedule</a></li><li><a href="scores.html">Scores</a></li>' +
         '<li><a href="brackets.html">Brackets</a></li><li><a href="champions.html">Champions</a></li></ul></div>' +
       '<div><h5>Info</h5><ul>' +
-        '<li><a href="rules.html">Rules &amp; Ages</a></li><li><a href="locations.html">Locations</a></li>' +
+        '<li><a href="rules.html">Ages &amp; Rules</a></li><li><a href="locations.html">Locations</a></li>' +
         '<li><a href="directors.html">Directors</a></li><li><a href="contact.html">Contact</a></li></ul></div>' +
       '<div><h5>Connect</h5><ul>' +
         (FB ? '<li><a href="' + FB + '" target="_blank" rel="noopener">Facebook</a></li>' : '') +

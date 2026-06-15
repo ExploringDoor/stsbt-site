@@ -73,8 +73,11 @@
 
     function render(filter){
       filter = (filter||'').toLowerCase().trim();
+      // accept "Field 1, Brownwood" style queries (from game links) — match on ANY token
+      var toks = filter.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+      function hit(p, city){ if(!toks.length) return true; return toks.some(function(t){ return p.toLowerCase().indexOf(t)>=0 || city.toLowerCase().indexOf(t)>=0; }); }
       var html = VENUES.map(function(c){
-        var places = (c.places||[]).filter(function(p){ return !filter || p.toLowerCase().indexOf(filter)>=0 || c.city.toLowerCase().indexOf(filter)>=0; });
+        var places = (c.places||[]).filter(function(p){ return hit(p, c.city); });
         if (!places.length) return '';
         var chips = places.map(function(p){
           return '<button type="button" class="venue-chip" data-place="'+esc(p)+'" data-city="'+esc(c.city)+'"><span class="vn">'+esc(p)+'</span><span class="vgo">Map ›</span></button>';
@@ -111,17 +114,19 @@
         find = find.trim();
         var input = document.getElementById('locSearch');
         input.value = find; render(find);
-        var needle = find.toLowerCase();
+        var toks = find.toLowerCase().split(',').map(function(s){ return s.trim(); }).filter(Boolean);
         var match = null;
-        // exact place match first, then a contains match
+        // 1) a place that exactly equals a token, 2) a place containing a token,
+        // 3) a city matching a token → that city's first field (game links pass "Field 1, City").
         VENUES.forEach(function(c){ (c.places||[]).forEach(function(p){
-          if (match) return;
-          if (p.toLowerCase() === needle) match = { place: p, city: c.city };
+          if (!match && toks.indexOf(p.toLowerCase()) >= 0) match = { place: p, city: c.city };
         }); });
         if (!match) VENUES.forEach(function(c){ (c.places||[]).forEach(function(p){
-          if (match) return;
-          if (p.toLowerCase().indexOf(needle) >= 0 || needle.indexOf(p.toLowerCase()) >= 0) match = { place: p, city: c.city };
+          if (!match && toks.some(function(t){ return p.toLowerCase().indexOf(t) >= 0; })) match = { place: p, city: c.city };
         }); });
+        if (!match) VENUES.forEach(function(c){
+          if (!match && (c.places||[]).length && toks.some(function(t){ return c.city.toLowerCase().indexOf(t) >= 0; })) match = { place: c.places[0], city: c.city };
+        });
         if (match) openMap(match.place, match.city);
       }
     } catch (e) {}

@@ -18,7 +18,7 @@
   .seg button.active { background:#fff; color:var(--sts-navy); box-shadow:0 1px 4px rgba(0,0,0,.12); }
   /* week tabs */
   .wk-bar { display:flex; align-items:center; gap:4px; border-bottom:2px solid var(--line); margin-bottom:var(--space-4); }
-  .wk-scroll { display:flex; gap:2px; overflow-x:auto; flex:1; scrollbar-width:none; }
+  .wk-scroll { display:flex; gap:2px; overflow-x:auto; flex:0 1 auto; min-width:0; scrollbar-width:none; }
   .wk-scroll::-webkit-scrollbar{ display:none; }
   .wk { border:0; background:none; font-family:var(--font-display); font-weight:600; font-size:var(--text-base); color:var(--muted); padding:10px 18px; cursor:pointer; white-space:nowrap; border-bottom:3px solid transparent; margin-bottom:-2px; }
   .wk.active { color:var(--sts-navy); border-bottom-color:var(--sts-navy); }
@@ -56,7 +56,7 @@
   .game .when { font-family:var(--font-display); font-size:var(--text-sm); color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
   .game .matchup { font-family:var(--font-display); font-weight:600; color:var(--sts-ink); font-size:var(--text-xl); }
   .game .matchup .vs { color:var(--muted); font-weight:400; margin:0 8px; font-size:var(--text-sm); }
-  .game .winner { color:var(--sts-navy); } .game .loser { color:var(--muted); }
+  .game .winner { color:#16794a; font-weight:700; } .game .loser { color:var(--muted); }
   .game .result { font-family:var(--font-display); font-weight:700; font-size:var(--text-2xl); color:var(--sts-navy); white-space:nowrap; }
   .game .result.sched { color:var(--muted); font-weight:500; font-size:var(--text-base); }
   .sch-fieldlink { color:var(--sts-red); text-decoration:none; } .sch-fieldlink:hover { text-decoration:underline; }
@@ -152,9 +152,10 @@
     if(!wk.some(function(x){return x.w===curWeek;})) curWeek=wk[wk.length-1].w;
     var days=daysInWeek(curWeek);
     if(days.indexOf(curDay)<0) curDay=days[days.length-1];
-    var wkTabs='<div class="wk-bar"><button class="wk-arrow" id="wkPrev" aria-label="Previous">‹</button><div class="wk-scroll" id="wkScroll">'+
+    var wi=wk.findIndex(function(x){return x.w===curWeek;});
+    var wkTabs='<div class="wk-bar">'+(wi>0?'<button class="wk-arrow" id="wkPrev" aria-label="Previous">‹</button>':'')+'<div class="wk-scroll" id="wkScroll">'+
       wk.map(function(x){ return '<button class="wk'+(x.w===curWeek?' active':'')+'" data-w="'+x.w+'">'+esc(x.label)+'</button>'; }).join('')+
-      '</div><button class="wk-arrow" id="wkNext" aria-label="Next">›</button></div>';
+      '</div>'+(wi<wk.length-1?'<button class="wk-arrow" id="wkNext" aria-label="Next">›</button>':'')+'</div>';
     var nGames=filtered().filter(function(g){return g.date===curDay;}).length;
     var dayRow='<div class="day-row"><h2 class="day-title">'+esc(dowFull(curDay)+', '+MON[D(curDay).getMonth()]+' '+D(curDay).getDate())+'<span class="cnt">'+nGames+' game'+(nGames===1?'':'s')+'</span></h2>'+
       '<div class="day-chips">'+days.map(function(d){ return '<button class="day-chip'+(d===curDay?' active':'')+'" data-d="'+d+'">'+esc(fmtMD(d))+'</button>'; }).join('')+'</div></div>';
