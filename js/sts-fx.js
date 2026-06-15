@@ -37,7 +37,8 @@
     el.classList.add('fx-in');
     function step(t) {
       var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
-      el.textContent = Math.round(e * target).toLocaleString() + suffix;
+      var n = Math.round(e * target);
+      el.textContent = (el.dataset.plain != null ? String(n) : n.toLocaleString()) + suffix;
       if (p < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
