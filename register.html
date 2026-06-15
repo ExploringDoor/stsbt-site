@@ -188,9 +188,12 @@
   }
   function recalcTotal(){
     var conv = (FORM.convenience_fee_cents||0);
-    var entry = selectedAgePrice();
-    var isMulti = (FORM.price_options||[]).length > 1;   // tournament with per-age fees
-    var needAge = isMulti && entry === 0;                 // no division picked yet
+    var opts = (FORM.price_options||[]);
+    var perAge = opts.length > 1;                          // tournament: the age sets the fee
+    var baseFee = perAge ? 0 : ((opts[0] && opts[0].cents) || 0);   // season/product flat fee
+    var ageAddon = perAge ? selectedAgePrice() : 0;        // season age is classification only (no add-on)
+    var needAge = perAge && ageAddon === 0;                // tournament w/o a division picked yet
+    var entry = baseFee + ageAddon;
     var total = conv + entry;
     document.getElementById('convAmt').textContent = STS.money(conv);
     document.getElementById('entryAmt').textContent = needAge ? 'Pick a division ↑' : STS.money(entry);
@@ -222,8 +225,15 @@
     // age / price options
     var ageSel = document.querySelector('[name=age_class]');
     var opts = FORM.price_options || [];
-    if (opts.length <= 1){
-      // single price (season/product) — hide the age selector, keep one hidden option
+    if (FORM.type === 'season'){
+      // Season registration is a flat fee, but the team still declares its AGE GROUP
+      // (classification only — it doesn't change the price).
+      document.getElementById('ageField').classList.remove('hidden'); ageSel.required = true;
+      document.getElementById('ageLabel').innerHTML = "Team Age Group (as of "+esc(STS.ageCutoffLabel())+") <span class=\"req\">*</span>";
+      var ages = (window.LEAGUE_CONFIG && LEAGUE_CONFIG.ageGroups) || ['7U','8U Coach Pitch','8U Kid Pitch','9U','10U','11U','12U','13U','14U'];
+      ageSel.innerHTML = '<option value="">Select one…</option>' + ages.map(function(a){ return '<option data-cents="0">'+esc(a)+'</option>'; }).join('');
+    } else if (opts.length <= 1){
+      // product (baseballs/insurance) — no age field
       document.getElementById('ageField').classList.add('hidden'); ageSel.required = false;
       ageSel.innerHTML = '<option data-cents="'+((opts[0]&&opts[0].cents)||0)+'" selected>'+esc((opts[0]&&opts[0].label)||'Registration')+'</option>';
     } else {
@@ -326,8 +336,11 @@
       try {
         var res = await STS.createRegistration(data);
         var payload = Object.assign({ entry_no: res.entry_no, team_code: res.team_code, created_at: new Date().toISOString() }, data);
-        // The COACH gets their team code right away (best-effort; no-op if email off).
-        try { fetch('/api/notify-registration', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ event:'confirm', registration: payload }) }); } catch(_){}
+        // The COACH gets their team code right away — only for team registrations, NOT
+        // product orders (baseballs/insurance reserve no team and get no team code).
+        if (FORM.type !== 'product') {
+          try { fetch('/api/notify-registration', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ event:'confirm', registration: payload }) }); } catch(_){}
+        }
         if (amount > 0) {
           // PHASE 2: redirect to Clover hosted checkout. KEITH is notified by the
           // webhook only once payment actually clears — not on this unpaid submit.
@@ -352,7 +365,10 @@
     });
   }
   function thanksUrl(res, data, status){
-    var p = new URLSearchParams({ reg: res.id, entry: res.entry_no, code: res.team_code, team: data.team_name, status: status });
+    var isProduct = FORM.type === 'product';
+    var p = new URLSearchParams({ reg: res.id, entry: res.entry_no, status: status, kind: isProduct ? 'product' : 'team' });
+    if (isProduct) { p.set('item', FORM.title); }
+    else { p.set('code', res.team_code); p.set('team', data.team_name); }
     return 'thanks.html?' + p.toString();
   }
 

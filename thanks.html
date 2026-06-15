@@ -53,7 +53,23 @@
 <script type="module">
   import * as STS from './js/sts-data.js';
   function qs(k){ return new URLSearchParams(location.search).get(k); }
-  var regId = qs('reg'), code = qs('code'), team = qs('team'), status = qs('status'), entry = qs('entry');
+  var regId = qs('reg'), code = qs('code'), team = qs('team'), status = qs('status'), entry = qs('entry'), kind = qs('kind'), item = qs('item');
+
+  // Product order (baseballs, insurance, etc.) — NOT a team: no team code, no roster.
+  var isProduct = kind === 'product';
+  if (isProduct) {
+    document.getElementById('thanksTitle').textContent = (status === 'pending') ? 'Almost Done!' : 'Order Received!';
+    document.getElementById('thanksMsg').textContent = (item || 'Your order') + (entry ? ' · Order #' + entry : '') + ' — thanks for your order!';
+    document.querySelector('.code-box').style.display = 'none';
+    document.getElementById('rosterNote').classList.add('hidden');
+    document.querySelector('.btn-outline').textContent = 'Back to Register';
+    var fn = document.querySelector('.form-note'); if (fn) fn.textContent = 'A receipt is on its way to the email you provided.';
+    if (status === 'pending') {
+      document.getElementById('pendingNote').textContent = 'Payment is still pending — your order is confirmed the moment payment clears.';
+      document.getElementById('pendingNote').classList.remove('hidden');
+      document.getElementById('orb').textContent = '⏳'; document.getElementById('orb').style.cssText += 'background:#FEF3C7;color:#B45309';
+    } else if (window.STSfx) { setTimeout(function(){ STSfx.confetti(); }, 400); }
+  } else {
 
   document.getElementById('teamCode').textContent = code || '—';
   if (team) document.getElementById('thanksMsg').textContent = team + (entry ? ' · Entry #' + entry : '') + ' — you\'re in.';
@@ -89,6 +105,8 @@
       if (i < tries - 1) await new Promise(function(r){ setTimeout(r, 3000); });
     }
   })();
+
+  }
 </script>
 
 </body>
