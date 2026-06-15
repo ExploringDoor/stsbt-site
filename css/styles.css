@@ -507,6 +507,9 @@ a.gm-tlink:hover, a.gm-tlink:focus-visible { border-bottom-color:currentColor; }
 .gm-sec { margin-top:16px; border-top:1px solid var(--line); padding-top:14px; }
 .gm-sec h4 { font-family:var(--font-display); text-transform:uppercase; letter-spacing:.06em; font-size:var(--text-xs); color:var(--sts-navy); margin:0 0 6px; }
 .gm-recap { margin:0; color:var(--fg); line-height:1.6; }
+.gm-foot { margin-top:18px; }
+.gm-cta { display:block; text-align:center; background:var(--sts-navy); color:#fff; text-decoration:none; font-family:var(--font-display); font-weight:600; letter-spacing:.03em; padding:11px; border-radius:8px; }
+.gm-cta:hover { background:#001a3d; }
 
 /* ── Scoreboard game-card (MLB-style) ── */
 .gm-badge2 { border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; color:#fff; flex-shrink:0; box-shadow:inset 0 0 0 2px rgba(255,255,255,.22); letter-spacing:.01em; }

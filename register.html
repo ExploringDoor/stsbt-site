@@ -118,9 +118,13 @@
         <label for="agree" style="text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500">I have read and agree to the waiver above, and confirm my team carries (or will carry) insurance through Small Town Select. <span class="req">*</span></label>
       </div>
 
-      <div class="total-line">
-        <span class="tl-label">Total Due</span>
-        <span class="tl-amt" id="totalAmt">$0.00</span>
+      <div style="border:1px solid var(--line);border-radius:10px;padding:6px 14px;margin-top:var(--space-3)">
+        <div class="bd-row" style="display:flex;justify-content:space-between;padding:8px 0;font-size:var(--text-sm);border-bottom:1px solid var(--line)"><span id="entryLabel" class="muted">Entry fee</span><span id="entryAmt">—</span></div>
+        <div class="bd-row" style="display:flex;justify-content:space-between;padding:8px 0;font-size:var(--text-sm);border-bottom:1px solid var(--line)"><span class="muted">Convenience fee</span><span id="convAmt">$0.00</span></div>
+        <div class="total-line" style="border:0;padding-top:10px">
+          <span class="tl-label">Total Due</span>
+          <span class="tl-amt" id="totalAmt">$0.00</span>
+        </div>
       </div>
 
       <button class="btn btn-red" type="submit" id="submitBtn" style="width:100%;margin-top:var(--space-4)">Continue</button>
@@ -184,11 +188,16 @@
   }
   function recalcTotal(){
     var conv = (FORM.convenience_fee_cents||0);
-    var total = conv + selectedAgePrice();
-    document.getElementById('totalAmt').textContent = STS.money(total);
+    var entry = selectedAgePrice();
+    var isMulti = (FORM.price_options||[]).length > 1;   // tournament with per-age fees
+    var needAge = isMulti && entry === 0;                 // no division picked yet
+    var total = conv + entry;
+    document.getElementById('convAmt').textContent = STS.money(conv);
+    document.getElementById('entryAmt').textContent = needAge ? 'Pick a division ↑' : STS.money(entry);
+    document.getElementById('totalAmt').textContent = needAge ? '—' : STS.money(total);
     var btn = document.getElementById('submitBtn');
-    btn.textContent = total > 0 ? 'Continue to Payment' : 'Complete Registration';
-    return total;
+    btn.textContent = needAge ? 'Select your division above' : (total > 0 ? 'Continue to Payment' : 'Complete Registration');
+    return needAge ? 0 : total;
   }
 
   async function renderForm(){
@@ -230,6 +239,7 @@
     var shipWrap = document.getElementById('shipField'), shipIn = document.getElementById('f_ship');
     shipWrap.classList.toggle('hidden', !isProduct); shipIn.required = isProduct;
 
+    document.getElementById('entryLabel').textContent = FORM.type==='tournament' ? 'Tournament entry fee' : (FORM.type==='season' ? 'Registration fee' : 'Item price');
     document.getElementById('waiverBox').innerHTML = FORM.waiver_text ? esc(FORM.waiver_text) : 'By registering you agree to Small Town Select tournament rules and policies.';
     ageSel.addEventListener('change', recalcTotal);
     recalcTotal();

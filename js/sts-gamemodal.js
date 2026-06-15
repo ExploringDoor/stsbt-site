@@ -206,9 +206,19 @@
       crumb=esc(name)+(div?' &nbsp;·&nbsp; '+esc(div):'');
       body=played?poolRecapHTML(game):poolPreviewHTML(game);
     }
+    // Footer CTA: pool-play tournaments → full tournament page; pure elim → the bracket.
+    var fid = game.form_id || (games && games[0] && games[0].form_id) || '';
+    var hasPool = (games||[]).some(function(x){ return x.g==null; });
+    var hasBracket = (games||[]).some(function(x){ return x.g!=null; });
+    var demo = /[?&]demo=1/.test(location.search) ? 1 : 0;
+    var here = location.pathname.split('/').pop();
+    var foot='';
+    if(fid && hasPool && here!=='event.html') foot='<a class="gm-cta" href="event.html?id='+encodeURIComponent(fid)+(demo?'&demo=1':'')+'">View full tournament page →</a>';
+    else if(fid && hasBracket && !hasPool && here!=='brackets.html') foot='<a class="gm-cta" href="brackets.html'+(demo?'?demo=1':'')+'#'+encodeURIComponent(fid)+'">View bracket →</a>';
+
     overlay.querySelector('.gm-crumb').innerHTML=crumb;
     var badge=overlay.querySelector('.gm-badge'); badge.textContent=played?'Final':'Preview'; badge.className='gm-badge '+(played?'final':'preview');
-    overlay.querySelector('.gm-body').innerHTML=body;
+    overlay.querySelector('.gm-body').innerHTML=body+(foot?'<div class="gm-foot">'+foot+'</div>':'');
     overlay.classList.add('open'); document.body.style.overflow='hidden';
     overlay.querySelector('.gm-close').focus();
   }

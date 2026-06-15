@@ -21,7 +21,6 @@
 <main class="container section">
   <div class="toolbar" style="align-items:center">
     <select class="input" id="eventSel" style="max-width:340px"></select>
-    <a class="btn btn-navy btn-sm" id="hubLink" href="#" style="white-space:nowrap">Full tournament page ↗</a>
     <div class="bk-legend">
       <span><span class="chip w"></span> Winners bracket</span>
       <span><span class="chip l"></span> Losers bracket</span>
@@ -49,6 +48,10 @@
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   var GAMES=[], FORMS=[], cur='', curDiv='', ZOOM=1, CURBG=[];
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
+  // A pool-play tournament (has round-robin games) belongs on its full hub page, not
+  // the bracket-only view. Pure single/double elim shows the bracket alone.
+  function isPool(fid){ return GAMES.some(function(g){ return g.form_id===fid && g.g==null; }); }
+  function demoQS(){ return /[?&]demo=1/.test(location.search) ? '&demo=1' : ''; }
 
   function applyZoom(){ var z=document.querySelector('#bracketOut .bk-zoomable'); if(z) z.style.zoom=ZOOM; document.getElementById('zoomLabel').textContent=Math.round(ZOOM*100)+'%'; }
   // pool standings for the selected event/division (the games that seed this bracket)
@@ -63,7 +66,8 @@
   }
   function render(){
     var out=document.getElementById('bracketOut'), tierBar=document.getElementById('tierBar');
-    var hub=document.getElementById('hubLink'); if(hub && cur){ var demo=/[?&]demo=1/.test(location.search)?'&demo=1':''; hub.href='event.html?id='+encodeURIComponent(cur)+demo; }
+    // Pool-play tournament → send to its full tournament page (overview/teams/schedule/standings/bracket).
+    if(cur && isPool(cur)){ location.replace('event.html?id='+encodeURIComponent(cur)+demoQS()); return; }
     var all = GAMES.filter(function(g){ return g.g!=null && g.form_id===cur; });
     // distinct tiers/divisions in this event (Diamond/Platinum/Gold, or 8U/10U…)
     var divs=[], seen={}; all.forEach(function(g){ var d=g.division||''; if(!seen[d]){ seen[d]=1; divs.push(d); } });
@@ -108,7 +112,9 @@
       if(!opts.length){ document.getElementById('bracketOut').innerHTML='<div class="bk-empty"><h2 style="color:var(--sts-navy);margin:0 0 8px">No brackets yet</h2><p class="muted" style="text-transform:none;letter-spacing:0">Brackets post here once tournament play begins. See <a href="bracket-preview.html">example brackets</a> for every team count.</p></div>'; document.getElementById('eventSel').style.display='none'; return; }
       document.getElementById('eventSel').innerHTML = opts.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
       var deep = location.hash.replace('#','');
-      cur = opts.find(function(f){return f.id===deep;}) ? deep : opts[0].id;
+      // default to the first ELIM tournament (bracket-only); pool ones redirect to their hub on select
+      var elimFirst = opts.find(function(f){ return !isPool(f.id); });
+      cur = opts.find(function(f){return f.id===deep;}) ? deep : ((elimFirst||opts[0]).id);
       document.getElementById('eventSel').value = cur;
       render();
     } catch(e){ document.getElementById('bracketOut').innerHTML='<div class="bk-empty">Could not load brackets.</div>'; }

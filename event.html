@@ -46,7 +46,7 @@
 <div id="sts-nav"></div>
 
 <header class="ev-hero"><div class="container narrow">
-  <a href="brackets.html" class="muted" style="color:rgba(255,255,255,.7);font-size:var(--text-sm)">← All tournaments</a>
+  <select id="evSwitch" aria-label="Choose a tournament" style="max-width:360px;margin-bottom:10px;font-family:var(--font-display);font-weight:600"></select>
   <h1 id="evTitle">Loading…</h1>
   <div class="ev-meta" id="evMeta"></div>
   <div id="evFmt"></div>
@@ -189,7 +189,16 @@
   }
   function evAllDivs(){ var s=[],seen={}; GAMES.filter(function(g){return g.form_id===fid;}).forEach(function(g){ var d=g.division||''; if(!seen[d]){seen[d]=1;s.push(d);} }); return s; }
 
+  function buildSwitcher(){
+    var sw=document.getElementById('evSwitch'); if(!sw) return;
+    var demo=/[?&]demo=1/.test(location.search)?'&demo=1':'';
+    var tlist=FORMS.filter(function(f){ return f.type==='tournament' && f.schedule_published!==false; });
+    if(!tlist.length){ sw.style.display='none'; return; }
+    sw.innerHTML=tlist.map(function(f){ return '<option value="'+esc(f.id)+'"'+(f.id===fid?' selected':'')+'>'+esc(f.title)+'</option>'; }).join('');
+    sw.onchange=function(){ location.href='event.html?id='+encodeURIComponent(sw.value)+demo; };
+  }
   function boot(){
+    buildSwitcher();
     FORM = FORMS.find(function(f){ return f.id===fid; });
     if(!FORM){ document.getElementById('evTitle').textContent='Tournament not found'; document.getElementById('evContent').innerHTML='<div class="empty">We couldn’t find that tournament. <a href="brackets.html">See all tournaments</a>.</div>'; document.getElementById('evTabs').innerHTML=''; return; }
     document.title = FORM.title + ' · Small Town Select';
