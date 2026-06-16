@@ -396,6 +396,8 @@ table.tbl .actions { display: flex; gap: 6px; }
 .notice-info { background: #EFF6FF; border: 1px solid #BFDBFE; color: #1E40AF; }
 .notice-warn { background: #FFFBEB; border: 1px solid #FDE68A; color: #92400E; }
 .notice-ok { background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; }
+#payPanel .tl-amt { font-family: var(--font-display); font-weight: 700; font-size: var(--text-2xl); color: var(--sts-navy); }
+.pay-note { margin-top: 12px; font-size: var(--text-xs); color: var(--muted); text-align: center; line-height: 1.5; }
 .spread { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
 .stack-3 > * + * { margin-top: var(--space-3); }
 .mt-5 { margin-top: var(--space-5); }

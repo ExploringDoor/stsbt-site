@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
 <script src="config.js"></script>
-<link rel="stylesheet" href="css/styles.css?v=4" />
+<link rel="stylesheet" href="css/styles.css?v=7" />
 <style>
   .reg-subhead { background: linear-gradient(180deg, #001a3d, #00224f); color: #fff; padding: var(--space-5) 0; }
   .reg-subhead h1 { color: #fff; margin: 0; font-size: var(--text-2xl); }
@@ -131,6 +131,29 @@
       <div class="pay-note" id="payNote">🔒 Payments processed securely through Clover / Fiserv.</div>
       <div id="formErr" class="notice notice-warn hidden mt-5"></div>
     </form>
+
+    <!-- Payment step — CardConnect Hosted iFrame Tokenizer (card entered in their secure iframe) -->
+    <div id="payPanel" class="hidden">
+      <div class="card">
+        <div class="spread" style="margin-bottom:6px"><h3 style="margin:0">Payment</h3><span class="tl-amt" id="payTotal">$0.00</span></div>
+        <p class="muted" style="font-size:var(--text-sm);margin:0 0 var(--space-4)" id="paySub"></p>
+        <div id="payDemo" class="notice notice-info hidden" style="margin-bottom:var(--space-4)">🧪 <strong>Preview mode</strong> — no real card needed. Click <em>Pay</em> to see the confirmation screen your teams will get.</div>
+        <div id="ccBlock">
+          <label class="form-note" style="display:block;margin-bottom:6px">Card details</label>
+          <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff">
+            <iframe id="ccFrame" title="Secure card entry" style="width:100%;height:64px;border:0;display:block"></iframe>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
+            <div class="field" style="flex:2;min-width:180px"><label>Name on card <span class="req">*</span></label><input class="input" id="ccName" autocomplete="cc-name"></div>
+            <div class="field" style="flex:1;min-width:110px"><label>Billing ZIP <span class="req">*</span></label><input class="input" id="ccZip" inputmode="numeric" autocomplete="postal-code" maxlength="10"></div>
+          </div>
+        </div>
+        <button class="btn btn-red" id="payBtn" style="width:100%;margin-top:6px" disabled>Enter card to continue</button>
+        <button class="btn btn-outline btn-sm" id="payBack" type="button" style="width:100%;margin-top:8px">← Back to details</button>
+        <div class="pay-note">🔒 Your card is entered on CardConnect's secure form — the number never touches this website.</div>
+        <div id="payErr" class="notice notice-warn hidden mt-4"></div>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -186,22 +209,28 @@
     var opt = sel && sel.selectedOptions[0];
     return opt ? (parseInt(opt.dataset.cents,10)||0) : 0;
   }
-  function recalcTotal(){
+  // Pure price calc — the SINGLE source of truth for both the live total display
+  // and the amount we charge. (Season fee lives in price_options[0]; tournament/
+  // multi-option fee is set by the selected option; products vary.)
+  function priceBreakdown(){
     var conv = (FORM.convenience_fee_cents||0);
     var opts = (FORM.price_options||[]);
-    var perAge = opts.length > 1;                          // tournament: the age sets the fee
+    var perAge = opts.length > 1;                          // tournament/multi-option: the choice sets the fee
     var baseFee = perAge ? 0 : ((opts[0] && opts[0].cents) || 0);   // season/product flat fee
-    var ageAddon = perAge ? selectedAgePrice() : 0;        // season age is classification only (no add-on)
-    var needAge = perAge && ageAddon === 0;                // tournament w/o a division picked yet
-    var entry = baseFee + ageAddon;
-    var total = conv + entry;
+    var addon = perAge ? selectedAgePrice() : 0;           // season age is classification only (no add-on)
+    var needPick = perAge && addon === 0;                  // multi-option w/o a selection yet
+    var entry = baseFee + addon;
+    return { conv: conv, entry: entry, total: conv + entry, needPick: needPick };
+  }
+  function recalcTotal(){
+    var b = priceBreakdown();
     var pickWord = (FORM.type === 'product') ? 'an option' : 'a division';
-    document.getElementById('convAmt').textContent = STS.money(conv);
-    document.getElementById('entryAmt').textContent = needAge ? ('Pick ' + pickWord + ' ↑') : STS.money(entry);
-    document.getElementById('totalAmt').textContent = needAge ? '—' : STS.money(total);
+    document.getElementById('convAmt').textContent = STS.money(b.conv);
+    document.getElementById('entryAmt').textContent = b.needPick ? ('Pick ' + pickWord + ' ↑') : STS.money(b.entry);
+    document.getElementById('totalAmt').textContent = b.needPick ? '—' : STS.money(b.total);
     var btn = document.getElementById('submitBtn');
-    btn.textContent = needAge ? ('Select ' + pickWord + ' above') : (total > 0 ? 'Continue to Payment' : 'Complete Registration');
-    return needAge ? 0 : total;
+    btn.textContent = b.needPick ? ('Select ' + pickWord + ' above') : (b.total > 0 ? 'Continue to Payment' : 'Complete Registration');
+    return b.needPick ? 0 : b.total;
   }
 
   async function renderForm(){
@@ -327,7 +356,7 @@
       if (!f.checkValidity() || !f.agree.checked){ err.textContent = 'Please fill in all required fields and agree to the waiver.'; err.classList.remove('hidden'); return; }
       var btn = document.getElementById('submitBtn'); btn.disabled = true; btn.textContent = 'Submitting…';
       var ageOpt = f.age_class.selectedOptions[0];
-      var amount = (FORM.convenience_fee_cents||0) + (ageOpt ? (parseInt(ageOpt.dataset.cents,10)||0) : 0);
+      var amount = priceBreakdown().total;   // same calc as the live total (server re-verifies)
       var data = {
         form_id: FORM.id, form_title: FORM.title, sport: FORM.sport,
         team_name: f.team_name.value.trim(), division: f.division.value || '',
@@ -347,14 +376,9 @@
           try { fetch('/api/notify-registration', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ event:'confirm', registration: payload }) }); } catch(_){}
         }
         if (amount > 0) {
-          // PHASE 2: redirect to Clover hosted checkout. KEITH is notified by the
-          // webhook only once payment actually clears — not on this unpaid submit.
-          try {
-            var r = await fetch('/api/create-checkout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ regId: res.id }) });
-            if (r.ok) { var j = await r.json(); if (j.href) { location.href = j.href; return; } }
-          } catch(_){}
-          // fallback (payment not yet wired): go to thanks with a pending flag
-          location.href = thanksUrl(res, data, 'pending'); return;
+          // Embedded CardConnect payment — reveal the secure card panel; charge on Pay.
+          openPayment(res, data, amount);
+          return;
         }
         // FREE ($0) entry — final right now (no payment step). Create the team page
         // and notify Keith, since this is the equivalent of "paid/complete".
@@ -376,6 +400,92 @@
     else { p.set('code', res.team_code); p.set('team', data.team_name); }
     return 'thanks.html?' + p.toString();
   }
+
+  // ── CardConnect embedded payment (Hosted iFrame Tokenizer) ──────────────
+  // The card number is typed inside CardConnect's iframe and tokenized there; only
+  // the TOKEN reaches us. We post it to /api/cardconnect-charge to authorize+capture.
+  var PAY = { regRes:null, data:null, cents:0, token:'', expiry:'', framed:false };
+  function ccSite(){ return (window.LEAGUE_CONFIG && LEAGUE_CONFIG.cardconnect && LEAGUE_CONFIG.cardconnect.site) || 'quickscores-uat'; }
+  function ccOrigin(){ return 'https://' + ccSite() + '.cardconnect.com'; }
+  function buildFrame(){
+    if (PAY.framed) return;
+    var css = encodeURIComponent('body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif}'+
+      'input,select{font-size:16px;font-family:inherit;padding:13px 12px;border:0;width:100%;box-sizing:border-box;outline:none;background:#fff;color:#0f172a}'+
+      'input::placeholder{color:#9aa3af}');
+    document.getElementById('ccFrame').src = ccOrigin() + '/itoke/ajax-tokenizer.html?' +
+      'useexpiry=true&usecvv=true&cardnumbernumericonly=true&formatinput=true&enhancedresponse=true' +
+      '&tokenizewheninactive=true&inactivityto=600' +
+      '&placeholder=Card%20number&placeholdermonth=MM&placeholderyear=YY&placeholdercvv=CVV&css=' + css;
+    PAY.framed = true;
+  }
+  window.addEventListener('message', function(ev){
+    if (ev.origin !== ccOrigin() || typeof ev.data !== 'string') return;
+    // Enhanced response = JSON ({token|message, expiry, errorCode…}); older configs
+    // post the bare token string. Accept either.
+    var d; try { d = JSON.parse(ev.data); }
+    catch(e){ d = /^\d{12,19}$/.test(ev.data.trim()) ? { token: ev.data.trim() } : null; }
+    if (!d) return;
+    var tok = d.token || d.message || '';
+    var ok = !d.validationError && (d.errorCode === undefined || d.errorCode === '0' || d.errorCode === 0) && /^\d{12,19}$/.test(String(tok));
+    if (!ok) { PAY.token = ''; }
+    else { PAY.token = String(tok); PAY.expiry = d.expiry || ''; }
+    updatePayBtn();
+  });
+  function payReady(){
+    if (!STS.isConfigured) return true;   // preview/demo — no real card required
+    return !!PAY.token && !!(document.getElementById('ccName').value||'').trim() && !!(document.getElementById('ccZip').value||'').trim();
+  }
+  function updatePayBtn(){
+    var b = document.getElementById('payBtn');
+    if (payReady()){ b.disabled = false; b.textContent = 'Pay ' + STS.money(PAY.cents); }
+    else { b.disabled = true; b.textContent = PAY.token ? 'Add name & ZIP to pay' : 'Enter card to continue'; }
+  }
+  function openPayment(res, data, cents){
+    PAY.regRes = res; PAY.data = data; PAY.cents = cents; PAY.token = ''; PAY.expiry = '';
+    document.getElementById('payTotal').textContent = STS.money(cents);
+    document.getElementById('paySub').textContent = (data.team_name || '') + (res.entry_no ? (' · Entry #' + res.entry_no) : '');
+    document.getElementById('regForm').classList.add('hidden');
+    document.getElementById('payPanel').classList.remove('hidden');
+    // In preview/demo mode there's no payment gateway — hide the card fields and
+    // show a "no real card needed" note so Keith can practice the full flow.
+    var demo = !STS.isConfigured;
+    document.getElementById('payDemo').classList.toggle('hidden', !demo);
+    document.getElementById('ccBlock').classList.toggle('hidden', demo);
+    if (!demo) buildFrame();
+    updatePayBtn();
+    try { document.getElementById('payPanel').scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_){}
+  }
+  async function doPay(){
+    if (!payReady()) return;
+    var b = document.getElementById('payBtn'), er = document.getElementById('payErr'); er.classList.add('hidden');
+    b.disabled = true; b.textContent = 'Processing…';
+    // Preview/demo: simulate an approved payment without touching the gateway.
+    if (!STS.isConfigured) {
+      location.href = thanksUrl(PAY.regRes, PAY.data, 'paid');
+      return;
+    }
+    try {
+      var r = await fetch('/api/cardconnect-charge', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ regId: PAY.regRes.id, token: PAY.token, expiry: PAY.expiry,
+          name: document.getElementById('ccName').value.trim(), postal: document.getElementById('ccZip').value.trim() }) });
+      var j = {}; try { j = await r.json(); } catch(_){}
+      if (r.ok && j.ok) { location.href = thanksUrl(PAY.regRes, PAY.data, 'paid'); return; }
+      er.textContent = j.error || (j.declined ? 'Your card was declined — please try a different card.' : 'Payment could not be completed. Please try again.');
+      er.classList.remove('hidden');
+    } catch(e){ er.textContent = 'Could not reach the payment service. Please try again.'; er.classList.remove('hidden'); }
+    b.disabled = false; updatePayBtn();
+  }
+  (function wirePay(){
+    var pb = document.getElementById('payBtn'); if (!pb) return;
+    pb.addEventListener('click', doPay);
+    document.getElementById('payBack').addEventListener('click', function(){
+      document.getElementById('payPanel').classList.add('hidden');
+      document.getElementById('regForm').classList.remove('hidden');
+      var sb = document.getElementById('submitBtn'); if (sb){ sb.disabled = false; recalcTotal(); }
+    });
+    document.getElementById('ccName').addEventListener('input', updatePayBtn);
+    document.getElementById('ccZip').addEventListener('input', updatePayBtn);
+  })();
 
   (async function(){
     if (formId){ await renderForm(); bindSubmit(); }

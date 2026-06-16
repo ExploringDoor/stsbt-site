@@ -11,6 +11,10 @@
     // Preview phase: shows a "Preview with sample data" invite (demo mode) sitewide.
     // SET TO false AT LAUNCH so real visitors never see the demo invite.
     previewMode: true,
+    // CardConnect (CardPointe) — the iFrame Tokenizer host. NOT a secret (it's in the
+    // iframe URL the customer loads). The API username/password/MID live in Vercel env.
+    // Flip `site` to the production <site> at go-live.
+    cardconnect: { site: 'quickscores-uat' },
     // ── Identity ─────────────────────────────────────────────────────────
     id: 'sts',
     name: 'Small Town Select',
