@@ -5,11 +5,19 @@
 
 import { fbConfigured, fbAdminConfigured, adminIdToken } from './_firestore.js';
 
+// CardConnect env presence — booleans only, never the values.
+function ccConfigured() {
+  return !!(process.env.CARDCONNECT_SITE && process.env.CARDCONNECT_MERCHID &&
+    process.env.CARDCONNECT_API_USER && process.env.CARDCONNECT_API_PASS);
+}
+
 export default async function handler(req, res) {
   const out = {
     firestore_configured: fbConfigured(),
     admin_env_present: fbAdminConfigured(),
     admin_sign_in: 'skipped',
+    payments_configured: ccConfigured(),
+    payments_site: process.env.CARDCONNECT_SITE || null,   // non-secret (it's in the iframe URL)
   };
   if (out.admin_env_present) {
     try {
