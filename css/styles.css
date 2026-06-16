@@ -156,7 +156,11 @@ img.nav-crest { width: 62px; height: 62px; border-radius: 0; background: transpa
    Cap the height and cover-crop (trims the busy top/bottom edges, keeping the title at the
    same size). Per-page object-position (inline on each <img>) keeps that banner's title
    centered in the cropped strip. */
-.page-banner img { display: block; width: 100%; height: clamp(160px, 23vw, 360px); object-fit: cover; object-position: center 50%; }
+.page-banner img { display: block; width: 100%; height: clamp(100px, 13vw, 215px); object-fit: cover; object-position: center 50%; }
+/* New 1600x300 (≈5.3:1) banners are designed to be shown in FULL — no crop. Natural
+   height = width ÷ 5.3, so ~270px on desktop, ~360px full-bleed. Scoped so the older
+   2.5:1–3:1 banners stay capped (they'd be 500–700px tall if shown full). */
+.page-banner-full img { height: auto; object-fit: fill; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
 /* ── Demo-mode banner (?demo=1) ── */
