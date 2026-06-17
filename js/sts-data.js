@@ -564,6 +564,14 @@ export async function loadTeams(opts) {
   if (opts.sport) all = all.filter(function (t) { return t.sport === opts.sport; });
   return all.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
 }
+export async function deleteTeam(id) {
+  if (isConfigured) {
+    try { await deleteDoc(doc(db, 'teams', id)); } catch (e) {}
+    try { await deleteDoc(doc(db, 'team_rosters', id)); } catch (e) {}   // gated DOB roster copy, if any
+    return;
+  }
+  _teams = _teams.filter(function (t) { return t.id !== id && t.slug !== id; });
+}
 export async function getTeam(id) {
   if (isConfigured) {
     var byId = await fsOne('teams', id); if (byId) return byId;

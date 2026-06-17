@@ -1348,11 +1348,14 @@
 
   // ── TEAMS ───────────────────────────────────────────────────────────
   function renderTeams(){
+    var canDel = isSuper();
     document.getElementById('teamsBody').innerHTML = TEAMS.map(function(t){
       return '<tr'+(t.status==='archived'?' style="opacity:.55"':'')+'>'+
         '<td><b>'+esc(t.name)+'</b></td><td>'+esc(t.sport||'')+'</td><td>'+esc(t.division||'')+'</td><td>'+esc(t.age_class||'')+'</td>'+
         '<td>'+esc(t.town||'')+'</td><td>'+esc(t.team_code||'')+'</td><td>'+(t.live?'🟢':'⚪')+'</td>'+
-        '<td><div class="actions"><button class="icon-btn" data-roster="'+esc(t.slug||t.id)+'">✎ Roster</button><a class="icon-btn" href="team.html?id='+esc(t.slug||t.id)+'" target="_blank">View ↗</a></div></td></tr>';
+        '<td><div class="actions"><button class="icon-btn" data-roster="'+esc(t.slug||t.id)+'">✎ Roster</button><a class="icon-btn" href="team.html?id='+esc(t.slug||t.id)+'" target="_blank">View ↗</a>'+
+          (canDel ? '<button class="icon-btn" data-tdel="'+esc(t.slug||t.id)+'" data-tname="'+esc(t.name||'')+'" style="color:var(--sts-red)">🗑 Delete</button>' : '')+
+        '</div></td></tr>';
     }).join('') || '<tr><td colspan="8" class="muted" style="padding:var(--space-5)">No teams yet — they appear here once a registration is paid.</td></tr>';
   }
   // age as of May 1 of the season year (Keith's eligibility cutoff)
@@ -1408,7 +1411,18 @@
     }catch(ex){ msg.className='notice notice-warn'; msg.innerHTML='<b>Couldn’t save.</b> '+esc(ex&&ex.message?ex.message:'Please try again.'); }
     btn.disabled=false; btn.textContent='Save changes';
   });
-  document.getElementById('teamsBody').addEventListener('click', function(e){ var b=e.target.closest('button[data-roster]'); if(!b) return; var t=TEAMS.find(function(x){ return (x.slug||x.id)===b.dataset.roster; }); if(t) openRosterView(t); });
+  document.getElementById('teamsBody').addEventListener('click', async function(e){
+    var b=e.target.closest('button[data-roster]');
+    if(b){ var t=TEAMS.find(function(x){ return (x.slug||x.id)===b.dataset.roster; }); if(t) openRosterView(t); return; }
+    var d=e.target.closest('button[data-tdel]');
+    if(d){
+      var id=d.dataset.tdel, nm=d.dataset.tname||'this team';
+      if(!confirm('Delete "'+nm+'" permanently? This removes the public team page and its roster. The original registration is kept. This cannot be undone.')) return;
+      d.disabled=true; d.textContent='Deleting…';
+      try { await STS.deleteTeam(id); TEAMS=await STS.loadTeams({includeHidden:true}); renderTeams(); }
+      catch(err){ alert('Could not delete the team — '+(err&&err.message||err)); d.disabled=false; d.textContent='🗑 Delete'; }
+    }
+  });
 
   // ── PRICES / CONTENT (Firestore site_content when live; localStorage in demo) ──
   async function loadPrices(){
