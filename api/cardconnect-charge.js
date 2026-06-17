@@ -26,6 +26,8 @@ const CURRENCY = process.env.CARDCONNECT_CURRENCY || 'USD';
 function ccConfigured() { return !!(SITE && MID && API_USER && API_PASS); }
 function authHeader() { return 'Basic ' + Buffer.from(API_USER + ':' + API_PASS).toString('base64'); }
 function slugify(s) { return String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+// A team's identity is NAME + AGE DIVISION (e.g. "Granville Pirates 7U" ≠ "… 12U").
+function teamSlug(name, ageClass) { return slugify(String(name || '') + (ageClass ? ' ' + ageClass : '')); }
 
 // Authoritative price — never trust the amount the browser computed.
 function expectedCents(form, reg) {
@@ -104,7 +106,8 @@ export default async function handler(req, res) {
     const isInsurance = /insurance/i.test(reg.form_id || (form && form.title) || reg.form_title || '');
 
     if (isInsurance) {
-      const tslug = slugify(reg.team_name) || `team-${reg.id}`;
+      // insurance covers ONE team = name + age division (reg.team_age), not the price tier
+      const tslug = teamSlug(reg.team_name, reg.team_age) || slugify(reg.team_name) || `team-${reg.id}`;
       try {
         await fsPatch(`team_insurance/${tslug}`, {
           team_id: tslug, team_name: reg.team_name || '', status: 'approved', source: 'purchased',
@@ -120,7 +123,7 @@ export default async function handler(req, res) {
     // event (so "Who's Coming" lists it). A team that did season reg and now enters a
     // tournament gets the tournament appended — no duplicate team created.
     if (formType === 'season' || formType === 'tournament') {
-      const base = slugify(reg.team_name) || `team-${reg.id}`;
+      const base = teamSlug(reg.team_name, reg.age_class) || `team-${reg.id}`;
       // prefer a team already linked to this reg; else match an existing team by name+sport
       let team = null;
       const mine = await fsQuery('teams', 'reg_id', 'EQUAL', reg.id);

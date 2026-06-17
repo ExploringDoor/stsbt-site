@@ -22,6 +22,12 @@ export function money(cents) {
 export function slugify(s) {
   return String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
+// A team's identity is NAME + AGE DIVISION — "Granville Pirates 7U" and "Granville
+// Pirates 12U" are different teams. (Coach last name only disambiguates a true
+// name+age collision, handled by the create/match callers.)
+export function teamSlug(name, ageClass) {
+  return slugify(String(name || '') + (ageClass ? ' ' + ageClass : '')) || '';
+}
 export function genTeamCode() {
   var c = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', out = '';
   for (var i = 0; i < 5; i++) out += c[Math.floor(Math.random() * c.length)];
@@ -91,7 +97,7 @@ var SAMPLE_FORMS = [
   { id: 'brownwood-summer-slam', title: 'Brownwood "Summer Slam Series"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A'], order: 3, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Brownwood, TX', event_dates: 'June 13–14, 2026' },
   { id: 'iowa-park-heat-wave', title: 'Iowa Park "Heat Wave"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A', 'Majors'], order: 4, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Iowa Park, TX', event_dates: 'June 13–14, 2026' },
   { id: 'hill-county-bash', title: 'Hillsboro "Hill County All-Star Bash"', type: 'tournament', sport: 'softball', divisions: ['Class C', 'Class B', 'Class A'], order: 5, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Wallace Park, Hillsboro, TX', event_dates: 'June 13, 2026' },
-  { id: 'team-insurance', title: '2027 STS Team Insurance', type: 'product', sport: 'both', order: 6, active: true, archived: false, convenience_fee_cents: 0, option_label: 'Age Group', price_options: [{ label: '12U and under', cents: 12000 }, { label: '13U-15U', cents: 16000 }, { label: '16U-18U', cents: 19500 }], waiver_text: '', location: '', event_dates: 'Valid Aug 1, 2026 – Jul 31, 2027 · prices include administrative fees' },
+  { id: 'team-insurance', title: '2027 STS Team Insurance', type: 'product', sport: 'both', order: 6, active: true, archived: false, ask_team_age: true, convenience_fee_cents: 0, option_label: 'Age Group', price_options: [{ label: '12U and under', cents: 12000 }, { label: '13U-15U', cents: 16000 }, { label: '16U-18U', cents: 19500 }], waiver_text: '', location: '', event_dates: 'Valid Aug 1, 2026 – Jul 31, 2027 · prices include administrative fees' },
   { id: 'georgetown-fathers-day', title: 'Georgetown "Father\'s Day Classic"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A', 'Majors'], order: 7, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Georgetown, TX', event_dates: 'June 20–21, 2026' },
   { id: 'clyde-summer-sizzle', title: 'Clyde "Summer Sizzle"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A'], order: 8, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Clyde, TX', event_dates: 'June 27–28, 2026' },
   { id: 'san-angelo-belt-showdown', title: 'San Angelo "Stars & Stripes Belt Showdown"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A'], order: 9, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'San Angelo, TX', event_dates: 'July 11–12, 2026' },
@@ -481,7 +487,7 @@ function normName(s) { return String(s || '').toLowerCase().replace(/\s+/g, ' ')
 // the sentinel { noSeasonForm:true } so callers can choose not to block.
 export async function findSeasonRegistration(opts) {
   opts = opts || {};
-  var sport = opts.sport, teamName = normName(opts.teamName), email = normName(opts.coachEmail);
+  var sport = opts.sport, teamName = normName(opts.teamName), email = normName(opts.coachEmail), ageClass = normName(opts.ageClass || '');
   var forms = await loadForms();
   var seasonForms = forms.filter(function (f) {
     if (f.type !== 'season') return false;
@@ -494,8 +500,10 @@ export async function findSeasonRegistration(opts) {
     if (!ids[r.form_id]) return false;
     var ps = r.payment_status || '';
     if (ps !== 'paid' && ps !== 'free') return false;
-    if (teamName && normName(r.team_name) === teamName) return true;
-    if (email && normName(r.coach_email) === email) return true;
+    // a team is name + age division; match both (age optional for back-compat)
+    var ageOK = !ageClass || normName(r.age_class) === ageClass;
+    if (teamName && normName(r.team_name) === teamName && ageOK) return true;
+    if (email && normName(r.coach_email) === email && ageOK) return true;
     return false;
   });
   return match || null;
@@ -755,7 +763,7 @@ function buildTeamDoc(reg, slug) {
 }
 export async function createTeamFromRegistration(reg) {
   if (!reg || !reg.team_name) return null;
-  var base = slugify(reg.team_name) || ('team-' + (reg.id || Date.now()));
+  var base = teamSlug(reg.team_name, reg.age_class) || ('team-' + (reg.id || Date.now()));
   if (isConfigured) {
     // already created for THIS registration? reuse it (idempotent on resubmit)
     if (reg.id) {
