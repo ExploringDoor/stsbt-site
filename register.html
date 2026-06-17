@@ -34,9 +34,14 @@
   .x-close { background: none; border: 0; font-size: 26px; line-height: 1; cursor: pointer; color: var(--muted); }
   .who-div { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .05em; color: var(--sts-red); font-size: var(--text-base); margin: var(--space-4) 0 4px; }
   .who-div .cnt { color: var(--muted); font-size: var(--text-sm); }
-  .who-team { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
+  .who-team { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: 0 -10px; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
   .who-team .twn { font-weight: 600; color: var(--sts-navy); }
   .who-team .tloc { color: var(--muted); }
+  a.who-team { text-decoration: none; border-radius: 8px; transition: background .12s ease; }
+  a.who-team:hover { background: var(--paper); }
+  a.who-team:hover .twn { color: var(--sts-red); }
+  .who-team .who-go { margin-left: auto; color: var(--muted); font-size: 18px; line-height: 1; }
+  a.who-team:hover .who-go { color: var(--sts-red); }
   /* Tournament card: clickable body + footer actions (Select / Who's Coming) */
   .tcard .tc-link { display: flex; flex-direction: column; flex: 1; text-decoration: none; color: inherit; }
   .tcard .tc-foot { flex-wrap: wrap; }
@@ -391,7 +396,11 @@
       var g = groups[k]; g.teams.sort(function(a, b){ return String(a.name||'').localeCompare(String(b.name||'')); });
       var rows = g.teams.map(function(t){
         var tag = (!sep && t.division) ? ' · '+esc(t.division) : '';   // age-only mode shows the classification tag
-        return '<div class="who-team"><span class="twn">'+esc(t.name||'Team')+'</span>'+(t.town?'<span class="tloc">· '+esc(t.town)+'</span>':'')+(tag?'<span class="tloc">'+tag+'</span>':'')+'</div>';
+        var slug = t.slug || t.id || '';
+        var inner = '<span class="twn">'+esc(t.name||'Team')+'</span>'+(t.town?'<span class="tloc">· '+esc(t.town)+'</span>':'')+(tag?'<span class="tloc">'+tag+'</span>':'')+(slug?'<span class="who-go" aria-hidden="true">›</span>':'');
+        return slug
+          ? '<a class="who-team" href="team.html?id='+encodeURIComponent(slug)+'">'+inner+'</a>'
+          : '<div class="who-team">'+inner+'</div>';
       }).join('');
       return '<div class="who-div">'+esc(g.label)+' <span class="cnt">'+g.teams.length+' team'+(g.teams.length>1?'s':'')+'</span></div>'+rows;
     }).join('');
