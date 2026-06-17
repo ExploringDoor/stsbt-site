@@ -18,7 +18,13 @@
   .reg-subhead h1 { color: #fff; margin: 0; font-size: var(--text-2xl); }
   .reg-subhead p { color: rgba(255,255,255,.85); margin: 8px 0 0; }
   .form-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px,1fr)); gap: var(--space-4); }
-  .group-label { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .08em; color: var(--sts-red); font-size: var(--text-sm); margin: var(--space-6) 0 var(--space-3); }
+  .group-label { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--sts-red); font-size: var(--text-3xl); font-weight: 700; margin: var(--space-7) 0 var(--space-4); padding-bottom: var(--space-2); border-bottom: 3px solid var(--line); }
+  .reg-group { scroll-margin-top: 96px; }
+  .reg-group:first-of-type .group-label { margin-top: var(--space-2); }
+  .reg-jump { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: var(--space-3); }
+  .reg-jump a { display: inline-flex; align-items: center; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .05em; font-size: var(--text-sm); font-weight: 600; color: var(--sts-navy); background: #fff; border: 1.5px solid var(--line); border-radius: 999px; padding: 8px 18px; text-decoration: none; transition: border-color .15s ease, color .15s ease, background .15s ease; }
+  .reg-jump a:hover { border-color: var(--sts-red); color: var(--sts-red); }
+  html { scroll-behavior: smooth; }
   .price-readout { font-family: var(--font-display); font-weight: 700; color: var(--sts-navy); }
   .pay-note { display: flex; align-items: center; gap: 8px; justify-content: center; color: var(--muted); font-size: var(--text-xs); margin-top: var(--space-3); }
 </style>
@@ -183,13 +189,17 @@
     var groups = [
       { key:'tournament', label:'Tournaments' },
       { key:'season', label:'Season Team Registration' },
-      { key:'product', label:'Add-ons & Products' }
+      { key:'product', label:'Team Insurance & Products' }
     ];
-    var html = '';
-    groups.forEach(function(g){
+    var present = groups.filter(function(g){ return forms.some(function(f){ return f.type === g.key; }); });
+    // Jump links (only when more than one section is showing)
+    var html = present.length > 1
+      ? '<nav class="reg-jump" aria-label="Jump to a section">'+present.map(function(g){
+          return '<a href="#grp-'+g.key+'">'+esc(g.label)+'</a>'; }).join('')+'</nav>'
+      : '';
+    present.forEach(function(g){
       var items = forms.filter(function(f){ return f.type === g.key; });
-      if (!items.length) return;
-      html += '<div class="group-label">'+g.label+'</div><div class="form-list">';
+      html += '<section class="reg-group" id="grp-'+g.key+'"><h2 class="group-label">'+esc(g.label)+'</h2><div class="form-list">';
       html += items.map(function(f){
         var price = (f.price_options && f.price_options[0]) ? f.price_options[0].cents : 0;
         var priceTxt = f.type==='tournament' ? 'From '+STS.money(price)+'/team' : (price? STS.money(price) : 'No fee');
@@ -197,10 +207,21 @@
           '<div class="tc-top"><span class="tc-date">'+esc(f.event_dates||'')+'</span>'+(f.sport==='both'?'':'<span class="badge badge-sport">'+esc(f.sport)+'</span>')+'</div>'+
           '<div class="tc-body"><h3>'+esc(f.title)+'</h3><div class="tc-loc">'+esc(f.location||'')+'</div></div>'+
           '<div class="tc-foot"><span class="price-readout">'+priceTxt+'</span><span class="btn btn-navy btn-sm">Select</span></div></a>';
-      }).join('') + '</div>';
+      }).join('') + '</div></section>';
     });
     wrap.innerHTML = html;
   }
+
+  // Jump-link smooth scroll (explicit, so it works regardless of native anchor quirks).
+  document.addEventListener('click', function(e){
+    var a = e.target.closest('.reg-jump a'); if (!a) return;
+    var href = a.getAttribute('href') || '';
+    if (href.charAt(0) !== '#') return;
+    var el = document.querySelector(href); if (!el) return;
+    e.preventDefault();
+    el.scrollIntoView({ behavior:'smooth', block:'start' });
+    try { history.replaceState(null, '', href); } catch(_){}
+  });
 
   // ── FORM ────────────────────────────────────────────────────────────
   var FORM = null;
