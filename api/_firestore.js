@@ -25,7 +25,7 @@ export function fbAdminConfigured() { return fbConfigured() && !!FB_ADMIN_EMAIL 
 // ── Admin sign-in (Identity Toolkit) ─────────────────────────────────
 // Exchanges the dedicated admin email+password for a short-lived ID token,
 // cached in warm-invocation module scope until ~1 min before it expires.
-let _tok = null, _tokExp = 0;
+let _tok = null, _tokExp = 0, _uid = '';
 export async function adminIdToken() {
   if (!fbAdminConfigured()) return null;
   const now = Date.now();
@@ -37,9 +37,11 @@ export async function adminIdToken() {
   const d = await r.json();
   if (!r.ok || !d.idToken) throw new Error('admin auth failed: ' + (d.error?.message || r.status));
   _tok = d.idToken;
+  _uid = d.localId || _uid;
   _tokExp = now + (parseInt(d.expiresIn, 10) || 3600) * 1000 - 60000;   // refresh 1 min early
   return _tok;
 }
+export function adminUid() { return _uid; }
 // Authorization header for privileged calls (empty object when no admin creds,
 // so the helpers degrade to the old key-only behaviour for public reads).
 async function authHeader() {

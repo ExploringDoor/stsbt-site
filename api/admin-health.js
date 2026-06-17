@@ -3,7 +3,7 @@
 // (the no-key replacement for a service-account key). Returns booleans only —
 // never credentials or token material. Safe to leave deployed.
 
-import { fbConfigured, fbAdminConfigured, adminIdToken } from './_firestore.js';
+import { fbConfigured, fbAdminConfigured, adminIdToken, adminUid, fsGet } from './_firestore.js';
 
 // CardConnect env presence — booleans only, never the values.
 function ccConfigured() {
@@ -23,6 +23,16 @@ export default async function handler(req, res) {
     try {
       const tok = await adminIdToken();
       out.admin_sign_in = tok ? 'ok' : 'failed';
+      if (tok) {
+        // Sign-in alone doesn't prove the user is a super admin — that requires an
+        // admins/{uid} doc with role:'super'. Reading admins/{own-uid} is allowed by
+        // the own-uid rule even before isSuper, so this confirms the doc exists.
+        const uid = adminUid();
+        out.admin_uid = uid || null;
+        const doc = uid ? await fsGet(`admins/${uid}`) : null;
+        out.admin_doc_present = !!doc;
+        out.is_super = !!(doc && doc.role === 'super' && doc.active !== false);
+      }
     } catch (e) {
       // Generic reason only (e.g. INVALID_PASSWORD / EMAIL_NOT_FOUND) — helps
       // debugging without exposing anything sensitive.
