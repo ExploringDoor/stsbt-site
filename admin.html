@@ -1211,7 +1211,7 @@
   document.getElementById('newFormBtn').addEventListener('click', function(){ openFormModal(null); });
   // Standard STSBT age divisions (the "Age as of 05/01" menu). Each form picks which
   // apply + sets a per-age entry fee. Custom labels (Open, Rec All-Star…) add as rows.
-  var AGE_DIVS = ['7U','8U Coach Pitch','8U Kid Pitch','9U','10U','11U','12U','13U','14U'];
+  var AGE_DIVS = ['6U Modified CP','7U','8U Coach Pitch','8U Kid Pitch','9U','10U','11U','12U','13U','14U','15U','16U','17U','18U'];
   function apCustomRow(label, amt){
     return '<div class="ap-row ap-cust on"><input class="input ap-clbl" value="'+esc(label||'')+'" placeholder="Division name">'+
       '<span class="ap-amt-wrap">$<input class="input ap-amt" inputmode="decimal" value="'+esc(amt||'')+'" placeholder="0.00"></span>'+
@@ -1301,7 +1301,8 @@
       '<div class="field"><label>Tournament Website <span class="muted">(optional — links the public tournament card to an outside site)</span></label><input class="input" id="f_url" type="url" placeholder="https://…" value="'+esc(f.info_url||'')+'"></div>'+
       '<div class="field"><label>Divisions <span class="muted">(check the classifications this event offers)</span></label><div class="dv-grid" id="f_divs">'+divChipsHTML(f.sport||'baseball', f.divisions||[])+'</div></div>'+
       '<div class="field"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500"><input type="checkbox" id="f_sepdiv" style="margin-top:3px"'+(f.separate_divisions?' checked':'')+'><span>Special event — <strong>separate by division</strong> in "Who\'s Coming" <span class="muted">(default: classifications combined, teams grouped by age only)</span></span></label></div>'+
-      '<div class="field"><label>Convenience Fee (USD)</label><input class="input" id="f_conv" value="'+((f.convenience_fee_cents||0)/100).toFixed(2)+'"></div>'+
+      '<div class="field"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500"><input type="checkbox" id="f_ships" style="margin-top:3px"'+(f.ships?' checked':'')+'><span>Physical product — <strong>collect a shipping address</strong> & label the fee below "Shipping fee" <span class="muted">(e.g. baseballs; leave off for insurance)</span></span></label></div>'+
+      '<div class="field"><label id="f_convLabel">'+(f.ships?'Shipping Fee':'Convenience Fee')+' (USD)</label><input class="input" id="f_conv" value="'+((f.convenience_fee_cents||0)/100).toFixed(2)+'"></div>'+
       '<div class="field"><label>Age Divisions &amp; Pricing <span class="muted">(check the ages this form accepts; set each team entry fee)</span></label>'+
         '<div class="ap-bulk"><span class="muted" style="font-size:var(--text-sm)">Same fee for all?</span> $<input class="input ap-amt" id="f_bulk" inputmode="decimal" placeholder="125.00"> <button type="button" class="btn btn-outline" id="f_bulkApply" style="padding:6px 12px;font-size:var(--text-sm)">Apply to checked</button></div>'+
         apGridHTML(f.price_options)+
@@ -1311,6 +1312,7 @@
     // divisions: toggle chip styling + re-render the list when the sport changes
     document.getElementById('f_divs').addEventListener('change', function(e){ if(e.target.classList.contains('dv-ck')) e.target.closest('.dv-chip').classList.toggle('on', e.target.checked); });
     document.getElementById('f_sport').addEventListener('change', function(e){ document.getElementById('f_divs').innerHTML = divChipsHTML(e.target.value, selectedDivs()); });
+    document.getElementById('f_ships').addEventListener('change', function(e){ document.getElementById('f_convLabel').textContent = (e.target.checked ? 'Shipping Fee' : 'Convenience Fee') + ' (USD)'; });
     document.getElementById('fmArchive').textContent = f.archived ? 'Restore' : 'Archive';
     document.getElementById('fmArchive').onclick = async function(){ f.archived=!f.archived; await STS.saveForm(f); FORMS = await STS.loadFormsScoped(ME, {includeInactive:true}); renderForms(); closeModal('formModal'); };
     document.getElementById('fmDelete').style.display = isNew ? 'none' : '';
@@ -1334,6 +1336,7 @@
       f.location = val('f_loc');
       f.divisions = selectedDivs();
       var sd = document.getElementById('f_sepdiv'); f.separate_divisions = !!(sd && sd.checked);
+      var sh = document.getElementById('f_ships'); f.ships = !!(sh && sh.checked);
       f.convenience_fee_cents = Math.round(parseFloat(val('f_conv')||'0')*100);
       f.price_options = apCollect();
       f.waiver_text = val('f_waiver');

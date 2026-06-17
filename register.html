@@ -147,7 +147,7 @@
 
       <div style="border:1px solid var(--line);border-radius:10px;padding:6px 14px;margin-top:var(--space-3)">
         <div class="bd-row" style="display:flex;justify-content:space-between;padding:8px 0;font-size:var(--text-sm);border-bottom:1px solid var(--line)"><span id="entryLabel" class="muted">Entry fee</span><span id="entryAmt">—</span></div>
-        <div class="bd-row" style="display:flex;justify-content:space-between;padding:8px 0;font-size:var(--text-sm);border-bottom:1px solid var(--line)"><span class="muted">Convenience fee</span><span id="convAmt">$0.00</span></div>
+        <div class="bd-row" style="display:flex;justify-content:space-between;padding:8px 0;font-size:var(--text-sm);border-bottom:1px solid var(--line)"><span class="muted" id="convLabel">Convenience fee</span><span id="convAmt">$0.00</span></div>
         <div class="total-line" style="border:0;padding-top:10px">
           <span class="tl-label">Total Due</span>
           <span class="tl-amt" id="totalAmt">$0.00</span>
@@ -344,10 +344,12 @@
       }).join('');
     }
 
-    // shipping address — only for merch/product orders (GamePro Baseballs, etc.)
-    var isProduct = FORM.type === 'product';
+    // shipping address — only for PHYSICAL products that ship (e.g. GamePro Baseballs),
+    // NOT insurance. Driven by the form's `ships` flag.
     var shipWrap = document.getElementById('shipField'), shipIn = document.getElementById('f_ship');
-    shipWrap.classList.toggle('hidden', !isProduct); shipIn.required = isProduct;
+    shipWrap.classList.toggle('hidden', !FORM.ships); shipIn.required = !!FORM.ships;
+    // the flat fee reads "Shipping fee" on shipping products, else "Convenience fee"
+    var convLabel = document.getElementById('convLabel'); if (convLabel) convLabel.textContent = FORM.ships ? 'Shipping fee' : 'Convenience fee';
 
     document.getElementById('entryLabel').textContent = FORM.type==='tournament' ? 'Tournament entry fee' : (FORM.type==='season' ? 'Registration fee' : 'Item price');
     document.getElementById('waiverBox').innerHTML = FORM.waiver_text ? esc(FORM.waiver_text) : 'By registering you agree to Small Town Select tournament rules and policies.';

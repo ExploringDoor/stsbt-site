@@ -50,7 +50,7 @@
     },
 
     // ── Age groups (drive the per-age price options on a form) ───────────
-    ageGroups: ['7U', '8U Coach Pitch', '8U Kid Pitch', '9U', '10U', '11U', '12U', '13U', '14U'],
+    ageGroups: ['6U Modified CP', '7U', '8U Coach Pitch', '8U Kid Pitch', '9U', '10U', '11U', '12U', '13U', '14U', '15U', '16U', '17U', '18U'],
 
     // ── Pricing defaults (cents). Keith overrides per-form in admin. ─────
     pricing: {

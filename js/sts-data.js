@@ -82,7 +82,7 @@ var SAMPLE_FORMS = [
   { id: 'georgetown-fathers-day', title: 'Georgetown "Father\'s Day Classic"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A', 'Majors'], order: 7, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Georgetown, TX', event_dates: 'June 20–21, 2026' },
   { id: 'clyde-summer-sizzle', title: 'Clyde "Summer Sizzle"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A'], order: 8, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Clyde, TX', event_dates: 'June 27–28, 2026' },
   { id: 'san-angelo-belt-showdown', title: 'San Angelo "Stars & Stripes Belt Showdown"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A'], order: 9, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'San Angelo, TX', event_dates: 'July 11–12, 2026' },
-  { id: 'gamepro-baseballs', title: 'STS GamePro Baseballs', type: 'product', sport: 'baseball', order: 10, active: true, archived: false, convenience_fee_cents: 0, price_options: [{ label: '1 Dozen', cents: 6000 }, { label: '2 Dozen', cents: 11000 }, { label: '3 Dozen', cents: 15000 }], waiver_text: '', location: '', event_dates: '' }
+  { id: 'gamepro-baseballs', title: 'STS GamePro Baseballs', type: 'product', sport: 'baseball', order: 10, active: true, archived: false, ships: true, convenience_fee_cents: 2500, price_options: [{ label: '1 Dozen', cents: 6000 }, { label: '2 Dozen', cents: 11000 }, { label: '3 Dozen', cents: 15000 }], waiver_text: '', location: '', event_dates: '' }
 ];
 
 var SAMPLE_TEAMS = [
