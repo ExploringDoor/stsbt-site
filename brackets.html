@@ -33,6 +33,7 @@
       </div>
     </div>
   </div>
+  <div class="pill-tabs" id="seasonPills" style="display:none;margin:0 0 var(--space-3)"></div>
   <div class="pill-tabs" id="tierBar" style="display:none;margin:0 0 var(--space-4)"></div>
   <div id="bracketOut"><div class="bk-empty">Loading brackets…</div></div>
   <div class="notice notice-info mt-5"><b>Live bracket.</b> When a score is posted, the winner advances automatically — “Winner of Game 5” becomes the actual team, and the line carries them to the next round.</div>
@@ -47,7 +48,23 @@
 <script type="module">
   import * as STS from './js/sts-data.js';
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-  var GAMES=[], FORMS=[], cur='', curDiv='', ZOOM=1, CURBG=[];
+  var GAMES=[], FORMS=[], cur='', curDiv='', ZOOM=1, CURBG=[], ALLOPTS=[], SEASON='';
+  function eventSeason(fid){ var g=GAMES.find(function(x){ return x.form_id===fid && x.date; }); return g?STS.seasonOf(g.date):null; }
+  function eventsForSeason(){ return ALLOPTS.filter(function(f){ return !SEASON || String(eventSeason(f.id))===String(SEASON); }); }
+  function fillEvents(){
+    var opts=eventsForSeason();
+    document.getElementById('eventSel').innerHTML = opts.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
+    if(!opts.find(function(f){ return f.id===cur; })){ var elimFirst=opts.find(function(f){ return !isPool(f.id); }); cur=((elimFirst||opts[0])||{}).id||''; curDiv=''; }
+    document.getElementById('eventSel').value=cur;
+  }
+  function buildSeasonBar(){
+    var seen={}, ys=[]; ALLOPTS.forEach(function(f){ var s=eventSeason(f.id); if(s && !seen[s]){ seen[s]=1; ys.push(s); } }); ys.sort(function(a,b){ return b-a; });
+    var bar=document.getElementById('seasonPills');
+    if(ys.length<2){ bar.style.display='none'; return; }
+    SEASON=String(ys[0]);
+    bar.style.display='';
+    bar.innerHTML = ys.map(function(y,i){ return '<button class="pill'+(i===0?' active':'')+'" data-season="'+y+'">'+y+'</button>'; }).join('') + '<button class="pill" data-season="">All</button>';
+  }
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
   // A pool-play tournament (has round-robin games) belongs on its full hub page, not
   // the bracket-only view. Pure single/double elim shows the bracket alone.
@@ -98,6 +115,7 @@
     if(g && window.STSgameModal) STSgameModal.open(titleFor(cur), CURBG, g, (FORMS.find(function(x){return x.id===cur;})||{}).location||'');
   });
   document.getElementById('eventSel').addEventListener('change', function(e){ cur=e.target.value; curDiv=''; render(); location.hash=cur; });
+  document.getElementById('seasonPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; SEASON=b.dataset.season; document.querySelectorAll('#seasonPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); fillEvents(); render(); });
   document.getElementById('zoomIn').addEventListener('click', function(){ ZOOM=Math.min(1.4,Math.round((ZOOM+0.1)*10)/10); applyZoom(); });
   document.getElementById('zoomOut').addEventListener('click', function(){ ZOOM=Math.max(0.4,Math.round((ZOOM-0.1)*10)/10); applyZoom(); });
   document.getElementById('zoomFit').addEventListener('click', function(){
@@ -110,14 +128,13 @@
     try {
       FORMS = await STS.loadForms(); GAMES = await STS.loadGames();
       var withB={}; GAMES.forEach(function(g){ if(g.g!=null) withB[g.form_id]=1; });
-      var opts = FORMS.filter(function(f){ return withB[f.id] && f.schedule_published !== false; });
-      if(!opts.length){ document.getElementById('bracketOut').innerHTML='<div class="bk-empty"><h2 style="color:var(--sts-navy);margin:0 0 8px">No brackets yet</h2><p class="muted" style="text-transform:none;letter-spacing:0">Brackets post here once tournament play begins. See <a href="bracket-preview.html">example brackets</a> for every team count.</p></div>'; document.getElementById('eventSel').style.display='none'; return; }
-      document.getElementById('eventSel').innerHTML = opts.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
+      ALLOPTS = FORMS.filter(function(f){ return withB[f.id] && f.schedule_published !== false; });
+      if(!ALLOPTS.length){ document.getElementById('bracketOut').innerHTML='<div class="bk-empty"><h2 style="color:var(--sts-navy);margin:0 0 8px">No brackets yet</h2><p class="muted" style="text-transform:none;letter-spacing:0">Brackets post here once tournament play begins. See <a href="bracket-preview.html">example brackets</a> for every team count.</p></div>'; document.getElementById('eventSel').style.display='none'; return; }
+      buildSeasonBar();
       var deep = location.hash.replace('#','');
-      // default to the first ELIM tournament (bracket-only); pool ones redirect to their hub on select
-      var elimFirst = opts.find(function(f){ return !isPool(f.id); });
-      cur = opts.find(function(f){return f.id===deep;}) ? deep : ((elimFirst||opts[0]).id);
-      document.getElementById('eventSel').value = cur;
+      // if deep-linked to a specific event, jump to that event's season so it's listed
+      if(deep && ALLOPTS.find(function(f){return f.id===deep;})){ var ds=eventSeason(deep); if(ds && SEASON) SEASON=String(ds); document.querySelectorAll('#seasonPills .pill').forEach(function(p){ p.classList.toggle('active', p.dataset.season===String(ds)); }); cur=deep; }
+      fillEvents();
       render();
     } catch(e){ document.getElementById('bracketOut').innerHTML='<div class="bk-empty">Could not load brackets.</div>'; }
   })();

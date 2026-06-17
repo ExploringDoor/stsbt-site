@@ -56,6 +56,19 @@ export function ageAsOfMay1(dob) {
   if (m < 0 || (m === 0 && cut.getDate() < d.getDate())) age--;
   return age >= 0 ? age : '';
 }
+// Season-year for a date = the Aug 1 → Jul 31 season containing it (Aug+ → next year).
+// e.g. 2026-06-13 → 2026 (the Aug 2025–Jul 2026 season); 2026-10-01 → 2027.
+export function seasonOf(dateStr) {
+  if (!dateStr) return null;
+  var d = new Date(String(dateStr) + 'T12:00:00'); if (isNaN(d)) return null;
+  return d.getMonth() >= 7 ? d.getFullYear() + 1 : d.getFullYear();
+}
+// Distinct season-years present in a games array, newest first.
+export function seasonsIn(games) {
+  var seen = {}, out = [];
+  (games || []).forEach(function (g) { var s = seasonOf(g.date); if (s && !seen[s]) { seen[s] = 1; out.push(s); } });
+  return out.sort(function (a, b) { return b - a; });
+}
 // Public age for a roster entry: the server-stamped age51 (real docs carry no dob),
 // falling back to computing from dob when present (sample/admin data).
 export function playerAge(p) {

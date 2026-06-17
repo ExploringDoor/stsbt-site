@@ -77,6 +77,7 @@
       <button class="pill" data-sport="baseball">Baseball</button>
       <button class="pill" data-sport="softball">Softball</button>
     </div>
+    <div class="pill-tabs" id="seasonPills" style="display:none"></div>
     <select class="input day-spacer" id="eventSel" style="max-width:260px"><option value="">All tournaments</option></select>
   </div>
   <div id="schedHead"></div>
@@ -102,7 +103,7 @@
 
   var MODE='scores';   // final results only (companion to schedule.html, which shows games NOT yet final)
   function isPlayed(g){ return g.done && g.away_score!=null && g.home_score!=null; }
-  var GAMES=[], FORMS=[], filt={sport:'',event:''}, bracketTables={}, view='grid', curWeek='', curDay='';
+  var GAMES=[], FORMS=[], filt={sport:'',event:'',season:''}, bracketTables={}, view='grid', curWeek='', curDay='';
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
   function cityFor(fid){ var l=(FORMS.find(function(x){return x.id===fid;})||{}).location||''; return l?l.split(',')[0].trim():''; }
   function sideName(g, raw){
@@ -111,7 +112,7 @@
     return STSbracket.sideDisplay(bt, raw).name;
   }
   function schedPublic(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return !f || f.schedule_published !== false; }
-  function filtered(){ return GAMES.filter(function(g){ if(!schedPublic(g.form_id)) return false; if(!g.date) return false; if(MODE==='scores' ? !isPlayed(g) : isPlayed(g)) return false; if(filt.sport&&g.sport!==filt.sport) return false; if(filt.event&&g.form_id!==filt.event) return false; return true; }); }
+  function filtered(){ return GAMES.filter(function(g){ if(!schedPublic(g.form_id)) return false; if(!g.date) return false; if(MODE==='scores' ? !isPlayed(g) : isPlayed(g)) return false; if(filt.sport&&g.sport!==filt.sport) return false; if(filt.event&&g.form_id!==filt.event) return false; if(filt.season && STS.seasonOf(g.date)!==Number(filt.season)) return false; return true; }); }
 
   function weeks(){
     var byW={}; filtered().forEach(function(g){ var w=weekStart(g.date); (byW[w]=byW[w]||[]).push(g.date); });
@@ -168,6 +169,25 @@
   document.getElementById('viewSeg').addEventListener('click', function(e){ var b=e.target.closest('button[data-view]'); if(!b)return; view=b.dataset.view; document.querySelectorAll('#viewSeg button').forEach(function(p){p.classList.toggle('active',p===b);}); render(); });
   document.getElementById('sportPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b)return; filt.sport=b.dataset.sport; document.querySelectorAll('#sportPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); render(); });
   document.getElementById('eventSel').addEventListener('change', function(e){ filt.event=e.target.value; render(); });
+  document.getElementById('seasonPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b)return; filt.season=b.dataset.season; document.querySelectorAll('#seasonPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); curWeek=''; curDay=''; bootWeek(); render(); });
+  function buildSeasonBar(){
+    var seasons = STS.seasonsIn(GAMES); var bar=document.getElementById('seasonPills');
+    if(seasons.length<2){ bar.style.display='none'; return; }
+    filt.season = String(seasons[0]);
+    bar.style.display='';
+    bar.innerHTML = seasons.map(function(y,i){ return '<button class="pill'+(i===0?' active':'')+'" data-season="'+y+'">'+y+'</button>'; }).join('') + '<button class="pill" data-season="">All</button>';
+  }
+  function bootWeek(){
+    // open to the most recent day with finals on or before today (don't jump to future)
+    var wk=weeks();
+    if(wk.length){
+      var today=new Date().toISOString().slice(0,10);
+      var allDays=[]; wk.forEach(function(w){ w.days.forEach(function(d){ allDays.push(d); }); }); allDays.sort();
+      var past=allDays.filter(function(d){ return d<=today; });
+      var target = past.length ? past[past.length-1] : allDays[0];
+      curWeek=weekStart(target); curDay=target;
+    }
+  }
   document.getElementById('schedHead').addEventListener('click', function(e){
     var w=e.target.closest('.wk[data-w]'); if(w){ curWeek=w.dataset.w; curDay=''; render(); return; }
     var d=e.target.closest('.day-chip[data-d]'); if(d){ curDay=d.dataset.d; render(); return; }
@@ -183,16 +203,8 @@
       GAMES.forEach(function(g){ if(!g.sport) g.sport=(FORMS.find(function(f){return f.id===g.form_id;})||{}).sport||''; });
       var tf = FORMS.filter(function(f){ return f.type==='tournament' && f.schedule_published !== false; });
       document.getElementById('eventSel').innerHTML='<option value="">All tournaments</option>'+tf.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
-      // open to the most recent day with finals that is ON OR BEFORE today
-      // (don't jump to future-dated results); fall back to the earliest if all are future
-      var wk=weeks();
-      if(wk.length){
-        var today=new Date().toISOString().slice(0,10);
-        var allDays=[]; wk.forEach(function(w){ w.days.forEach(function(d){ allDays.push(d); }); }); allDays.sort();
-        var past=allDays.filter(function(d){ return d<=today; });
-        var target = past.length ? past[past.length-1] : allDays[0];
-        curWeek=weekStart(target); curDay=target;
-      }
+      buildSeasonBar();
+      bootWeek();
       render();
     } catch(e){ document.getElementById('scheduleOut').innerHTML='<div class="empty">Could not load scores.</div>'; }
   })();
