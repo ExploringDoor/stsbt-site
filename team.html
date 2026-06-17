@@ -97,44 +97,60 @@
     function gKey(r){ return (r.date||'9999-99-99')+'T'+(r.time||'99:99'); }
     results.sort(function(a,b){ return gKey(a).localeCompare(gKey(b)); });
     upcoming.sort(function(a,b){ return gKey(a).localeCompare(gKey(b)); });
-    var rec={w:0,l:0,t:0,rs:0,ra:0};
-    results.forEach(function(r){ rec.rs+=r.my; rec.ra+=r.op; if(r.res==='W')rec.w++; else if(r.res==='L')rec.l++; else rec.t++; });
-    var gp=rec.w+rec.l+rec.t, ardiff=gp?((rec.rs-rec.ra)/gp):0;
-    var rpg=gp?rec.rs/gp:0, rapg=gp?rec.ra/gp:0, winPct=gp?(rec.w+0.5*rec.t)/gp:0;
-    var finalsApps=results.filter(function(r){ return r.champ; }).length;
-    var titles=results.filter(function(r){ return r.champ && r.res==='W'; }).length;
+    // ── season tagging — a game belongs to the Aug 1 → Jul 31 season containing its date ──
+    function seasonOf(dStr){ if(!dStr) return null; var d=new Date(dStr+'T12:00:00'); if(isNaN(d)) return null; return d.getMonth()>=7 ? d.getFullYear()+1 : d.getFullYear(); }
+    results.forEach(function(r){ r.season=seasonOf(r.date); });
+    upcoming.forEach(function(r){ r.season=seasonOf(r.date); });
+    var seasonList=[]; (function(){ var seen={}; results.concat(upcoming).forEach(function(r){ if(r.season && !seen[r.season]){ seen[r.season]=1; seasonList.push(r.season); } }); seasonList.sort(function(a,b){ return b-a; }); })();
+
+    function recOf(rs){ var rc={w:0,l:0,t:0,rs:0,ra:0}; rs.forEach(function(r){ rc.rs+=r.my; rc.ra+=r.op; if(r.res==='W')rc.w++; else if(r.res==='L')rc.l++; else rc.t++; }); return rc; }
     function tsStat(n,l){ return '<div class="ts-stat"><div class="n">'+n+'</div><div class="l">'+esc(l)+'</div></div>'; }
-    var statGrid = gp ? '<div class="ts-grid">'+
-      tsStat(rec.w+'–'+rec.l+(rec.t?'–'+rec.t:''),'Record')+
-      tsStat(winPct.toFixed(3).replace(/^0(?=\.)/,''),'Win %')+
-      tsStat(rpg.toFixed(1),'Runs / Game')+
-      tsStat(rapg.toFixed(1),'Allowed / Game')+
-      tsStat((ardiff>0?'+':'')+ardiff.toFixed(1),'Run Diff / Game')+
-      tsStat(String(finalsApps),finalsApps===1?'Finals Trip':'Finals Trips')+
-      tsStat(titles?titles+' 🏆':'0',titles===1?'Title':'Titles')+
-    '</div>' : '';
-    var gamesHTML = results.length
-      ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Event</th><th>Opponent</th><th>Result</th></tr></thead><tbody>'+
-        results.map(function(r){ var rc=r.res==='W'?'gw':(r.res==='L'?'gl':'gt');
-          var oppSlug=slugify(r.opp);
-          var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
-          return '<tr data-gid="'+esc(r.gid)+'" tabindex="0" title="View recap"><td>'+esc(fmtDate(r.date))+'</td><td>'+esc(r.event)+(r.champ?' <span class="gh-trophy" title="Championship game">🏆</span>':'')+'</td>'+
-            '<td>'+oppCell+'</td>'+
-            '<td class="'+rc+'"><div class="cell-spread"><span><b>'+r.res+'</b> '+r.my+'–'+r.op+'</span><span class="g-cue">Recap ›</span></div></td></tr>'; }).join('')+
-        '</tbody></table></div>'
-      : '<div class="empty">No games played yet — results appear here as scores are posted.</div>';
-    var upcomingHTML = upcoming.length
-      ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Event</th><th>Opponent</th><th>Time &amp; Field</th></tr></thead><tbody>'+
-        upcoming.map(function(r){
-          var oppSlug=slugify(r.opp);
-          var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
-          var rCity=(function(){ var l=(FORMS.find(function(x){return x.id===r.fid;})||{}).location||''; return l?l.split(',')[0].trim():''; })();
-          var fieldLabel = r.field ? (rCity?rCity+' · '+r.field:r.field) : '';
-          return '<tr data-gid="'+esc(r.gid)+'" tabindex="0" title="View preview"><td>'+esc(fmtDate(r.date))+'</td><td>'+esc(r.event)+'</td>'+
-            '<td>'+oppCell+'</td>'+
-            '<td><span class="tf"><b>'+esc(fmtTime(r.time)||'TBD')+'</b>'+(fieldLabel?'<span class="fld">'+esc(fieldLabel)+'</span>':'')+'<span class="g-cue">Preview ›</span></span></td></tr>'; }).join('')+
-        '</tbody></table></div>'
-      : '';
+    function statGridOf(rs){
+      var rec=recOf(rs), gp=rec.w+rec.l+rec.t; if(!gp) return '';
+      var ardiff=(rec.rs-rec.ra)/gp, rpg=rec.rs/gp, rapg=rec.ra/gp, winPct=(rec.w+0.5*rec.t)/gp;
+      var fa=rs.filter(function(r){return r.champ;}).length, ti=rs.filter(function(r){return r.champ&&r.res==='W';}).length;
+      return '<div class="ts-grid">'+
+        tsStat(rec.w+'–'+rec.l+(rec.t?'–'+rec.t:''),'Record')+ tsStat(winPct.toFixed(3).replace(/^0(?=\.)/,''),'Win %')+
+        tsStat(rpg.toFixed(1),'Runs / Game')+ tsStat(rapg.toFixed(1),'Allowed / Game')+
+        tsStat((ardiff>0?'+':'')+ardiff.toFixed(1),'Run Diff / Game')+
+        tsStat(String(fa),fa===1?'Finals Trip':'Finals Trips')+ tsStat(ti?ti+' 🏆':'0',ti===1?'Title':'Titles')+
+      '</div>';
+    }
+    function recordLine(rs){ var rec=recOf(rs), gp=rec.w+rec.l+rec.t, ti=rs.filter(function(r){return r.champ&&r.res==='W';}).length; return gp ? ('<span>'+rec.w+'–'+rec.l+(rec.t?'–'+rec.t:'')+' record</span>'+(ti?'<span>'+ti+'× 🏆 Champion</span>':'')) : ''; }
+    function gamesHTMLOf(rs){
+      return rs.length
+        ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Event</th><th>Opponent</th><th>Result</th></tr></thead><tbody>'+
+          rs.map(function(r){ var rc=r.res==='W'?'gw':(r.res==='L'?'gl':'gt'); var oppSlug=slugify(r.opp);
+            var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
+            return '<tr data-gid="'+esc(r.gid)+'" tabindex="0" title="View recap"><td>'+esc(fmtDate(r.date))+'</td><td>'+esc(r.event)+(r.champ?' <span class="gh-trophy" title="Championship game">🏆</span>':'')+'</td>'+
+              '<td>'+oppCell+'</td><td class="'+rc+'"><div class="cell-spread"><span><b>'+r.res+'</b> '+r.my+'–'+r.op+'</span><span class="g-cue">Recap ›</span></div></td></tr>'; }).join('')+
+          '</tbody></table></div>'
+        : '<div class="empty">No games played in this span — results appear here as scores are posted.</div>';
+    }
+    function upcomingHTMLOf(us){
+      return us.length
+        ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Event</th><th>Opponent</th><th>Time &amp; Field</th></tr></thead><tbody>'+
+          us.map(function(r){ var oppSlug=slugify(r.opp);
+            var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
+            var rCity=(function(){ var l=(FORMS.find(function(x){return x.id===r.fid;})||{}).location||''; return l?l.split(',')[0].trim():''; })();
+            var fieldLabel = r.field ? (rCity?rCity+' · '+r.field:r.field) : '';
+            return '<tr data-gid="'+esc(r.gid)+'" tabindex="0" title="View preview"><td>'+esc(fmtDate(r.date))+'</td><td>'+esc(r.event)+'</td>'+
+              '<td>'+oppCell+'</td><td><span class="tf"><b>'+esc(fmtTime(r.time)||'TBD')+'</b>'+(fieldLabel?'<span class="fld">'+esc(fieldLabel)+'</span>':'')+'<span class="g-cue">Preview ›</span></span></td></tr>'; }).join('')+
+          '</tbody></table></div>'
+        : '';
+    }
+    function tourneyHTMLOf(rs, us, includeRegistered){
+      var tFids={}; rs.concat(us).forEach(function(r){ if(r.fid) tFids[r.fid]=1; });
+      if(includeRegistered) (t.tournaments||[]).forEach(function(name){ var f=FORMS.find(function(x){ return x.title===name; }); if(f) tFids[f.id]=1; });
+      var tList=Object.keys(tFids).map(function(fid){ return FORMS.find(function(x){ return x.id===fid; }); }).filter(function(f){ return f && f.type==='tournament'; });
+      function hasBracket(fid){ return ALL.some(function(g){ return g.form_id===fid && g.g!=null; }); }
+      return tList.length
+        ? '<div class="card-grid">'+tList.map(function(f){
+            var hb=hasBracket(f.id); var m=[f.event_dates, f.location].filter(Boolean).join(' · ');
+            return '<a class="card tw-card" href="event.html?id='+encodeURIComponent(f.id)+'"><div class="eyebrow">'+(hb?'Tournament':'Registered')+'</div><h3 style="margin:4px 0 0">'+esc(f.title)+'</h3>'+(m?'<div class="muted" style="font-size:var(--text-sm);margin-top:4px">'+esc(m)+'</div>':'')+'<div class="cg-view">View tournament →</div></a>';
+          }).join('')+'</div>'
+        : '<div class="empty">No tournaments in this span.</div>';
+    }
 
     var logo = '<img src="assets/logos/'+esc(t.slug||t.id)+'.png" alt="'+esc(t.name)+' logo" loading="lazy" onerror="this.remove()">'+esc(STS.abbr(t.name));
     var meta = [t.division, t.age_class, t.sport, t.town, (t.coach_name?'Coach '+t.coach_name:'')].filter(Boolean).map(function(m){ return '<span>'+esc(m)+'</span>'; }).join('');
@@ -148,39 +164,42 @@
           return '<tr><td class="jersey">'+esc(p.num||'')+'</td><td>'+nameCell+'</td><td>'+esc(STS.playerAge(p))+'</td><td>'+esc(p.grade||'')+'</td></tr>'; }).join('')+
         '</tbody></table></div>'
       : '<div class="empty">No roster posted yet. The coach can add players with their team code.</div>';
-    // tournaments this team is in — from games actually played + any registered.
-    // A tournament with a bracket links to it ("View bracket →").
-    var tFids = {};
-    results.concat(upcoming).forEach(function(r){ if(r.fid) tFids[r.fid]=1; });
-    (t.tournaments||[]).forEach(function(name){ var f=FORMS.find(function(x){ return x.title===name; }); if(f) tFids[f.id]=1; });
-    var tList = Object.keys(tFids).map(function(fid){ return FORMS.find(function(x){ return x.id===fid; }); })
-      .filter(function(f){ return f && f.type==='tournament'; });
-    function hasBracket(fid){ return ALL.some(function(g){ return g.form_id===fid && g.g!=null; }); }
-    var tourneyHTML = tList.length
-      ? '<div class="card-grid">'+tList.map(function(f){
-          var hb=hasBracket(f.id);
-          var meta=[f.event_dates, f.location].filter(Boolean).join(' · ');
-          var body='<div class="eyebrow">'+(hb?'Tournament':'Registered')+'</div><h3 style="margin:4px 0 0">'+esc(f.title)+'</h3>'+
-            (meta?'<div class="muted" style="font-size:var(--text-sm);margin-top:4px">'+esc(meta)+'</div>':'')+
-            '<div class="cg-view">View tournament →</div>';
-          return '<a class="card tw-card" href="event.html?id='+encodeURIComponent(f.id)+'">'+body+'</a>';
-        }).join('')+'</div>'
-      : '<div class="empty">Not registered for any tournaments yet.</div>';
-    var record = gp ? ('<span>'+rec.w+'–'+rec.l+(rec.t?'–'+rec.t:'')+' record</span>'+(titles?'<span>'+titles+'× 🏆 Champion</span>':'')) : '';
+
+    // Season selector: Total (all-time) + each season year, newest first.
+    var seasonBar = (results.length || upcoming.length)
+      ? '<div class="pill-tabs" id="seasonBar" style="margin-bottom:var(--space-4)"><button class="pill active" data-season="TOTAL">Total</button>'+
+          seasonList.map(function(y){ return '<button class="pill" data-season="'+y+'">'+y+' Season</button>'; }).join('')+'</div>'
+      : '';
+
+    function renderSeason(sel){
+      var rs = (sel==='TOTAL') ? results : results.filter(function(r){ return String(r.season)===String(sel); });
+      var us = (sel==='TOTAL') ? upcoming : upcoming.filter(function(r){ return String(r.season)===String(sel); });
+      var sg = statGridOf(rs);
+      var html =
+        (sg ? '<div class="sec-head"><h2>'+(sel==='TOTAL'?'All-Time Stats':esc(sel)+' Season Stats')+'</h2><span class="muted" style="font-size:var(--text-sm)">'+rs.length+' game'+(rs.length===1?'':'s')+'</span></div>'+sg : '')+
+        (us.length ? '<div class="sec-head'+(sg?' mt-7':'')+'"><h2>Upcoming Schedule</h2><span class="muted" style="font-size:var(--text-sm)">'+us.length+' game'+(us.length===1?'':'s')+' · tap for preview</span></div>'+upcomingHTMLOf(us) : '')+
+        '<div class="sec-head'+((sg||us.length)?' mt-7':'')+'"><h2>'+(us.length?'Results':'Games')+'</h2>'+(rs.length?'<span class="muted" style="font-size:var(--text-sm)">tap for recap</span>':'')+'</div>'+gamesHTMLOf(rs)+
+        '<div class="sec-head mt-7"><h2>Tournaments</h2></div>'+tourneyHTMLOf(rs, us, sel==='TOTAL');
+      document.getElementById('seasonContent').innerHTML = html;
+      var rl=document.getElementById('thRecord'); if(rl) rl.innerHTML = recordLine(rs);
+    }
 
     root.innerHTML =
       '<div class="team-hero"><div class="container"><div class="th-inner">'+
         '<div class="team-logo">'+logo+'</div>'+
-        '<div><h1>'+esc(t.name)+'</h1><div class="th-meta">'+meta+record+'</div></div>'+
+        '<div><h1>'+esc(t.name)+'</h1><div class="th-meta">'+meta+'<span id="thRecord"></span></div></div>'+
         '<div style="margin-left:auto"><a class="btn btn-gold btn-sm" href="roster-edit.html?id='+esc(t.slug||t.id)+'">Edit Roster</a></div>'+
       '</div></div></div>'+
       '<main class="container section">'+
-        (statGrid ? '<div class="sec-head"><h2>Season Stats</h2><span class="muted" style="font-size:var(--text-sm)">'+gp+' game'+(gp===1?'':'s')+'</span></div>'+statGrid : '')+
-        (upcomingHTML ? '<div class="sec-head'+(statGrid?' mt-7':'')+'"><h2>Upcoming Schedule</h2><span class="muted" style="font-size:var(--text-sm)">'+upcoming.length+' game'+(upcoming.length===1?'':'s')+' · tap for preview</span></div>'+upcomingHTML : '')+
-        '<div class="sec-head'+((statGrid||upcomingHTML)?' mt-7':'')+'"><h2>'+(upcomingHTML?'Results':'Games')+'</h2>'+(results.length?'<span class="muted" style="font-size:var(--text-sm)">tap for recap</span>':'')+'</div>'+gamesHTML+
+        seasonBar +
+        '<div id="seasonContent"></div>'+
         '<div class="sec-head mt-7"><h2>Roster</h2><span class="muted" style="font-size:var(--text-sm)">'+roster.length+' player'+(roster.length===1?'':'s')+'</span></div>'+rosterHTML+
-        '<div class="sec-head mt-7"><h2>Tournaments</h2></div>'+tourneyHTML+
       '</main>';
+
+    // wire the season pills + initial render (default = Total / all-time)
+    var sbar=document.getElementById('seasonBar');
+    if(sbar) sbar.addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; sbar.querySelectorAll('.pill').forEach(function(p){ p.classList.toggle('active', p===b); }); renderSeason(b.dataset.season); });
+    renderSeason('TOTAL');
 
     // click/Enter a game row → open the preview (upcoming) / recap (played) modal
     function openGameRow(row){
