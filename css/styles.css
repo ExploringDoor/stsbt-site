@@ -262,9 +262,11 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-v
 .tcard .tc-body { padding: var(--space-5); flex: 1; }
 .tcard h3 { margin: 0 0 6px; color: var(--sts-navy); font-size: var(--text-lg); }
 .tcard .tc-loc { color: var(--muted); font-size: var(--text-sm); }
-.tcard .tc-foot { padding: var(--space-3) var(--space-5); border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tcard .tc-foot { padding: var(--space-3) var(--space-5); border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .tcard .tc-ext { color: var(--sts-navy); font-weight: 600; font-size: var(--text-sm); text-decoration: underline; cursor: pointer; }
 .tcard .tc-ext:hover { color: var(--sts-red); }
+.tcard .tc-link { display: flex; flex-direction: column; flex: 1; text-decoration: none; color: inherit; }
+.tcard .tc-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
 
 /* ── Badges ────────────────────────────────────────────────────────── */
 .badge { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
@@ -402,6 +404,21 @@ table.tbl .actions { display: flex; gap: 6px; }
 .notice-ok { background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; }
 #payPanel .tl-amt { font-family: var(--font-display); font-weight: 700; font-size: var(--text-2xl); color: var(--sts-navy); }
 .pay-note { margin-top: 12px; font-size: var(--text-xs); color: var(--muted); text-align: center; line-height: 1.5; }
+/* ── "Who's Coming" modal (shared: register / homepage / tournament info) ── */
+.who-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px; z-index: 1000; overflow: auto; }
+.who-overlay.hidden { display: none; }
+.who-box { background: #fff; border-radius: 14px; max-width: 560px; width: 100%; padding: var(--space-5); box-shadow: 0 24px 64px rgba(0,0,0,.32); }
+.who-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.who-head h3 { margin: 0; color: var(--sts-navy); }
+.who-div { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .05em; color: var(--sts-red); font-size: var(--text-base); margin: var(--space-4) 0 4px; }
+.who-div .cnt { color: var(--muted); font-size: var(--text-sm); }
+.who-team { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: 0 -10px; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
+.who-team .twn { font-weight: 600; color: var(--sts-navy); }
+.who-team .tloc { color: var(--muted); }
+a.who-team { text-decoration: none; border-radius: 8px; transition: background .12s ease; }
+a.who-team:hover { background: var(--paper); }
+a.who-team:hover .twn, a.who-team:hover .who-go { color: var(--sts-red); }
+.who-team .who-go { margin-left: auto; color: var(--muted); font-size: 18px; line-height: 1; }
 .spread { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
 .stack-3 > * + * { margin-top: var(--space-3); }
 .mt-5 { margin-top: var(--space-5); }

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script src="config.js"></script>
-<link rel="stylesheet" href="css/styles.css?v=8" />
+<link rel="stylesheet" href="css/styles.css?v=9" />
 <style>
   .roster-head, .roster-row { display: grid; grid-template-columns: 58px 1fr 150px 92px 64px 42px; gap: 8px; align-items: center; }
   .roster-row { margin-bottom: 10px; }
@@ -60,6 +60,13 @@
       <p class="form-note mt-4" style="font-size:var(--text-xs)">Date of birth is used for eligibility: your public team page shows each player's <b>age as of May 1</b> (the cutoff) — the birthdate itself is <b>never</b> shown publicly.</p>
       <div class="total-line" style="border:0"><span></span><button class="btn btn-red" id="saveRoster">Save Roster</button></div>
       <div id="saveMsg" class="notice notice-ok hidden"></div>
+    </div>
+
+    <!-- Tournaments this team is registered for — withdraw + notify director -->
+    <div class="card" id="myTourneysCard" style="margin-top:var(--space-5);display:none">
+      <h3 style="margin:0 0 6px">Your Tournaments</h3>
+      <p class="form-note" style="margin-top:0">Tournaments your team is entered in. Need to pull out? Withdraw here and your director is notified.</p>
+      <div id="myTourneys"></div>
     </div>
 
     <!-- Team insurance (coach uploads their own policy for review) -->
@@ -119,7 +126,33 @@
     document.getElementById('edTeam').textContent = TEAM.name;
     document.getElementById('viewTeamLink').href = 'team.html?id='+encodeURIComponent(TEAM.slug||TEAM.id);
     renderRows();
+    renderMyTourneys();
   }
+
+  // ── Your Tournaments (withdraw + notify director) ──
+  function renderMyTourneys(){
+    var card = document.getElementById('myTourneysCard'), box = document.getElementById('myTourneys');
+    var list = (TEAM && Array.isArray(TEAM.tournaments)) ? TEAM.tournaments.slice() : [];
+    if (!list.length){ card.style.display='none'; box.innerHTML=''; return; }
+    card.style.display='';
+    box.innerHTML = list.map(function(t){
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)">'+
+        '<span style="font-weight:600;color:var(--sts-navy)">'+esc(t)+'</span>'+
+        '<button class="btn btn-outline btn-sm mt-wd" data-t="'+esc(t)+'" style="color:var(--sts-red)">Withdraw</button></div>';
+    }).join('');
+  }
+  document.getElementById('myTourneys').addEventListener('click', async function(e){
+    var b = e.target.closest('.mt-wd'); if(!b) return;
+    var t = b.dataset.t;
+    if(!confirm('Withdraw "'+(TEAM.name||'your team')+'" from '+t+'?\n\nYour director will be notified. Any refund is handled by your director.')) return;
+    b.disabled = true; b.textContent = 'Withdrawing…';
+    var code = (document.getElementById('codeInput').value||'').trim().toUpperCase();
+    try {
+      await STS.withdrawFromTournament(TEAM, t, code);
+      TEAM.tournaments = (TEAM.tournaments||[]).filter(function(x){ return x !== t; });
+      renderMyTourneys();
+    } catch(err){ alert((err && err.message) || 'Could not withdraw — please try again.'); b.disabled=false; b.textContent='Withdraw'; }
+  });
 
   function gradeSelect(i, val){
     var grades=['K','1','2','3','4','5','6','7','8','9','10','11','12'];

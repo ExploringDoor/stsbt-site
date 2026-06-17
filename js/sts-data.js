@@ -572,6 +572,21 @@ export async function deleteTeam(id) {
   }
   _teams = _teams.filter(function (t) { return t.id !== id && t.slug !== id; });
 }
+// Coach withdraws their team from a tournament (code-checked server-side; emails admin).
+export async function withdrawFromTournament(team, tournament, code) {
+  var teamId = (team && (team.slug || team.id)) || team;
+  if (isConfigured) {
+    var r = await fetch('/api/withdraw', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teamId: teamId, code: code, tournament: tournament })
+    });
+    if (!r.ok) { var e = await r.json().catch(function () { return {}; }); throw new Error(e.error || 'Could not withdraw — please try again.'); }
+    return r.json();
+  }
+  var t = _teams.find(function (x) { return x.id === teamId || x.slug === teamId; });   // demo: in-memory
+  if (t && Array.isArray(t.tournaments)) t.tournaments = t.tournaments.filter(function (x) { return x !== tournament; });
+  return { ok: true };
+}
 export async function getTeam(id) {
   if (isConfigured) {
     var byId = await fsOne('teams', id); if (byId) return byId;

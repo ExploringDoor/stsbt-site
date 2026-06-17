@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script src="config.js"></script>
-<link rel="stylesheet" href="css/styles.css?v=8" />
+<link rel="stylesheet" href="css/styles.css?v=9" />
 <style>
   .ev-hero { background: linear-gradient(180deg,#00224f,#001a3d); color:#fff; padding: var(--space-6) 0 var(--space-5); }
   .ev-hero h1 { color:#fff; margin:0 0 6px; font-size: var(--text-2xl); }
@@ -50,6 +50,7 @@
   <h1 id="evTitle">Loading…</h1>
   <div class="ev-meta" id="evMeta"></div>
   <div id="evFmt"></div>
+  <div id="evWho" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center"></div>
 </div></header>
 
 <main class="container narrow section">
@@ -66,6 +67,7 @@
 <script src="js/sts-chrome.js"></script>
 <script type="module">
   import * as STS from './js/sts-data.js';
+  import { openWho, comingCount } from './js/sts-whoscoming.js';
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function qs(k){ return new URLSearchParams(location.search).get(k); }
   var DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -208,6 +210,15 @@
     // divisions
     var divs=evAllDivs(); curDiv = (divs.indexOf(curDiv)>=0)?curDiv:(divs[0]||'');
     document.getElementById('evFmt').innerHTML = '<span class="ev-fmt">'+esc(detectFormat())+'</span>';
+    // Registered-team count + Who's Coming (async — uses the public teams list)
+    (async function(){
+      var wrap = document.getElementById('evWho'); if (!wrap) return;
+      var n = 0; try { n = await comingCount(FORM); } catch(e){}
+      wrap.innerHTML = '<button class="btn btn-outline btn-sm" id="evWhoBtn">👥 Who\'s Coming</button>' +
+        '<span class="ev-regcount" style="font-family:var(--font-display);font-weight:600;color:#fff">'+n+' team'+(n===1?'':'s')+' registered</span>' +
+        '<a class="btn btn-red btn-sm" href="register.html?form='+encodeURIComponent(FORM.id)+'">Register →</a>';
+      document.getElementById('evWhoBtn').addEventListener('click', function(){ openWho(FORM); });
+    })();
     buildDivPills();
     // Standings only make sense for pool play — hide the tab for pure single/double elim.
     var anyPool = GAMES.some(function(g){ return g.form_id===fid && g.g==null; });
