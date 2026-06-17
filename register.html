@@ -25,6 +25,22 @@
   .reg-jump a { display: inline-flex; align-items: center; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .05em; font-size: var(--text-sm); font-weight: 600; color: var(--sts-navy); background: #fff; border: 1.5px solid var(--line); border-radius: 999px; padding: 8px 18px; text-decoration: none; transition: border-color .15s ease, color .15s ease, background .15s ease; }
   .reg-jump a:hover { border-color: var(--sts-red); color: var(--sts-red); }
   html { scroll-behavior: smooth; }
+  /* Who's Coming modal */
+  .who-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px; z-index: 1000; overflow: auto; }
+  .who-overlay.hidden { display: none; }
+  .who-box { background: #fff; border-radius: 14px; max-width: 560px; width: 100%; padding: var(--space-5); box-shadow: 0 24px 64px rgba(0,0,0,.32); }
+  .who-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .who-head h3 { margin: 0; color: var(--sts-navy); }
+  .x-close { background: none; border: 0; font-size: 26px; line-height: 1; cursor: pointer; color: var(--muted); }
+  .who-div { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .05em; color: var(--sts-red); font-size: var(--text-base); margin: var(--space-4) 0 4px; }
+  .who-div .cnt { color: var(--muted); font-size: var(--text-sm); }
+  .who-team { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
+  .who-team .twn { font-weight: 600; color: var(--sts-navy); }
+  .who-team .tloc { color: var(--muted); }
+  /* Tournament card: clickable body + footer actions (Select / Who's Coming) */
+  .tcard .tc-link { display: flex; flex-direction: column; flex: 1; text-decoration: none; color: inherit; }
+  .tcard .tc-foot { flex-wrap: wrap; }
+  .tc-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
   .price-readout { font-family: var(--font-display); font-weight: 700; color: var(--sts-navy); }
   .pay-note { display: flex; align-items: center; gap: 8px; justify-content: center; color: var(--muted); font-size: var(--text-xs); margin-top: var(--space-3); }
 </style>
@@ -163,6 +179,18 @@
   </div>
 </main>
 
+<!-- Who's Coming modal -->
+<div id="whoModal" class="who-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="whoTitle">
+  <div class="who-box">
+    <div class="who-head">
+      <h3 id="whoTitle">Who's Coming</h3>
+      <button class="x-close" id="whoClose" type="button" aria-label="Close">×</button>
+    </div>
+    <p class="muted" id="whoSub" style="margin:0 0 var(--space-4);font-size:var(--text-sm)"></p>
+    <div id="whoBody"></div>
+  </div>
+</div>
+
 <div id="sts-footer"></div>
 
 <script src="js/sts-chrome.js"></script>
@@ -174,6 +202,7 @@
 
   var formId = qs('form');
   var sportFilter = qs('sport');
+  var PICKER_FORMS = [];   // all forms shown in the picker (for the Who's Coming card buttons)
 
   function divisionNames(sport){
     var d = (cfg.divisions || {})[sport] || [];
@@ -185,11 +214,12 @@
     var wrap = document.getElementById('picker');
     var forms = await STS.loadForms();
     if (sportFilter) forms = forms.filter(function(f){ return f.sport === sportFilter || f.sport === 'both'; });
+    PICKER_FORMS = forms;
     if (!forms.length){ wrap.innerHTML = '<div class="empty">No open registrations right now — check back soon.</div>'; return; }
     var groups = [
-      { key:'tournament', label:'Tournaments' },
       { key:'season', label:'Season Team Registration' },
-      { key:'product', label:'Team Insurance & Products' }
+      { key:'product', label:'Team Insurance & Products' },
+      { key:'tournament', label:'Tournaments' }
     ];
     var present = groups.filter(function(g){ return forms.some(function(f){ return f.type === g.key; }); });
     // Jump links (only when more than one section is showing)
@@ -203,10 +233,20 @@
       html += items.map(function(f){
         var price = (f.price_options && f.price_options[0]) ? f.price_options[0].cents : 0;
         var priceTxt = f.type==='tournament' ? 'From '+STS.money(price)+'/team' : (price? STS.money(price) : 'No fee');
-        return '<a class="tcard" href="register.html?form='+encodeURIComponent(f.id)+'" style="text-decoration:none">'+
-          '<div class="tc-top"><span class="tc-date">'+esc(f.event_dates||'')+'</span>'+(f.sport==='both'?'':'<span class="badge badge-sport">'+esc(f.sport)+'</span>')+'</div>'+
-          '<div class="tc-body"><h3>'+esc(f.title)+'</h3><div class="tc-loc">'+esc(f.location||'')+'</div></div>'+
-          '<div class="tc-foot"><span class="price-readout">'+priceTxt+'</span><span class="btn btn-navy btn-sm">Select</span></div></a>';
+        var href = 'register.html?form='+encodeURIComponent(f.id);
+        var isTourney = f.type === 'tournament';
+        return '<div class="tcard">'+
+          '<a class="tc-link" href="'+href+'">'+
+            '<div class="tc-top"><span class="tc-date">'+esc(f.event_dates||'')+'</span>'+(f.sport==='both'?'':'<span class="badge badge-sport">'+esc(f.sport)+'</span>')+'</div>'+
+            '<div class="tc-body"><h3>'+esc(f.title)+'</h3><div class="tc-loc">'+esc(f.location||'')+'</div></div>'+
+          '</a>'+
+          '<div class="tc-foot"><span class="price-readout">'+priceTxt+'</span>'+
+            '<div class="tc-actions">'+
+              (isTourney ? '<button type="button" class="btn btn-outline btn-sm whoCard" data-form="'+esc(f.id)+'">👥 Who\'s Coming</button>' : '')+
+              '<a class="btn btn-navy btn-sm" href="'+href+'">Select</a>'+
+            '</div>'+
+          '</div>'+
+        '</div>';
       }).join('') + '</div></section>';
     });
     wrap.innerHTML = html;
@@ -292,7 +332,7 @@
       ageSel.innerHTML = '<option data-cents="'+((opts[0]&&opts[0].cents)||0)+'" selected>'+esc((opts[0]&&opts[0].label)||'Registration')+'</option>';
     } else {
       // multi-option: tournament = age division (priced); product = quantity/option (priced)
-      document.getElementById('ageLabel').innerHTML = (FORM.type==='product' ? 'Quantity / Option' : 'Team Age (as of '+esc(STS.ageCutoffLabel())+')') + ' <span class="req">*</span>';
+      document.getElementById('ageLabel').innerHTML = (FORM.type==='product' ? (FORM.option_label || 'Quantity / Option') : 'Team Age (as of '+esc(STS.ageCutoffLabel())+')') + ' <span class="req">*</span>';
       ageSel.innerHTML = '<option value="">Select one…</option>' + opts.map(function(o){
         var add = o.cents ? ' (+'+STS.money(o.cents)+')' : '';
         return '<option data-cents="'+o.cents+'">'+esc(o.label)+add+'</option>';
@@ -313,6 +353,60 @@
     if (FORM.type === 'tournament') setupSeasonGate();
     else { document.getElementById('seasonGate').classList.add('hidden'); document.getElementById('regForm').classList.remove('hidden'); }
   }
+
+  // ── WHO'S COMING (registered teams) ──
+  // Default = AGE GROUP ONLY (Keith combines Minors/Triple-A in regular events, so the
+  // bracket is the age group; classification shows as a per-team tag). A form flagged
+  // `separate_divisions:true` (special events) splits by AGE + DIVISION instead.
+  async function openWhoModal(form){
+    if (!form) return;
+    var modal = document.getElementById('whoModal');
+    document.getElementById('whoSub').textContent = form.title;
+    var body = document.getElementById('whoBody');
+    body.innerHTML = '<div class="muted">Loading…</div>';
+    modal.classList.remove('hidden');
+    var teams = [];
+    try { teams = await STS.loadTeams(); } catch(e){ teams = []; }
+    var coming = (teams || []).filter(function(t){
+      return t && t.live !== false && Array.isArray(t.tournaments) && t.tournaments.indexOf(form.title) >= 0;
+    });
+    if (!coming.length){ body.innerHTML = '<div class="empty">No teams registered yet — be the first to sign up!</div>'; return; }
+    var sep = !!form.separate_divisions;                       // special events: split by division too
+    var ageOrder = cfg.ageGroups || [];
+    var divOrder = form.divisions || [];
+    var ageIdx = function(a){ var i = ageOrder.indexOf(a); return i < 0 ? 999 : i; };
+    var divIdx = function(d){ var i = divOrder.indexOf(d); return i < 0 ? 999 : i; };
+    var groups = {};
+    coming.forEach(function(t){
+      var age = t.age_class || '', div = t.division || '';
+      var key = sep ? (age + '||' + div) : age;
+      if (!groups[key]) groups[key] = { label: sep ? ([age, div].filter(Boolean).join(' · ') || 'Other') : (age || div || 'Other'), age: age, div: div, teams: [] };
+      groups[key].teams.push(t);
+    });
+    var keys = Object.keys(groups).sort(function(a, b){
+      var d = ageIdx(groups[a].age) - ageIdx(groups[b].age); if (d) return d;
+      return divIdx(groups[a].div) - divIdx(groups[b].div);
+    });
+    body.innerHTML = keys.map(function(k){
+      var g = groups[k]; g.teams.sort(function(a, b){ return String(a.name||'').localeCompare(String(b.name||'')); });
+      var rows = g.teams.map(function(t){
+        var tag = (!sep && t.division) ? ' · '+esc(t.division) : '';   // age-only mode shows the classification tag
+        return '<div class="who-team"><span class="twn">'+esc(t.name||'Team')+'</span>'+(t.town?'<span class="tloc">· '+esc(t.town)+'</span>':'')+(tag?'<span class="tloc">'+tag+'</span>':'')+'</div>';
+      }).join('');
+      return '<div class="who-div">'+esc(g.label)+' <span class="cnt">'+g.teams.length+' team'+(g.teams.length>1?'s':'')+'</span></div>'+rows;
+    }).join('');
+  }
+  function closeWhoModal(){ document.getElementById('whoModal').classList.add('hidden'); }
+  // "Who's Coming" lives on each tournament card in the picker (next to Select).
+  document.getElementById('picker').addEventListener('click', function(e){
+    var b = e.target.closest('.whoCard'); if (!b) return;
+    e.preventDefault();
+    var f = (PICKER_FORMS || []).find(function(x){ return x.id === b.dataset.form; });
+    if (f) openWhoModal(f);
+  });
+  document.getElementById('whoClose').addEventListener('click', closeWhoModal);
+  document.getElementById('whoModal').addEventListener('click', function(e){ if (e.target === this) closeWhoModal(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeWhoModal(); });
 
   // ── SEASON-REGISTRATION GATE (tournament forms only) ────────────────
   function setupSeasonGate(){

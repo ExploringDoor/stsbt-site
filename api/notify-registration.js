@@ -128,7 +128,7 @@ export function buildInsuranceMessage(r) {
     ['Town', r.town || ''],
     ['Sport / Division / Age', [r.sport, r.division, r.age_class].filter(Boolean).join(' · ')],
     ['Players', r.player_count != null ? r.player_count : ''],
-    ['Coverage period', 'Aug 1, 2026 – Jul 31, 2027 (2026 Fall + 2027 Spring season)'],
+    ['Coverage period', 'Aug 1, 2026 – Jul 31, 2027 (2027 Fall/Spring season)'],
     ['Purchased', fmtWhen(r.paid_at || r.created_at)],
   ].filter((x) => x[1] !== '' && x[1] != null);
 
@@ -176,7 +176,7 @@ export function buildRosterMessage(r) {
   const team = r.team_name || 'team';
   const Sport = (r.sport || '').charAt(0).toUpperCase() + (r.sport || '').slice(1);
   const league = r.age_class
-    ? `${r.age_class} (${r.form_title || '2026 Fall/Spring ' + Sport + ' Team Registration'}${Sport ? ' - ' + Sport : ''})`
+    ? `${r.age_class} (${r.form_title || '2027 Fall/Spring ' + Sport + ' Team Registration'}${Sport ? ' - ' + Sport : ''})`
     : (r.form_title || '');
   const added = Array.isArray(r.added) ? r.added : [];
   const removed = Array.isArray(r.removed) ? r.removed : [];

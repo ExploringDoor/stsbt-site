@@ -6,8 +6,11 @@
 
 export function ageAsOfMay1(dob) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return '';
+  // SEASON_YEAR (Vercel env) pins the cutoff to the registration season so the server
+  // matches the client's config.season.year; otherwise fall back to the Aug-1 rollover.
+  const envYr = parseInt(process.env.SEASON_YEAR || '', 10);
   const now = new Date();
-  const yr = now.getMonth() >= 7 ? now.getFullYear() + 1 : now.getFullYear();
+  const yr = (envYr && envYr > 2000) ? envYr : (now.getMonth() >= 7 ? now.getFullYear() + 1 : now.getFullYear());
   const cut = new Date(yr, 4, 1, 12);
   const b = new Date(dob + 'T12:00:00');
   if (isNaN(b)) return '';

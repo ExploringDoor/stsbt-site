@@ -14,14 +14,14 @@ import { buildMessage, buildCoachMessage, buildInsuranceMessage, buildMerchMessa
 
 const SAMPLE = {
   team_name: 'Brownwood Bandits', form_id: 'season-baseball',
-  form_title: '2026 Fall/Spring Baseball Team Registration',
+  form_title: '2027 Fall/Spring Baseball Team Registration',
   sport: 'baseball', division: 'Triple-A', age_class: '12U', town: 'Brownwood, TX',
   coach_name: 'Jake Henderson', coach_phone: '325-555-2841', coach_email: 'jake.henderson@example.com',
   entry_no: 621900, amount_cents: 22500, card_last4: '4242', clover_order_id: 'ORD-77123',
   team_code: 'BAND7', created_at: '2026-06-12T11:11:00', player_count: 12,
 };
 const INSURANCE_SAMPLE = Object.assign({}, SAMPLE, {
-  form_id: 'team-insurance', form_title: '2026 STS Team Insurance', amount_cents: 5000, age_class: '', division: '',
+  form_id: 'team-insurance', form_title: '2027 STS Team Insurance', amount_cents: 5000, age_class: '', division: '',
 });
 const MERCH_SAMPLE = Object.assign({}, SAMPLE, {
   form_id: 'gamepro-baseballs', form_title: 'STS GamePro Baseballs', amount_cents: 6000,

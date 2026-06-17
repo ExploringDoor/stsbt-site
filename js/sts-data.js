@@ -39,6 +39,11 @@ export function abbr(name) {
 // auto-rolls into the new season with no config change. This derived age is the
 // ONLY age info shown publicly — never the birthdate.
 export function cutoffYear() {
+  // Prefer the configured season year (so the "age as of May 1" label matches the
+  // season the team is registering for); fall back to the Aug-1 date rollover.
+  var cfg = (typeof window !== 'undefined' && window.LEAGUE_CONFIG) || (typeof self !== 'undefined' && self.LEAGUE_CONFIG) || null;
+  var y = cfg && cfg.season && cfg.season.year;
+  if (y) return Number(y);
   var n = new Date();
   return n.getMonth() >= 7 ? n.getFullYear() + 1 : n.getFullYear();
 }
@@ -68,12 +73,12 @@ var AGE_PRICES = [
 var WAIVER = 'All coaches must complete the season Team Registration before registering and paying for any tournaments. All teams must carry team insurance purchased through Small Town Select, or add Small Town Select as additionally insured on their team insurance.';
 
 var SAMPLE_FORMS = [
-  { id: 'season-baseball', title: '2026 Fall/Spring Baseball Team Registration', type: 'season', sport: 'baseball', order: 1, active: true, archived: false, convenience_fee_cents: 300, price_options: [{ label: 'Season Registration', cents: 2500 }], waiver_text: WAIVER, location: '', event_dates: 'Covers the 2026 Fall + 2027 Spring season' },
-  { id: 'season-softball', title: '2026 Fall/Spring Softball Team Registration', type: 'season', sport: 'softball', order: 2, active: true, archived: false, convenience_fee_cents: 300, price_options: [{ label: 'Season Registration', cents: 2500 }], waiver_text: WAIVER, location: '', event_dates: 'Covers the 2026 Fall + 2027 Spring season' },
+  { id: 'season-baseball', title: '2027 Fall/Spring Baseball Team Registration', type: 'season', sport: 'baseball', order: 1, active: true, archived: false, convenience_fee_cents: 300, price_options: [{ label: 'Season Registration', cents: 2500 }], waiver_text: WAIVER, location: '', event_dates: 'Covers the 2027 Fall/Spring season (Aug 2026 – Jul 2027)' },
+  { id: 'season-softball', title: '2027 Fall/Spring Softball Team Registration', type: 'season', sport: 'softball', order: 2, active: true, archived: false, convenience_fee_cents: 300, price_options: [{ label: 'Season Registration', cents: 2500 }], waiver_text: WAIVER, location: '', event_dates: 'Covers the 2027 Fall/Spring season (Aug 2026 – Jul 2027)' },
   { id: 'brownwood-summer-slam', title: 'Brownwood "Summer Slam Series"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A'], order: 3, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Brownwood, TX', event_dates: 'June 13–14, 2026' },
   { id: 'iowa-park-heat-wave', title: 'Iowa Park "Heat Wave"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A', 'Majors'], order: 4, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Iowa Park, TX', event_dates: 'June 13–14, 2026' },
   { id: 'hill-county-bash', title: 'Hillsboro "Hill County All-Star Bash"', type: 'tournament', sport: 'softball', divisions: ['Class C', 'Class B', 'Class A'], order: 5, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Wallace Park, Hillsboro, TX', event_dates: 'June 13, 2026' },
-  { id: 'team-insurance', title: '2026 STS Team Insurance', type: 'product', sport: 'both', order: 6, active: true, archived: false, convenience_fee_cents: 0, price_options: [{ label: 'Team Insurance', cents: 5000 }], waiver_text: '', location: '', event_dates: 'Covers the 2026 Fall + 2027 Spring season' },
+  { id: 'team-insurance', title: '2027 STS Team Insurance', type: 'product', sport: 'both', order: 6, active: true, archived: false, convenience_fee_cents: 0, option_label: 'Age Group', price_options: [{ label: '12U and under', cents: 12000 }, { label: '13U-15U', cents: 16000 }, { label: '16U-18U', cents: 19500 }], waiver_text: '', location: '', event_dates: 'Valid Aug 1, 2026 – Jul 31, 2027 · prices include administrative fees' },
   { id: 'georgetown-fathers-day', title: 'Georgetown "Father\'s Day Classic"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A', 'Majors'], order: 7, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Georgetown, TX', event_dates: 'June 20–21, 2026' },
   { id: 'clyde-summer-sizzle', title: 'Clyde "Summer Sizzle"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A'], order: 8, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'Clyde, TX', event_dates: 'June 27–28, 2026' },
   { id: 'san-angelo-belt-showdown', title: 'San Angelo "Stars & Stripes Belt Showdown"', type: 'tournament', sport: 'baseball', divisions: ['Minors', 'Triple-A'], order: 9, active: true, archived: false, convenience_fee_cents: 300, price_options: AGE_PRICES, waiver_text: WAIVER, location: 'San Angelo, TX', event_dates: 'July 11–12, 2026' },
@@ -85,7 +90,7 @@ var SAMPLE_TEAMS = [
   { id: 'btx-vice', name: 'BTX Vice', slug: 'btx-vice', sport: 'baseball', division: 'Minors', age_class: '10U', town: 'Belton, TX', coach_name: 'Randy Bates', live: true, status: 'active', team_code: 'VICE0', tournaments: ['Iowa Park "Heat Wave"'], roster: [{ name: 'Randy Bates', num: '3', dob: '2014-06-20', grade: '5' }], w: 0, l: 0 },
   { id: 'ctx-wolfpack', name: 'CTX Wolfpack', slug: 'ctx-wolfpack', sport: 'baseball', division: 'Triple-A', age_class: '12U', town: 'Waco, TX', coach_name: 'Dan Chiappe', live: true, status: 'active', team_code: 'WOLF2', tournaments: ['Brownwood "Summer Slam Series"', 'Iowa Park "Heat Wave"'], roster: [{ name: 'Dan Chiappe', num: '24', dob: '2013-03-15', grade: '6' }, { name: 'C. Horton', num: '14', dob: '2015-09-02', grade: '4', guest: true }], w: 0, l: 0 },
   // auto-created from a FREE ($0) season registration (reg r6) — see createTeamFromRegistration
-  { id: 'comanche-bears', name: 'Comanche Bears', slug: 'comanche-bears', sport: 'baseball', division: 'Triple-A', age_class: '11U', town: 'Comanche, TX', coach_name: 'Will Rhodes', live: true, status: 'active', team_code: 'BEAR4', reg_id: 'r6', tournaments: ['2026 Fall/Spring Baseball Team Registration'], roster: [], w: 0, l: 0 }
+  { id: 'comanche-bears', name: 'Comanche Bears', slug: 'comanche-bears', sport: 'baseball', division: 'Triple-A', age_class: '11U', town: 'Comanche, TX', coach_name: 'Will Rhodes', live: true, status: 'active', team_code: 'BEAR4', reg_id: 'r6', tournaments: ['2027 Fall/Spring Baseball Team Registration'], roster: [], w: 0, l: 0 }
 ];
 
 var SAMPLE_REGS = [
@@ -184,7 +189,7 @@ var SAMPLE_ACTIVITY = [
   { id: 'a2', type: 'insurance', team_name: 'Blacksox', title: 'Insurance purchased — Blacksox', detail: 'Tanir Horton', actor: 'Tanir Horton', at: '2026-06-12T14:05:00' },
   { id: 'a3', type: 'payment', team_name: 'CTX Wolfpack', title: 'Paid registration — CTX Wolfpack', detail: 'Brownwood "Summer Slam Series" · $128.00', actor: 'Dan Chiappe', at: '2026-06-11T12:08:00' },
   { id: 'a4', type: 'order', team_name: 'Blacksox', title: 'Order — STS GamePro Baseballs', detail: 'Blacksox · $60.00', actor: 'Tanir Horton', at: '2026-06-10T09:30:00' },
-  { id: 'a5', type: 'registration', team_name: 'Comanche Bears', title: 'New team registered — Comanche Bears', detail: '2026 Fall/Spring Baseball Team Registration', actor: 'Will Rhodes', at: '2026-06-09T16:20:00' },
+  { id: 'a5', type: 'registration', team_name: 'Comanche Bears', title: 'New team registered — Comanche Bears', detail: '2027 Fall/Spring Baseball Team Registration', actor: 'Will Rhodes', at: '2026-06-09T16:20:00' },
 ];
 var _activity = SAMPLE_ACTIVITY.map(function (x) { return Object.assign({}, x); });
 
@@ -947,7 +952,7 @@ export async function saveBracket(formId, meta, gen, opts) {
 //   Avg Run Differential (higher) → Total Runs For (more) → Forfeits (fewer) → coin flip.
 export function computeStandings(games) {
   var t = {}, h2h = {};
-  function row(name) { if (!t[name]) t[name] = { team: name, w: 0, l: 0, ties: 0, rs: 0, ra: 0, gp: 0, ff: 0 }; return t[name]; }
+  function row(name) { if (!t[name]) t[name] = { team: name, w: 0, l: 0, ties: 0, rs: 0, ra: 0, gp: 0, ff: 0, cdiff: 0 }; return t[name]; }
   function hh(a, b) { h2h[a] = h2h[a] || {}; if (!h2h[a][b]) h2h[a][b] = { w: 0, l: 0 }; return h2h[a][b]; }
   (games || []).forEach(function (g) {
     if (!g.done || g.away_score == null || g.home_score == null) return;
@@ -956,6 +961,8 @@ export function computeStandings(games) {
     if (!isFinite(as) || !isFinite(hs)) return;   // a hand-edited non-numeric score can't poison standings
     var a = row(g.away), h = row(g.home);
     a.gp++; h.gp++; a.rs += as; a.ra += hs; h.rs += hs; h.ra += as;
+    var m = as - hs; if (m > 10) m = 10; else if (m < -10) m = -10;   // run-diff capped at ±10/game
+    a.cdiff += m; h.cdiff -= m;
     if (as > hs) { a.w++; h.l++; hh(g.away, g.home).w++; hh(g.home, g.away).l++; if (g.forfeit) h.ff++; }
     else if (hs > as) { h.w++; a.l++; hh(g.home, g.away).w++; hh(g.away, g.home).l++; if (g.forfeit) a.ff++; }
     else { a.ties++; h.ties++; }
@@ -964,18 +971,21 @@ export function computeStandings(games) {
     var r = t[k];
     r.pct = (r.w + r.l + r.ties) ? (r.w + r.ties * 0.5) / (r.w + r.l + r.ties) : 0;
     r.diff = r.rs - r.ra;
-    r.ardiff = r.gp ? (r.diff / r.gp) : 0;
+    r.ardiff = r.gp ? (r.diff / r.gp) : 0;            // raw avg run differential (display)
+    r.cardiff = r.gp ? (r.cdiff / r.gp) : 0;          // capped (±10/game) avg run diff — seeding tiebreaker
     return r;
   });
   function h2hResult(a, b) { var x = (h2h[a.team] && h2h[a.team][b.team]) || { w: 0, l: 0 }; return x.w > x.l ? 1 : (x.l > x.w ? -1 : 0); }
+  // Seeding tiebreakers (Keith's order): 1) W-L (win%, handled by the outer sort)
+  // 2) Head-to-head (2-team only) 3) Runs Against (fewer) 4) Avg run differential
+  // capped at ±10/game (higher) 5) Runs Scored (more). Coin flip = stable order.
   function tieSort(grp) {
     grp.sort(function (a, b) {
-      if (grp.length === 2) { var hr = h2hResult(a, b); if (hr !== 0) return -hr; }   // 2-team head-to-head
-      if (a.ra !== b.ra) return a.ra - b.ra;                 // fewer runs against
-      if (b.ardiff !== a.ardiff) return b.ardiff - a.ardiff; // higher avg run differential
-      if (b.rs !== a.rs) return b.rs - a.rs;                 // more runs for
-      if (a.ff !== b.ff) return a.ff - b.ff;                 // fewer forfeits
-      return 0;                                              // coin flip → stable order
+      if (grp.length === 2) { var hr = h2hResult(a, b); if (hr !== 0) return -hr; }   // H2H (two only)
+      if (a.ra !== b.ra) return a.ra - b.ra;                    // fewer runs against
+      if (b.cardiff !== a.cardiff) return b.cardiff - a.cardiff; // higher capped avg run diff (max 10/game)
+      if (b.rs !== a.rs) return b.rs - a.rs;                    // more runs scored
+      return 0;                                                 // coin flip → stable order
     });
   }
   rows.sort(function (a, b) { return b.pct - a.pct; });

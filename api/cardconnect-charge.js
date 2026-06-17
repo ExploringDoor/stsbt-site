@@ -116,13 +116,24 @@ export default async function handler(req, res) {
       } catch (e) { /* non-fatal */ }
     }
 
-    // season/tournament → auto-create the public team page (idempotent)
-    if (!reg.team_id && (formType === 'season' || formType === 'tournament')) {
-      let slug;
+    // season/tournament → ensure the public team page exists AND is tagged with this
+    // event (so "Who's Coming" lists it). A team that did season reg and now enters a
+    // tournament gets the tournament appended — no duplicate team created.
+    if (formType === 'season' || formType === 'tournament') {
+      const base = slugify(reg.team_name) || `team-${reg.id}`;
+      // prefer a team already linked to this reg; else match an existing team by name+sport
+      let team = null;
       const mine = await fsQuery('teams', 'reg_id', 'EQUAL', reg.id);
-      if (mine && mine.length) { slug = mine[0].id || mine[0].slug; }
-      else {
-        const base = slugify(reg.team_name) || `team-${reg.id}`;
+      if (mine && mine.length) team = mine[0];
+      else { const bySlug = await fsGet(`teams/${base}`); if (bySlug && (!reg.sport || !bySlug.sport || bySlug.sport === reg.sport)) team = bySlug; }
+      let slug;
+      if (team) {
+        slug = team.id || team.slug || base;
+        if (reg.form_title) {
+          const tours = Array.isArray(team.tournaments) ? team.tournaments.slice() : [];
+          if (tours.indexOf(reg.form_title) < 0) { tours.push(reg.form_title); await fsPatch(`teams/${slug}`, { tournaments: tours }); }
+        }
+      } else {
         slug = base;
         for (let i = 2; await fsGet(`teams/${slug}`); i++) slug = `${base}-${i}`;
         await fsCreate('teams', {

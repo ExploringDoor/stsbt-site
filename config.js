@@ -26,12 +26,12 @@
 
     // ── Season (Fall/Spring runs Aug 1 → Jul 31) ─────────────────────────
     season: {
-      year: 2026,
-      label: '2026 Fall/Spring',
-      starts: '2025-08-01',
-      ends: '2026-07-31',
-      // "Age as of" date shown on registration forms
-      ageAsOf: '2026-05-01'
+      year: 2027,
+      label: '2027 Fall/Spring',
+      starts: '2026-08-01',
+      ends: '2027-07-31',
+      // "Age as of" date shown on registration forms (May 1 of the season year)
+      ageAsOf: '2027-05-01'
     },
 
     // ── Divisions / classifications (teams pick at registration) ─────────
@@ -91,7 +91,7 @@
 
     // ── Products / add-ons (sold via registration forms) ─────────────────
     products: [
-      { name: '2026 Team Insurance', note: 'Baseball & softball — valid Aug 1, 2025 to Jul 31, 2026', form: 'team-insurance' },
+      { name: '2027 Team Insurance', note: 'Baseball & softball — valid Aug 1, 2026 to Jul 31, 2027 · 12U & under $120 · 13U-15U $160 · 16U-18U $195', form: 'team-insurance' },
       { name: 'STS GamePro Baseballs', note: 'Available in 1, 2, or 3-dozen packs', form: 'gamepro-baseballs' }
     ],
 
