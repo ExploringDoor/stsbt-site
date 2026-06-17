@@ -23,7 +23,21 @@ function parseCookies(str) {
   return out;
 }
 
-function loginPage(showError) {
+// Where to send the visitor after they unlock. We preserve the ORIGINAL path +
+// query (e.g. "/?demo=1") so a demo link survives the gate — but only same-origin
+// relative paths are allowed (no open redirect, no //evil.com, no CRLF).
+function safeNext(raw) {
+  let s = String(raw || '').replace(/[\r\n]/g, '');
+  if (!s.startsWith('/') || s.startsWith('//') || s.startsWith('/\\')) return '/';
+  if (s === '/__unlock') return '/';
+  return s;
+}
+function escAttr(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function loginPage(showError, next) {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Small Town Select Tournaments — Private Preview</title>
@@ -52,6 +66,7 @@ function loginPage(showError) {
   <div class="eyebrow">Private Preview</div>
   <h1>Small Town Select Tournaments</h1>
   <p>This site isn't public yet. Enter the password to take a look.</p>
+  <input type="hidden" name="next" value="${escAttr(next || '/')}">
   <input type="password" name="pw" placeholder="Password" autofocus autocomplete="current-password" required>
   <button type="submit">Enter</button>
   <div class="err">${showError ? 'Incorrect password — try again.' : ''}</div>
@@ -72,21 +87,21 @@ export default async function middleware(request) {
 
   // Login form submit.
   if (request.method === 'POST' && url.pathname === '/__unlock') {
-    let pw = '';
-    try { const f = await request.formData(); pw = String(f.get('pw') || ''); } catch (e) {}
+    let pw = '', next = '/';
+    try { const f = await request.formData(); pw = String(f.get('pw') || ''); next = safeNext(f.get('next')); } catch (e) {}
     if (GATE && pw === GATE) {
       return new Response(null, {
         status: 303,
         headers: {
-          'Location': '/',
+          'Location': next,
           'Set-Cookie': `sts_ok=${encodeURIComponent(GATE)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`,
           'cache-control': 'no-store',
         },
       });
     }
-    return loginPage(true);
+    return loginPage(true, next);
   }
 
-  // Everyone else → the login page.
-  return loginPage(false);
+  // Everyone else → the login page, remembering where they were headed.
+  return loginPage(false, safeNext(url.pathname + url.search));
 }
