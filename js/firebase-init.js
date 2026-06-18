@@ -26,9 +26,19 @@ const firebaseConfig = {
 function demoMode(){
   var u = null;
   try { u = new URLSearchParams(location.search).get('demo'); } catch (e) {}
-  if (u === '1') { try { localStorage.setItem('sts-demo', '1'); } catch (e) {} return true; }   // active this page even if storage is blocked
-  if (u === '0') { try { localStorage.removeItem('sts-demo'); } catch (e) {} return false; }
-  try { return localStorage.getItem('sts-demo') === '1'; } catch (e) { return false; }
+  var isAdmin = /admin/i.test(location.pathname);
+  if (u === '1') { try { localStorage.setItem('sts-demo', '1'); } catch (e) {} return true; }   // explicit on (works even on admin)
+  if (u === '0') { try { localStorage.setItem('sts-demo', '0'); } catch (e) {} return false; }   // explicit, STICKY opt-out
+  // Admin = real data unless its own URL says ?demo=1 — so browsing the public demo
+  // never traps admin edits in memory (the "my bracket didn't save" gotcha).
+  if (isAdmin) return false;
+  var stored = null; try { stored = localStorage.getItem('sts-demo'); } catch (e) {}
+  if (stored === '1') return true;
+  if (stored === '0') return false;
+  // No explicit choice → during the gated preview, PUBLIC pages default to demo so a
+  // bare link always shows the populated site. (config.demoDefault; false at launch.)
+  try { if (window.LEAGUE_CONFIG && window.LEAGUE_CONFIG.demoDefault) return true; } catch (e) {}
+  return false;
 }
 export const DEMO = demoMode();
 export const isConfigured = !DEMO && !String(firebaseConfig.apiKey).startsWith('PASTE');

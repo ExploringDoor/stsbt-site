@@ -99,14 +99,19 @@
   function inject() {
     // demo-mode banner (?demo=1) — example data, not real
     try {
+      // Mirror firebase-init's demoMode() so the banner matches the actual data:
+      // admin → real unless ?demo=1; else ?demo / localStorage / config.demoDefault.
       var du = null; try { du = new URLSearchParams(location.search).get('demo'); } catch (e) {}
-      var demoOn = du === '1' || (du !== '0' && (function(){ try { return localStorage.getItem('sts-demo') === '1'; } catch (e) { return false; } })());
+      var isAdmin = /admin/i.test(location.pathname);
+      var stored = null; try { stored = localStorage.getItem('sts-demo'); } catch (e) {}
+      var demoOn = du === '1' ? true : du === '0' ? false : isAdmin ? false
+        : stored === '1' ? true : stored === '0' ? false : !!(CFG && CFG.demoDefault);
       if (demoOn && !document.querySelector('.demo-banner')) {
         var bn = document.createElement('div');
         bn.className = 'demo-banner';
         bn.innerHTML = '🎭 Demo mode — example data, not real registrations · <a href="?demo=0">Exit demo</a>';
         document.body.insertBefore(bn, document.body.firstChild);
-      } else if (!demoOn && CFG.previewMode && !document.querySelector('.demo-invite')) {
+      } else if (!demoOn && !isAdmin && CFG.previewMode && !document.querySelector('.demo-invite')) {
         var iv = document.createElement('div');
         iv.className = 'demo-invite';
         iv.innerHTML = '👋 Want to see it in action? <a href="?demo=1">Preview the whole site with sample data →</a>';

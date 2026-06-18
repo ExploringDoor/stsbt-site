@@ -11,6 +11,11 @@
     // Preview phase: shows a "Preview with sample data" invite (demo mode) sitewide.
     // SET TO false AT LAUNCH so real visitors never see the demo invite.
     previewMode: true,
+    // While the whole site is password-gated (pre-launch), PUBLIC pages default to
+    // the populated demo so a single link always shows the full site — no ?demo=1
+    // needed. Admin still defaults to REAL data so edits save. ?demo=0 opts out
+    // (sticky). SET TO false AT LAUNCH so real visitors see the real (empty→live) data.
+    demoDefault: true,
     // CardConnect (CardPointe) — the iFrame Tokenizer host. NOT a secret (it's in the
     // iframe URL the customer loads). The API username/password/MID live in Vercel env.
     // Flip `site` to the production <site> at go-live.
