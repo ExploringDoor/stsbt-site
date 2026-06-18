@@ -124,7 +124,9 @@
         <div class="hint">Where should we ship your order?</div>
       </div>
 
-      <div class="field-row">
+      <div id="coachNote" class="notice notice-info hidden" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm)"></div>
+
+      <div class="field-row" id="coachRow">
         <div class="field">
           <label for="f_coach_name">Head Coach Name <span class="req">*</span></label>
           <input class="input" id="f_coach_name" name="coach_name" required />
@@ -135,7 +137,7 @@
         </div>
       </div>
 
-      <div class="field">
+      <div class="field" id="coachEmailField">
         <label for="f_coach_email">Coach Email <span class="req">*</span></label>
         <input class="input" id="f_coach_email" name="coach_email" type="email" required placeholder="coach@email.com" />
         <div class="hint">Your confirmation and team-code go here.</div>
@@ -281,6 +283,10 @@
 
   // ── FORM ────────────────────────────────────────────────────────────
   var FORM = null;
+  // The season registration a tournament entry was verified against. Its coach
+  // contact is carried to admin on submit WITHOUT ever being shown on the public
+  // form (privacy: anyone could type a team name to peek at the coach otherwise).
+  var GATE_REG = null;
   function selectedAgePrice(){
     var sel = document.querySelector('[name=age_class]');
     var opt = sel && sel.selectedOptions[0];
@@ -456,14 +462,30 @@
 
     async function unlock(reg){
       gate.classList.add('hidden'); form.classList.remove('hidden');
-      // pre-fill from the season registration so the tournament entry matches
+      GATE_REG = reg;
       var f = document.getElementById('regForm');
       f.team_name.value = reg.team_name || input.value.trim();
       f.team_name.readOnly = true;
       if (reg.town && !f.town.value) f.town.value = reg.town;
-      if (reg.coach_name && !f.coach_name.value) f.coach_name.value = reg.coach_name;
-      if (reg.coach_email && !f.coach_email.value) f.coach_email.value = reg.coach_email;
-      if (reg.coach_phone && !f.coach_phone.value) f.coach_phone.value = reg.coach_phone;
+      // PRIVACY: never display the verified team's coach contact on the public form.
+      // When the team is already on file (matched a season reg), hide the coach
+      // fields entirely and carry that contact to admin invisibly at submit time.
+      // Only the no-season-form fallback (no contact on file) still collects it.
+      var onFile = !!(reg.coach_name || reg.coach_email || reg.coach_phone);
+      var coachInputs = [f.coach_name, f.coach_phone, f.coach_email];
+      var coachRow = document.getElementById('coachRow');
+      var coachEmail = document.getElementById('coachEmailField');
+      var coachNote = document.getElementById('coachNote');
+      if (onFile){
+        coachRow.classList.add('hidden'); coachEmail.classList.add('hidden');
+        coachInputs.forEach(function(i){ i.required = false; });   // hidden + required would block submit
+        coachNote.textContent = 'Your coach contact is already on file from your season registration — no need to re-enter it.';
+        coachNote.classList.remove('hidden');
+      } else {
+        coachRow.classList.remove('hidden'); coachEmail.classList.remove('hidden');
+        coachInputs.forEach(function(i){ i.required = true; });
+        coachNote.classList.add('hidden');
+      }
       // lock the tournament entry to the verified team's age division (name + age = the team)
       var ageVal = reg.age_class || document.getElementById('gateAge').value;
       if (ageVal && f.age_class){
@@ -511,8 +533,11 @@
         form_id: FORM.id, form_title: FORM.title, sport: FORM.sport,
         team_name: f.team_name.value.trim(), division: f.division.value || '',
         age_class: (ageOpt ? ageOpt.textContent.replace(/\s*\(\+.*\)$/,'').trim() : ''),
-        town: f.town.value.trim(), coach_name: f.coach_name.value.trim(),
-        coach_email: f.coach_email.value.trim(), coach_phone: f.coach_phone.value.trim(),
+        town: f.town.value.trim(),
+        // hidden coach fields (verified team) → carry the on-file contact to admin
+        coach_name: f.coach_name.value.trim() || (GATE_REG && GATE_REG.coach_name) || '',
+        coach_email: f.coach_email.value.trim() || (GATE_REG && GATE_REG.coach_email) || '',
+        coach_phone: f.coach_phone.value.trim() || (GATE_REG && GATE_REG.coach_phone) || '',
         ship_address: (f.ship_address && f.ship_address.value.trim()) || '',
         team_age: (f.team_age && f.team_age.value) || '',
         avail_earliest: f.avail_earliest.value || '', avail_latest: f.avail_latest.value || '',
