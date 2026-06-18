@@ -154,8 +154,16 @@ var SAMPLE_GAMES = [
   { id: 'g4c', form_id: 'brownwood-summer-slam', sport: 'baseball', division: 'Triple-A', away: 'Blacksox', home: 'Lonestar Reds', date: '2026-06-13', time: '11:30', field: 'Field 2', away_score: 4, home_score: 7, done: true },
   { id: 'g5', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', away: 'DTX Rangers', home: 'BTX Vice', date: '2026-06-13', time: '09:00', field: 'North', away_score: 10, home_score: 2, done: true },
   { id: 'g6', form_id: 'iowa-park-heat-wave', sport: 'baseball', division: 'Majors', away: 'BTX Vice', home: 'DTX Rangers', date: '2026-06-14', time: '12:00', field: 'North', away_score: null, home_score: null, done: false },
-  { id: 'g7', form_id: 'hill-county-bash', sport: 'softball', division: 'Class B', away: 'Lady Heat', home: 'Hill County Storm', date: '2026-06-13', time: '10:00', field: 'Field A', away_score: 8, home_score: 3, done: true },
-  { id: 'g8', form_id: 'hill-county-bash', sport: 'softball', division: 'Class B', away: 'Hill County Storm', home: 'Lady Heat', date: '2026-06-13', time: '13:00', field: 'Field A', away_score: null, home_score: null, done: false },
+  // Hill County All-Star Bash — 8-team Class B pool play, bracket NOT built yet
+  // (so the Bracket tab shows the empty seeded shell until pool play wraps).
+  { id: 'g7',  form_id: 'hill-county-bash', sport: 'softball', division: 'Class B', away: 'Lady Heat', home: 'Hill County Storm', date: '2026-06-13', time: '09:00', field: 'Field A', away_score: 8, home_score: 3, done: true },
+  { id: 'g8',  form_id: 'hill-county-bash', sport: 'softball', division: 'Class B', away: 'Texas Glory', home: 'Lone Star Lightning', date: '2026-06-13', time: '09:00', field: 'Field B', away_score: 5, home_score: 2, done: true },
+  { id: 'g9',  form_id: 'hill-county-bash', sport: 'softball', division: 'Class B', away: 'Hillsboro Hurricanes', home: 'Cen-Tex Crush', date: '2026-06-13', time: '10:30', field: 'Field A', away_score: 4, home_score: 7, done: true },
+  { id: 'g10', form_id: 'hill-county-bash', sport: 'softball', division: 'Class B', away: 'Waco Wildfire', home: 'Bosque Belles', date: '2026-06-13', time: '10:30', field: 'Field B', away_score: 9, home_score: 6, done: true },
+  { id: 'g11', form_id: 'hill-county-bash', sport: 'softball', division: 'Class B', away: 'Lady Heat', home: 'Texas Glory', date: '2026-06-13', time: '12:00', field: 'Field A', away_score: 6, home_score: 4, done: true },
+  { id: 'g12', form_id: 'hill-county-bash', sport: 'softball', division: 'Class B', away: 'Cen-Tex Crush', home: 'Waco Wildfire', date: '2026-06-13', time: '12:00', field: 'Field B', away_score: 3, home_score: 3, done: true },
+  { id: 'g13', form_id: 'hill-county-bash', sport: 'softball', division: 'Class B', away: 'Hill County Storm', home: 'Hillsboro Hurricanes', date: '2026-06-13', time: '13:30', field: 'Field A', away_score: null, home_score: null, done: false },
+  { id: 'g14', form_id: 'hill-county-bash', sport: 'softball', division: 'Class B', away: 'Lone Star Lightning', home: 'Bosque Belles', date: '2026-06-13', time: '13:30', field: 'Field B', away_score: null, home_score: null, done: false },
   // a sample single-elim bracket on the Brownwood event (g = bracket game number; away/home may be WG-n refs)
   { id: 'b1', form_id: 'brownwood-summer-slam', sport: 'baseball', division: 'Triple-A', g: 1, away: 'CTX Wolfpack', home: 'Lonestar Reds', date: '2026-06-14', time: '13:00', field: 'Field 1', away_score: 11, home_score: 1, done: true },
   { id: 'b2', form_id: 'brownwood-summer-slam', sport: 'baseball', division: 'Triple-A', g: 2, away: 'Blacksox', home: 'Brownwood Bombers', date: '2026-06-14', time: '15:30', field: 'Field 1', away_score: 4, home_score: 7, done: true },
