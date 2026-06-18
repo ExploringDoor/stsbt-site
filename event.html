@@ -63,6 +63,7 @@
 
 <script src="js/sts-bracket.js"></script>
 <script src="js/sts-bracket-render.js"></script>
+<script src="js/sts-tourney-gen.js"></script>
 <script src="js/sts-gamemodal.js"></script>
 <script src="js/sts-chrome.js"></script>
 <script type="module">
@@ -143,8 +144,18 @@
   }
   function renderBracket(){
     var bg = bracketGames();
-    if(!bg.length) return '<div class="empty" style="text-transform:none;letter-spacing:0">No bracket posted yet — it appears once pool play wraps and seeding is set.</div>';
-    return '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:true, venue: FORM.location||'' })+'</div>';
+    if(bg.length) return '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:true, venue: FORM.location||'' })+'</div>';
+    // No bracket posted yet → show the empty bracket SHELL (TBD seed slots) sized to
+    // the field, so people see the format up front. Seeds + teams fill in once pool
+    // play wraps. (Single-elim shell by default; a real bracket replaces it on save.)
+    var n = teamCount();
+    if(n < 2 || !window.STSgen) return '<div class="empty" style="text-transform:none;letter-spacing:0">The bracket appears here once the teams are set.</div>';
+    var seeds = []; for(var i=1;i<=n;i++) seeds.push('Seed '+i);
+    var shell = window.STSgen.generateBracket({ format:'single', teams:seeds, startGame:1 });
+    if(!shell.length) return '<div class="empty" style="text-transform:none;letter-spacing:0">The bracket appears here once the teams are set.</div>';
+    return '<p class="muted bk-preview-note" style="text-transform:none;letter-spacing:0;margin-top:0">'+
+        '<b>Bracket preview</b> — the shape is set; seeds and teams fill in once pool play wraps.</p>'+
+      '<div class="bk-zoomable bk-preview">'+STSbracketRender.render(shell, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:false, venue: FORM.location||'' })+'</div>';
   }
 
   function renderTeams(){
