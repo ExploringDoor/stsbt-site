@@ -153,7 +153,7 @@
           <select class="input" id="schedEvent" style="max-width:240px"><option value="">All events</option></select>
           <div class="pill-tabs" id="schedViewToggle"><button class="pill active" data-view="list">☰ List</button><button class="pill" data-view="grid">▦ Grid</button></div>
         </div>
-        <div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" id="printSchedBtn">🖨 Print / Export</button><a class="btn btn-outline btn-sm hidden" id="viewBracketBtn" target="_blank" rel="noopener">👁 View Bracket ↗</a><button class="btn btn-outline btn-sm" id="bracketBtn">🏆 Bracket / Pool</button><button class="btn btn-red btn-sm" id="newGameBtn">+ Add Game</button></div>
+        <div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" id="printSchedBtn">🖨 Print / Export</button><a class="btn btn-outline btn-sm hidden" id="viewBracketBtn" target="_blank" rel="noopener">👁 View Bracket ↗</a><button class="btn btn-navy btn-sm hidden" id="seedTeamsBtn">🌱 Seed Teams</button><button class="btn btn-outline btn-sm" id="bracketBtn">🏆 Bracket / Pool</button><button class="btn btn-red btn-sm" id="newGameBtn">+ Add Game</button></div>
       </div>
       <p class="muted" style="font-size:var(--text-sm)">Create games and post scores for your events. Standings on the public site update automatically from finished games.</p>
       <div id="schedPublish" style="margin-bottom:var(--space-3)"></div>
@@ -1544,6 +1544,10 @@
     var hasBk = schedFilt && GAMES.some(function(g){ return g.form_id===schedFilt && g.g!=null; });
     if (hasBk){ vb.href = 'brackets.html#'+encodeURIComponent(schedFilt); vb.classList.remove('hidden'); }
     else { vb.classList.add('hidden'); }
+    // "Seed Teams" button — show when the bracket still has unseeded "Seed N" slots
+    var stb = document.getElementById('seedTeamsBtn');
+    var hasSeeds = schedFilt && GAMES.some(function(g){ return g.form_id===schedFilt && g.g!=null && (/^Seed\s*\d+$/i.test(String(g.away||'')) || /^Seed\s*\d+$/i.test(String(g.home||''))); });
+    stb.classList.toggle('hidden', !hasSeeds);
     // per-event publish status (gate the public schedule until Keith releases it)
     var pubBar = document.getElementById('schedPublish');
     if (schedFilt) {
@@ -1679,6 +1683,27 @@
     var w=window.open('','_blank','width=900,height=700'); if(!w){ alert('Allow pop-ups to open the printable schedule.'); return; } w.document.write(html); w.document.close(); w.focus();
   }
   document.getElementById('printSchedBtn').addEventListener('click', buildPrintView);
+  // Seed Teams — fill "Seed N" bracket slots from the current pool standings,
+  // keeping each game's date/time/field exactly as scheduled.
+  document.getElementById('seedTeamsBtn').addEventListener('click', async function(){
+    var fid = schedFilt; if(!fid){ alert('Pick an event first.'); return; }
+    var pool = GAMES.filter(function(g){ return g.form_id===fid && g.g==null; });
+    var st = STS.computeStandings(pool);
+    if(!st.length){ alert('No finished pool games yet — post the pool results first, then seed.'); return; }
+    var map = {}; st.forEach(function(r,i){ map[i+1]=r.team; });
+    var bg = GAMES.filter(function(g){ return g.form_id===fid && g.g!=null; });
+    var updates = [];
+    bg.forEach(function(g){
+      var na=g.away, nh=g.home, ch=false;
+      var ma=String(g.away||'').match(/^Seed\s*(\d+)$/i); if(ma && map[+ma[1]]){ na=map[+ma[1]]; ch=true; }
+      var mh=String(g.home||'').match(/^Seed\s*(\d+)$/i); if(mh && map[+mh[1]]){ nh=map[+mh[1]]; ch=true; }
+      if(ch) updates.push(Object.assign({}, g, { away:na, home:nh }));
+    });
+    if(!updates.length){ alert('No “Seed N” slots to fill — this bracket is already seeded.'); return; }
+    if(!confirm('Fill '+updates.length+' bracket slot(s) from the current pool standings?\n\nTimes and fields stay exactly as you set them. You can still hand-edit any slot afterward.')) return;
+    for(var i=0;i<updates.length;i++){ await STS.saveGame(updates[i]); }
+    GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule();
+  });
   document.getElementById('schedPublish').addEventListener('click', async function(e){
     if(!e.target.closest('#schedPubToggle')) return;
     var f = FORMS.find(function(x){ return x.id===schedFilt; }); if(!f) return;
@@ -1695,17 +1720,23 @@
   function openGameModal(g){
     var isNew=!g; g = g || { form_id: schedFilt || (TOURNEY_FORMS()[0]||{}).id || '', sport:'baseball', done:false };
     var isBracket = g.g != null;
+    // A bracket slot that FEEDS from another game (WG-/LG-) is locked — it resolves
+    // from scores. A first-round slot (a team, a "Seed N" placeholder, or BYE) is
+    // hand-editable, so you can place/adjust teams before or after auto-seeding.
+    var refSlot = function(v){ return /^(WG|LG)-\d+$/i.test(String(v||'')); };
+    var awayLock = isBracket && refSlot(g.away), homeLock = isBracket && refSlot(g.home);
+    var slotsEditable = isBracket && (!awayLock || !homeLock);
     document.getElementById('gmTitle').textContent = isNew ? 'Add Game' : (isBracket ? 'Bracket Game '+g.g : 'Edit Game');
     var tf = TOURNEY_FORMS();
     document.getElementById('gmBody').innerHTML =
       '<div class="field"><label for="g_form">Event</label><select class="input" id="g_form"'+(isBracket?' disabled':'')+'>'+tf.map(function(f){return '<option value="'+esc(f.id)+'"'+(g.form_id===f.id?' selected':'')+'>'+esc(f.title)+'</option>';}).join('')+'</select></div>'+
-      (isBracket?'<div class="notice notice-info" style="font-size:var(--text-xs)">Bracket game — teams advance automatically from scores. Post the score below; the matchup is locked.</div>':'')+
+      (isBracket?'<div class="notice notice-info" style="font-size:var(--text-xs)">Bracket game. '+(slotsEditable?'You can type a team into a first-round slot (or use <b>🌱 Seed Teams</b> to fill them from standings). ':'')+'Slots that feed from another game advance automatically from scores.</div>':'')+
       '<div class="field-row"><div class="field"><label for="g_div">Division</label><input class="input" id="g_div" value="'+esc(g.division||'')+'" placeholder="e.g. Triple-A / 12U"></div>'+
       '<div class="field"><label for="g_field">Field</label><input class="input" id="g_field" value="'+esc(g.field||'')+'"></div></div>'+
       '<div class="field-row"><div class="field"><label for="g_date">Date</label><input class="input" id="g_date" type="date" value="'+esc(g.date||'')+'"></div>'+
       '<div class="field"><label for="g_time">Time</label><input class="input" id="g_time" type="time" value="'+esc(g.time||'')+'"></div></div>'+
-      '<div class="field-row"><div class="field"><label for="g_away">Away Team</label><input class="input" id="g_away" '+(isBracket?'readonly':'list="teamNames"')+' value="'+esc(g.away||'')+'"></div>'+
-      '<div class="field"><label for="g_home">Home Team</label><input class="input" id="g_home" '+(isBracket?'readonly':'list="teamNames"')+' value="'+esc(g.home||'')+'"></div></div>'+
+      '<div class="field-row"><div class="field"><label for="g_away">Away Team</label><input class="input" id="g_away" '+(awayLock?'readonly':'list="teamNames"')+' value="'+esc(g.away||'')+'"></div>'+
+      '<div class="field"><label for="g_home">Home Team</label><input class="input" id="g_home" '+(homeLock?'readonly':'list="teamNames"')+' value="'+esc(g.home||'')+'"></div></div>'+
       '<div class="field-row"><div class="field"><label for="g_as">Away Score</label><input class="input" id="g_as" type="number" inputmode="numeric" value="'+(g.away_score!=null?g.away_score:'')+'"></div>'+
       '<div class="field"><label for="g_hs">Home Score</label><input class="input" id="g_hs" type="number" inputmode="numeric" value="'+(g.home_score!=null?g.home_score:'')+'"></div></div>'+
       '<div class="field check"><input type="checkbox" id="g_done"'+(g.done?' checked':'')+'><label for="g_done" style="text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500">Final — count this game in standings</label></div>';
@@ -1716,7 +1747,7 @@
       if (!fid){ alert('Pick an event for this game.'); return; }
       var f = FORMS.find(function(x){return x.id===fid;});
       await STS.saveGame({ id:g.id, form_id:fid, g:(isBracket?g.g:undefined), sport:(f&&f.sport)||g.sport||'baseball', division:val('g_div'),
-        away:(isBracket?g.away:val('g_away')), home:(isBracket?g.home:val('g_home')), field:val('g_field'), date:val('g_date'), time:val('g_time'),
+        away:(awayLock?g.away:val('g_away')), home:(homeLock?g.home:val('g_home')), field:val('g_field'), date:val('g_date'), time:val('g_time'),
         away_score:val('g_as'), home_score:val('g_hs'), done:document.getElementById('g_done').checked });
       GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule(); closeModal('gameModal');
     };
@@ -1792,7 +1823,9 @@
       '<div class="field"><label>Format</label><div class="pill-tabs" id="bk_fmt"><button type="button" class="pill active" data-fmt="roundrobin">Round robin (pool)</button><button type="button" class="pill" data-fmt="single">Single elim</button><button type="button" class="pill" data-fmt="double">Double elim</button></div></div>'+
       '<div class="field" id="bk_gppWrap"><label for="bk_gpp">Pool games per team</label><input class="input" id="bk_gpp" type="number" value="3" min="1" max="10" style="max-width:110px"></div>'+
       '<div class="field"><label for="bk_tiers">Bracket / division label <span class="muted">(optional)</span></label><input class="input" id="bk_tiers" placeholder="one label (8U Open) — or several tiers: Diamond, Platinum, Gold" list="bk_tierList"><datalist id="bk_tierList"><option>Diamond</option><option>Platinum</option><option>Gold</option></datalist><div class="muted" style="font-size:var(--text-xs);margin-top:4px" id="bk_tierHint"></div></div>'+
-      '<div class="field"><div class="spread"><label style="margin:0">Teams <span class="muted" id="bk_teamCount"></span></label><button type="button" class="btn btn-outline btn-sm" id="bk_seed">↻ Seed from standings</button></div>'+
+      '<div class="field check" id="bk_emptyWrap" style="display:none"><input type="checkbox" id="bk_empty"><label for="bk_empty" style="text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500">Teams aren’t set yet — build the bracket with seed placeholders (Seed 1…N). You’ll drop the real teams in once pool play wraps.</label></div>'+
+      '<div class="field hidden" id="bk_countWrap"><label for="bk_count">How many teams will be in the bracket?</label><input class="input" id="bk_count" type="number" min="2" max="64" value="8" style="max-width:110px"></div>'+
+      '<div class="field" id="bk_teamsField"><div class="spread"><label style="margin:0">Teams <span class="muted" id="bk_teamCount"></span></label><button type="button" class="btn btn-outline btn-sm" id="bk_seed">↻ Seed from standings</button></div>'+
         '<div id="bk_teamList" style="max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin-top:8px"></div>'+
         '<div style="display:flex;gap:6px;margin-top:8px"><input class="input" id="bk_addTeam" placeholder="Add a team that isn’t registered…" style="flex:1"><button type="button" class="btn btn-outline btn-sm" id="bk_addTeamBtn">+ Add</button></div></div>'+
       '<div class="field"><label for="bk_dayPick">Tournament days</label><div style="display:flex;gap:6px;align-items:center"><input class="input" id="bk_dayPick" type="date" style="max-width:185px"><button type="button" class="btn btn-outline btn-sm" id="bk_addDay">+ Add day</button></div><div id="bk_dayChips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div></div>'+
@@ -1815,6 +1848,17 @@
       updateCount(); }
     function selected(){ return Array.prototype.map.call($('bk_teamList').querySelectorAll('.bk-team:checked'), function(c){ return c.value; }); }
     function updateCount(){ $('bk_teamCount').textContent='('+selected().length+' selected)'; }
+    // "Teams not set yet" mode: build the bracket from a COUNT with Seed 1…N
+    // placeholders (only for elim formats — pool play needs real teams).
+    function applyEmptyMode(){
+      var canEmpty = format!=='roundrobin';
+      $('bk_emptyWrap').style.display = canEmpty ? '' : 'none';
+      var on = canEmpty && $('bk_empty').checked;
+      $('bk_countWrap').classList.toggle('hidden', !on);
+      $('bk_teamsField').style.display = on ? 'none' : '';
+    }
+    function emptyOn(){ return format!=='roundrobin' && $('bk_empty').checked; }
+    function seedLabels(n){ var a=[]; for(var i=1;i<=n;i++) a.push('Seed '+i); return a; }
     function placesForCity(c){ var v=venues.find(function(x){return x.city===c;}); return v?v.places:[]; }
     function renderFieldOptions(){
       var city=$('bk_city').value, opts;
@@ -1823,10 +1867,12 @@
       $('bk_fieldSel').innerHTML='<option value="">＋ Add a field…</option>'+opts;
     }
     renderDays(); renderFields(); renderSlots(); renderTeams();
+    $('bk_count').value = Math.max(2, regTeamsFor(fid0).length || 8); applyEmptyMode();
+    $('bk_empty').addEventListener('change', applyEmptyMode);
     $('bk_city').value = cityFor(fid0); renderFieldOptions();
 
-    $('bk_fmt').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b)return; format=b.dataset.fmt; $('bk_fmt').querySelectorAll('.pill').forEach(function(p){p.classList.toggle('active',p===b);}); $('bk_gppWrap').style.display=(format==='roundrobin')?'':'none'; });
-    $('bk_form').addEventListener('change', function(){ ordered=null; custom=[]; renderTeams(); $('bk_city').value=cityFor($('bk_form').value); renderFieldOptions(); });
+    $('bk_fmt').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b)return; format=b.dataset.fmt; $('bk_fmt').querySelectorAll('.pill').forEach(function(p){p.classList.toggle('active',p===b);}); $('bk_gppWrap').style.display=(format==='roundrobin')?'':'none'; applyEmptyMode(); });
+    $('bk_form').addEventListener('change', function(){ ordered=null; custom=[]; renderTeams(); $('bk_count').value=Math.max(2, regTeamsFor($('bk_form').value).length || 8); $('bk_city').value=cityFor($('bk_form').value); renderFieldOptions(); });
     $('bk_city').addEventListener('change', renderFieldOptions);
     $('bk_tiers').addEventListener('input', function(){ var t=this.value.split(',').map(function(s){return s.trim();}).filter(Boolean), n=selected().length; $('bk_tierHint').textContent = (t.length>1 && format!=='roundrobin') ? (t.length+' tiers — the top '+Math.ceil(n/t.length)+' seeds go to “'+t[0]+'”, next to “'+t[1]+'”'+(t[2]?', …':'')+' (seed from standings first)') : ''; });
     $('bk_addAllCity').onclick=function(){ var c=$('bk_city').value; if(!c){ $('bkNote').textContent='Pick a host city first.'; return; } placesForCity(c).forEach(function(p){ if(fields.indexOf(p)<0) fields.push(p); }); renderFields(); };
@@ -1847,8 +1893,9 @@
 
     $('bkGen').onclick = async function(){
       var fid=$('bk_form').value, f=FORMS.find(function(x){return x.id===fid;});
-      var teams=selected();
-      if(teams.length<2){ $('bkNote').textContent='Select at least 2 teams.'; return; }
+      // empty mode → Seed 1…N placeholders (teams seed in later); else the picked teams
+      var teams = emptyOn() ? seedLabels(parseInt($('bk_count').value,10)||0) : selected();
+      if(teams.length<2){ $('bkNote').textContent = emptyOn() ? 'Enter at least 2 teams.' : 'Select at least 2 teams.'; return; }
       if(!fields.length){ $('bkNote').textContent='Add at least one field.'; return; }
       if(!slots.length){ $('bkNote').textContent='Build at least one time slot.'; return; }
       if(!window.STSgen){ $('bkNote').textContent='Generator not loaded.'; return; }

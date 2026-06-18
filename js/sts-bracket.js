@@ -13,6 +13,9 @@
     m = t.match(/^LG-(\d+)$/i); if (m) return { kind: 'LG', g: +m[1] };
     if (/if necessary/i.test(t)) return { kind: 'tbd', label: 'If necessary' };
     if (/^bye$/i.test(t)) return { kind: 'bye' };
+    // "Seed N" = an as-yet-unseeded slot (bracket scheduled before teams are set);
+    // render it as a greyed placeholder, never a (broken) team link.
+    m = t.match(/^seed\s*(\d+)$/i); if (m) return { kind: 'tbd', label: 'Seed ' + m[1], seed: +m[1] };
     return { kind: 'team', name: t };
   }
   function gameByNum(t, n) { return (t.games || []).find(function (g) { return g.g === n; }); }
