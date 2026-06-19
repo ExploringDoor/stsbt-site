@@ -15,6 +15,11 @@
   .div-list{ list-style:none;margin:0;padding:0; } .div-list li{ padding:12px 0;border-top:1px solid var(--line); } .div-list li:first-child{border-top:none;}
   .div-list b{ font-family:var(--font-display);text-transform:uppercase;letter-spacing:.03em;color:var(--sts-navy); }
   .age-chips{ display:flex;flex-wrap:wrap;gap:8px; } .age-chip{ font-family:var(--font-display);background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 16px;color:var(--sts-navy);font-size:var(--text-sm); }
+  .elig-wrap{ overflow-x:auto; }
+  .elig-table{ width:100%;border-collapse:collapse;font-size:var(--text-sm);margin:12px 0 8px;min-width:520px; }
+  .elig-table th, .elig-table td{ border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top; }
+  .elig-table th{ background:var(--sts-sub);font-family:var(--font-display);text-transform:uppercase;letter-spacing:.02em;font-size:var(--text-xs);color:var(--sts-navy);line-height:1.3; }
+  .elig-table td:first-child{ font-weight:700;color:var(--sts-navy); }
   .rules-acc details{ background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden; }
   .rules-acc summary{ cursor:pointer;padding:14px var(--space-5);font-family:var(--font-display);font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--sts-navy);list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px; }
   .rules-acc summary::-webkit-details-marker{ display:none; }
@@ -37,11 +42,41 @@
     <div class="card"><h3 id="sbHead">Softball Classes</h3><ul class="div-list" id="sbDivs"></ul></div>
   </div>
   <div class="card mt-7"><h3 id="ageHead">Age Groups</h3><div class="age-chips" id="ageChips"></div><p class="muted mt-5" style="font-size:var(--text-sm)" id="ageNote"></p></div>
+
+  <div class="card mt-7">
+    <h3>Player Eligibility — Age &amp; Grade</h3>
+    <p style="font-size:var(--text-sm)"><b>2027 Fall/Spring Season · August 1, 2026 – July 31, 2027.</b> A player's tournament playing age is their age <b>as of May 1, 2027</b>. A player may always play <b>up</b> in age, but may <b>never play down</b> — any player found playing down in age is ruled illegal.</p>
+    <p style="font-size:var(--text-sm)">Teams may instead use the <b>grade-based exception</b> below. A grade-based player must provide a copy of their <b>birth certificate AND</b> a current report card, an official school ID showing grade, or any official government document stating grade.</p>
+    <div class="elig-wrap">
+      <table class="elig-table">
+        <thead><tr>
+          <th>Division</th>
+          <th>Age-based<br><span style="font-weight:400;text-transform:none;letter-spacing:0">will not turn this age before <b>May 1, 2027</b></span></th>
+          <th>Grade-based option</th>
+          <th>Grade exception<br><span style="font-weight:400;text-transform:none;letter-spacing:0">will not turn this age before <b>Aug 1, 2026</b></span></th>
+        </tr></thead>
+        <tbody>
+          <tr><td>5U</td><td>6</td><td>Pre-K</td><td>7</td></tr>
+          <tr><td>6U</td><td>7</td><td>Kindergarten</td><td>8</td></tr>
+          <tr><td>7U</td><td>8</td><td>1st Grade</td><td>9</td></tr>
+          <tr><td>8U</td><td>9</td><td>2nd Grade</td><td>10</td></tr>
+          <tr><td>9U</td><td>10</td><td>3rd Grade</td><td>11</td></tr>
+          <tr><td>10U</td><td>11</td><td>4th Grade</td><td>12</td></tr>
+          <tr><td>11U</td><td>12</td><td>5th Grade</td><td>13</td></tr>
+          <tr><td>12U</td><td>13</td><td>6th Grade</td><td>14</td></tr>
+          <tr><td>13U</td><td>14</td><td>7th Grade</td><td>15</td></tr>
+          <tr><td>14U</td><td>15</td><td>8th Grade</td><td>16</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted" style="font-size:var(--text-xs);margin-top:4px">Example: a 7U player is age-eligible if they will not turn 8 before May 1, 2027 — or, by grade, a 1st-grader who will not turn 9 before Aug 1, 2026. Birth certificates are required on request; grade-based players also need proof of grade.</p>
+  </div>
+
   <div class="card mt-7"><h3>Insurance &amp; Waiver</h3><p>All teams must carry <a href="register.html?form=team-insurance">team insurance purchased through Small Town Select</a>, or add Small Town Select as additionally insured on their existing team insurance. All coaches complete the season <a href="register.html">Team Registration</a> before registering and paying for any tournaments. Tournaments are first-pay, first-play.</p>
   <a class="btn btn-navy btn-sm" href="register.html?form=team-insurance" style="margin-top:6px">Purchase team insurance →</a></div>
 
-  <h2 class="rules-h2">Baseball Rules <span class="badge badge-navy">2026</span></h2>
-  <p class="muted" style="font-size:var(--text-sm)">Tournaments run as Rec All-Star, Minors, Triple-A, or Open, grouping teams of the same age in pool play.</p>
+  <h2 class="rules-h2">Baseball Rules <span class="badge badge-navy">2027 Fall/Spring</span></h2>
+  <p class="muted" style="font-size:var(--text-sm)">Tournaments run as Rec All-Star, Minors, Triple-A, or Open, grouping teams of the same age in pool play. Classifications: <b>Majors</b> — the most competitive division of highly competitive teams; <b>Triple-A</b> — strong regional teams that compete at a high level; <b>Minors</b> — local travel teams.</p>
   <div class="rules-acc">
     <details><summary>Eligibility &amp; Insurance</summary><div class="rc">
       <ul>
@@ -63,6 +98,12 @@
         <li>Prohibited: "T-Ball Only," "Coach Pitch" labeled, "Not for Use with Real Baseballs," and altered bats.</li>
         <li>Metal cleats permitted in 13U–14U only, and never on portable mounds.</li>
       </ul></div></details>
+    <details><summary>Game Preliminaries</summary><div class="rc">
+      <ul>
+        <li>A coin flip determines home and visitor in all pool-play games.</li>
+        <li>The higher seed is the home team in all bracket games.</li>
+        <li>Dugouts are first come, first served.</li>
+      </ul></div></details>
     <details><summary>Lineup, Substitutions &amp; DH/EH</summary><div class="rc">
       <p>Minimum 8 players to start. Lineup options: straight 9 (+1 sub), 9 with DH (+1 sub), 10 with DH and EH (+1 sub), or bat the entire roster.</p>
       <ul>
@@ -70,7 +111,13 @@
         <li>DH available 9U–14U. Extra Hitter (EH) available 9–14, declared before the game; a team that starts with an EH must keep a 10-player lineup all game.</li>
         <li>Defensive timeouts: 2 per half-inning (pitching change required on the 2nd). Offensive timeouts: 1 per half-inning.</li>
         <li>Slash bunts not allowed 9U–13U (out + head-coach ejection); 14U only on a 60/90 field.</li>
-        <li>Courtesy runners allowed for pitcher and catcher (not after a pitch is made to the next batter).</li>
+        <li>Courtesy runners allowed for pitcher and catcher (not after a pitch is made to the next batter). The courtesy runner must be a legal substitute not currently in the game.</li>
+      </ul></div></details>
+    <details><summary>Slide Rule</summary><div class="rc">
+      <ul>
+        <li>Whenever a tag play is evident, a runner must slide or seek to avoid contact with the fielder and/or catcher.</li>
+        <li>A runner who jumps over a player is out, whether or not contact is made.</li>
+        <li>A dead-ball appeal may be made directly to the umpire without the pitcher throwing to the base. Only one dead-ball appeal is allowed on any play.</li>
       </ul></div></details>
     <details><summary>Pitching</summary><div class="rc">
       <p>No mandatory pitch limits; recommendations only. Two mound visits per inning max — a second visit to the same pitcher in the same inning requires a pitching change. Intentional walks may be awarded without pitches. Balks are an automatic dead ball.</p>
@@ -140,7 +187,9 @@
     document.getElementById('bbDivs').innerHTML = rows(dv.baseball);
     document.getElementById('sbDivs').innerHTML = rows(dv.softball);
     document.getElementById('ageChips').innerHTML = (cfg.ageGroups||[]).map(function(a){ return '<span class="age-chip">'+esc(a)+'</span>'; }).join('');
-    document.getElementById('ageNote').textContent = 'Age determined as of '+((cfg.season&&cfg.season.ageAsOf)||'')+'. Teams pick their division/class at the start of the season.';
+    var aa=(cfg.season&&cfg.season.ageAsOf)||'';
+    var aaNice=aa; try{ var d=new Date(aa+'T12:00:00'); if(!isNaN(d)) aaNice=d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}); }catch(e){}
+    document.getElementById('ageNote').textContent = 'Age determined as of '+aaNice+'. Teams pick their division/class at the start of the season. See the full age & grade chart below.';
   })();
 </script>
 </body>
