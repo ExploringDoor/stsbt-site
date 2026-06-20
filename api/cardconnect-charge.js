@@ -35,8 +35,12 @@ function expectedCents(form, reg) {
   const opts = (form && form.price_options) || [];
   if (opts.length > 1) {
     const ac = String(reg.age_class || '');
-    const o = opts.find(x => x.label === ac) || opts.find(x => ac && ac.indexOf(x.label) === 0);
-    return conv + (o ? o.cents : 0);
+    const o = opts.find(x => x.label === ac) || opts.find(x => x.label && ac && ac.indexOf(x.label) === 0);
+    // No matching age/price option → fail closed (return 0 so the handler 400s).
+    // NEVER fall through to charging only the convenience fee (the "$3 instead of
+    // the full entry fee" bug) or to the client-supplied amount.
+    if (!o) return 0;
+    return conv + o.cents;
   }
   return conv + ((opts[0] && opts[0].cents) || 0);
 }

@@ -17,6 +17,7 @@
     ['teams.html', 'Teams'],
     ['schedule.html', 'Schedule'],
     ['scores.html', 'Scores'],
+    ['standings.html', 'Standings'],
     ['brackets.html', 'Brackets'],
     ['champions.html', 'Champions'],
   ];
@@ -79,6 +80,7 @@
       '<div><h5>Play</h5><ul>' +
         '<li><a href="register.html">Register a Team</a></li><li><a href="teams.html">Teams</a></li>' +
         '<li><a href="schedule.html">Schedule</a></li><li><a href="scores.html">Scores</a></li>' +
+        '<li><a href="standings.html">Standings</a></li>' +
         '<li><a href="brackets.html">Brackets</a></li><li><a href="champions.html">Champions</a></li></ul></div>' +
       '<div><h5>Info</h5><ul>' +
         '<li><a href="rules.html">Ages &amp; Rules</a></li><li><a href="locations.html">Locations</a></li>' +
