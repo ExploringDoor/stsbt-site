@@ -48,7 +48,7 @@
 <script type="module">
   import * as STS from './js/sts-data.js';
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-  var GAMES=[], FORMS=[], cur='', curDiv='', ZOOM=1, CURBG=[], ALLOPTS=[], SEASON='';
+  var GAMES=[], FORMS=[], TEAMS=[], resolveTeam=function(){ return null; }, cur='', curDiv='', ZOOM=1, CURBG=[], ALLOPTS=[], SEASON='';
   function eventSeason(fid){ var g=GAMES.find(function(x){ return x.form_id===fid && x.date; }); return g?STS.seasonOf(g.date):null; }
   function eventsForSeason(){ return ALLOPTS.filter(function(f){ return !SEASON || String(eventSeason(f.id))===String(SEASON); }); }
   function fillEvents(){
@@ -101,7 +101,7 @@
     if(!bg.length){ out.innerHTML = standsHTML || '<div class="bk-empty">No bracket posted for this event yet.</div>'; return; }
     var name = titleFor(cur) + (curDiv ? ' — '+curDiv : '');
     var venue = (FORMS.find(function(x){return x.id===cur;})||{}).location || '';
-    out.innerHTML = standsHTML + '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: name, teamLinks: true, venue: venue })+'</div>';
+    out.innerHTML = standsHTML + '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: name, teamLinks: true, teamHref:function(n){ return resolveTeam(n, curDiv); }, venue: venue })+'</div>';
     STSbracketRender.wireHover(out);
     ZOOM=1; applyZoom();
     if (window.STSfx) STSfx.arm(document);
@@ -127,6 +127,7 @@
   (async function(){
     try {
       FORMS = await STS.loadForms(); GAMES = await STS.loadGames();
+      TEAMS = await STS.loadTeams(); resolveTeam = STS.teamResolver(TEAMS);
       var withB={}; GAMES.forEach(function(g){ if(g.g!=null) withB[g.form_id]=1; });
       ALLOPTS = FORMS.filter(function(f){ return withB[f.id] && f.schedule_published !== false; });
       if(!ALLOPTS.length){ document.getElementById('bracketOut').innerHTML='<div class="bk-empty"><h2 style="color:var(--sts-navy);margin:0 0 8px">No brackets yet</h2><p class="muted" style="text-transform:none;letter-spacing:0">Brackets post here once tournament play begins. See <a href="bracket-preview.html">example brackets</a> for every team count.</p></div>'; document.getElementById('eventSel').style.display='none'; return; }

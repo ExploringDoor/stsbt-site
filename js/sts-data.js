@@ -593,6 +593,30 @@ export async function loadTeams(opts) {
   if (opts.sport) all = all.filter(function (t) { return t.sport === opts.sport; });
   return all.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
 }
+// Build a NAME → canonical-slug resolver from a loaded teams array. A team's id is
+// teamSlug(name, age) (e.g. "granville-pirates-12u"), but games/standings/brackets
+// only carry the team NAME — so a bare slugify(name) link misses. resolve(name, ctx)
+// returns the right slug (ctx = division/age disambiguates same-name teams), or null
+// when no such team exists (caller should then render plain text, not a dead link).
+export function teamResolver(teams) {
+  var byName = {};
+  (teams || []).forEach(function (t) {
+    if (!t || !t.name) return;
+    var k = normName(t.name);
+    (byName[k] = byName[k] || []).push(t);
+  });
+  return function (name, ctx) {
+    var list = byName[normName(name)];
+    if (!list || !list.length) return null;
+    if (list.length === 1) return list[0].slug || list[0].id;
+    if (ctx) {
+      var c = normName(ctx);
+      var hit = list.find(function (t) { return normName(t.age_class) === c || normName(t.division) === c; });
+      if (hit) return hit.slug || hit.id;
+    }
+    return list[0].slug || list[0].id;   // same-name teams, no context → best effort
+  };
+}
 export async function deleteTeam(id) {
   if (isConfigured) {
     try { await deleteDoc(doc(db, 'teams', id)); } catch (e) {}

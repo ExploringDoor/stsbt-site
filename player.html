@@ -160,14 +160,13 @@
       '</a>';
     }
 
-    // only link an opponent when its name slugifies to a real team page (avoids
-    // wrong-team / dead links for names that don't map to a team doc)
-    var teamSlugSet = {}; all.forEach(function(t){ teamSlugSet[(t.slug||t.id)] = 1; });
+    // resolve an opponent NAME to its real team slug (name+age); plain text if none
+    var resolveTeam = STS.teamResolver(all);
     var gamesHTML = games.length
       ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Team</th><th>Opponent</th><th>Result</th></tr></thead><tbody>'+
         games.map(function(r){ var rc=r.res==='W'?'gw':(r.res==='L'?'gl':'gt');
-          var oppSlug = slugify(r.opp);
-          var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
+          var oppS = resolveTeam(r.opp);
+          var oppCell = r.opp ? (oppS ? '<a href="team.html?id='+esc(oppS)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
           var teamCell = '<a href="team.html?id='+esc(r.teamSlug)+'">'+esc(r.teamName)+'</a>'+(r.guest?' <span class="pl-guest">Guest</span>':'')+(r.champ?' <span title="Championship game">🏆</span>':'');
           return '<tr><td>'+esc(fmtDate(r.date))+'</td><td>'+teamCell+'</td><td>'+oppCell+'</td><td class="'+rc+'"><b>'+r.res+'</b> '+r.my+'–'+r.op+'</td></tr>'; }).join('')+
         '</tbody></table></div>'

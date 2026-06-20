@@ -71,6 +71,7 @@
     try { ALL = await STS.loadGames(); FORMS = await STS.loadForms(); } catch(e){}
     try { TEAMS = await STS.loadTeams(); } catch(e){}
     var teamSlugSet={}; TEAMS.forEach(function(x){ teamSlugSet[(x.slug||x.id)]=1; });
+    var resolveTeam = STS.teamResolver(TEAMS);   // opponent NAME → real slug (name+age), null if none
     function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
     function schedPub(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return !f || f.schedule_published!==false; }
     var brk={};
@@ -120,8 +121,8 @@
     function gamesHTMLOf(rs){
       return rs.length
         ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Event</th><th>Opponent</th><th>Result</th></tr></thead><tbody>'+
-          rs.map(function(r){ var rc=r.res==='W'?'gw':(r.res==='L'?'gl':'gt'); var oppSlug=slugify(r.opp);
-            var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
+          rs.map(function(r){ var rc=r.res==='W'?'gw':(r.res==='L'?'gl':'gt'); var oppS=resolveTeam(r.opp);
+            var oppCell = r.opp ? (oppS ? '<a href="team.html?id='+esc(oppS)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
             return '<tr data-gid="'+esc(r.gid)+'" tabindex="0" title="View recap"><td>'+esc(fmtDate(r.date))+'</td><td>'+esc(r.event)+(r.champ?' <span class="gh-trophy" title="Championship game">🏆</span>':'')+'</td>'+
               '<td>'+oppCell+'</td><td class="'+rc+'"><div class="cell-spread"><span><b>'+r.res+'</b> '+r.my+'–'+r.op+'</span><span class="g-cue">Recap ›</span></div></td></tr>'; }).join('')+
           '</tbody></table></div>'
@@ -130,8 +131,8 @@
     function upcomingHTMLOf(us){
       return us.length
         ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Event</th><th>Opponent</th><th>Time &amp; Field</th></tr></thead><tbody>'+
-          us.map(function(r){ var oppSlug=slugify(r.opp);
-            var oppCell = r.opp ? (teamSlugSet[oppSlug] ? '<a href="team.html?id='+esc(oppSlug)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
+          us.map(function(r){ var oppS=resolveTeam(r.opp);
+            var oppCell = r.opp ? (oppS ? '<a href="team.html?id='+esc(oppS)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
             var rCity=(function(){ var l=(FORMS.find(function(x){return x.id===r.fid;})||{}).location||''; return l?l.split(',')[0].trim():''; })();
             var fieldLabel = r.field ? (rCity?rCity+' · '+r.field:r.field) : '';
             return '<tr data-gid="'+esc(r.gid)+'" tabindex="0" title="View preview"><td>'+esc(fmtDate(r.date))+'</td><td>'+esc(r.event)+'</td>'+

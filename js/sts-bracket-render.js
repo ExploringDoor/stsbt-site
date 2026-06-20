@@ -12,6 +12,7 @@
   var SB = global.STSbracket;
   var CARD_W = 210, CARD_H = 134, COL_GAP = 76, ROW_GAP = 24, Y_PAD = 24;
   var LINK_TEAMS = false;   // when true, concrete team names link to their team page
+  var TEAM_HREF = null;     // optional name→slug resolver (teams are name+age; bare slug misses)
   var VENUE = '';           // host city to prefix field names (e.g. "Gatesville · Arnold Field")
   function slugify(s){ return String(s==null?'':s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
 
@@ -36,7 +37,11 @@
     var A = sideDisplay(t, g.away), H = sideDisplay(t, g.home);
     var played = SB.isPlayed(g), aWin = played && g.away_score>g.home_score, hWin = played && g.home_score>g.away_score;
     function side(s, sc, win){
-      var nm = (LINK_TEAMS && !s.tbd && !s.bye) ? '<a class="bk-tlink" href="team.html?id='+esc(slugify(s.name))+'" onclick="event.stopPropagation()">'+esc(s.name)+'</a>' : esc(s.name);
+      var nm = esc(s.name);
+      if (LINK_TEAMS && !s.tbd && !s.bye) {
+        var hslug = TEAM_HREF ? TEAM_HREF(s.name) : slugify(s.name);   // resolver → null = no team page → plain text
+        if (hslug) nm = '<a class="bk-tlink" href="team.html?id='+esc(hslug)+'" onclick="event.stopPropagation()">'+esc(s.name)+'</a>';
+      }
       return '<div class="bk-side'+(win?' win':'')+(s.tbd?' tbd':'')+(s.bye?' bye':'')+'"'+((!s.tbd)?' data-team="'+esc(s.name)+'"':'')+'>'+
         '<span class="nm">'+nm+(s.via?'<span class="via">via '+esc(s.via)+'</span>':'')+'</span>'+
         '<span class="sc">'+(sc!=null?sc:'')+'</span></div>';
@@ -164,6 +169,7 @@
   function render(games, meta){
     meta = meta || {};
     LINK_TEAMS = !!meta.teamLinks;
+    TEAM_HREF = (typeof meta.teamHref === 'function') ? meta.teamHref : null;
     VENUE = meta.venue ? String(meta.venue).split(',')[0].trim() : '';
     if (!games || !games.length) return '<div class="bk-empty">No bracket games yet.</div>';
     var t = { games: games };

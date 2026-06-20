@@ -75,7 +75,7 @@
   function fmtDate(s){ if(!s) return 'Date TBD'; var d=new Date(s+'T12:00:00'); if(isNaN(d)) return s; return DOW[d.getDay()]+', '+MON[d.getMonth()]+' '+d.getDate(); }
   function fmtTime(t){ if(!t) return ''; var p=String(t).split(':'); var h=+p[0],m=p[1]||'00'; if(isNaN(h)) return t; var ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+m+' '+ap; }
 
-  var FORM=null, GAMES=[], FORMS=[], curDiv='', tab='', fid='';
+  var FORM=null, GAMES=[], FORMS=[], TEAMS=[], resolveTeam=function(){ return null; }, curDiv='', tab='', fid='';
 
   function evGames(){ return GAMES.filter(function(g){ return g.form_id===fid && (g.division||'')===curDiv; }); }
   function poolGames(){ return evGames().filter(function(g){ return g.g==null; }); }
@@ -137,7 +137,7 @@
     if(!pool.length) return '<div class="empty" style="text-transform:none;letter-spacing:0">This tournament goes straight to a bracket — no pool standings. See the <b>Bracket</b> tab.</div>';
     var st = STS.computeStandings(pool); if(!st.length) return '<div class="empty">No standings yet.</div>';
     var demo=/[?&]demo=1/.test(location.search)?'&demo=1':'';
-    function tlink(n){ return '<a href="team.html?id='+encodeURIComponent(String(n).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''))+demo+'" style="color:var(--sts-navy);text-decoration:none" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+esc(n)+'</a>'; }
+    function tlink(n){ var slug=resolveTeam(n, curDiv); return slug ? '<a href="team.html?id='+encodeURIComponent(slug)+demo+'" style="color:var(--sts-navy);text-decoration:none" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+esc(n)+'</a>' : esc(n); }
     var rows = st.map(function(r,i){ return '<tr><td class="rank">'+(i+1)+'</td><td>'+tlink(r.team)+'</td><td>'+r.w+'</td><td>'+r.l+'</td><td>'+r.ties+'</td><td class="num">'+r.pct.toFixed(3).replace(/^0/,'')+'</td><td>'+r.rs+'</td><td>'+r.ra+'</td><td>'+(r.diff>0?'+':'')+r.diff+'</td></tr>'; }).join('');
     return '<p class="muted" style="text-transform:none;letter-spacing:0;margin-top:0">Pool standings — these seed the bracket.</p>'+
       '<div class="table-wrap"><table class="tbl"><thead><tr><th class="rank">#</th><th>Team</th><th>W</th><th>L</th><th>T</th><th>PCT</th><th>RS</th><th>RA</th><th>Diff</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
@@ -149,7 +149,7 @@
       // some slots can still be "Seed N" placeholders. Flag that for viewers.
       var unseeded = bg.some(function(g){ return /^Seed\s*\d+$/i.test(String(g.away||'')) || /^Seed\s*\d+$/i.test(String(g.home||'')); });
       var note = unseeded ? '<p class="muted bk-preview-note" style="text-transform:none;letter-spacing:0;margin-top:0"><b>Bracket scheduled</b> — game times are set; seeds fill in once pool play wraps.</p>' : '';
-      return note + '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:true, venue: FORM.location||'' })+'</div>';
+      return note + '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:true, teamHref:function(n){ return resolveTeam(n, curDiv); }, venue: FORM.location||'' })+'</div>';
     }
     // No bracket posted yet → show the empty bracket SHELL (TBD seed slots) sized to
     // the field, so people see the format up front. Seeds + teams fill in once pool
@@ -170,7 +170,7 @@
     if(!teams.length) return '<div class="empty" style="text-transform:none;letter-spacing:0">The team list appears here once the schedule or bracket is posted.</div>';
     var demo=/[?&]demo=1/.test(location.search)?'&demo=1':'';
     return '<p class="muted" style="text-transform:none;letter-spacing:0;margin-top:0">'+teams.length+' teams</p>'+
-      '<div class="ev-team-grid">'+teams.map(function(t){ var slug=String(t).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); return '<a class="ev-team" href="team.html?id='+encodeURIComponent(slug)+demo+'">'+esc(t)+'</a>'; }).join('')+'</div>';
+      '<div class="ev-team-grid">'+teams.map(function(t){ var slug=resolveTeam(t, curDiv); return slug ? '<a class="ev-team" href="team.html?id='+encodeURIComponent(slug)+demo+'">'+esc(t)+'</a>' : '<span class="ev-team">'+esc(t)+'</span>'; }).join('')+'</div>';
   }
   var TABS = [['overview','Overview'],['teams','Teams'],['schedule','Schedule'],['standings','Standings'],['bracket','Bracket']];
   function renderTab(){
@@ -252,7 +252,7 @@
   (async function(){
     fid = qs('id') || '';
     var h=(location.hash||'').replace('#','').split('/'); if(h[1]) curDiv=decodeURIComponent(h[1]);
-    try { FORMS = await STS.loadForms(); GAMES = await STS.loadGames(); }
+    try { FORMS = await STS.loadForms(); GAMES = await STS.loadGames(); TEAMS = await STS.loadTeams(); resolveTeam = STS.teamResolver(TEAMS); }
     catch(e){ document.getElementById('evContent').innerHTML='<div class="empty">Could not load this tournament.</div>'; return; }
     boot();
   })();
