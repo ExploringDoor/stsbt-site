@@ -619,6 +619,16 @@ export function teamResolver(teams) {
 }
 export async function deleteTeam(id) {
   if (isConfigured) {
+    // free this team's active-player claims so its players aren't falsely blocked
+    // (one-active-per-event) on a future roster — mirrors roster-save's index upkeep.
+    try {
+      var rost = await fsOne('team_rosters', id);
+      if (rost && Array.isArray(rost.roster)) {
+        await Promise.all(rost.roster.filter(function (p) { return !p.guest && p.pid; }).map(function (p) {
+          return updateDoc(doc(db, 'team_rosters', 'xp_' + p.pid), { team_id: '', team_name: '', player_name: p.name || '' }).catch(function () {});
+        }));
+      }
+    } catch (e) {}
     try { await deleteDoc(doc(db, 'teams', id)); } catch (e) {}
     try { await deleteDoc(doc(db, 'team_rosters', id)); } catch (e) {}   // gated DOB roster copy, if any
     return;

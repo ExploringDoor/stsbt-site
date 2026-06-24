@@ -471,6 +471,9 @@
   document.getElementById('adminNav').addEventListener('click', function(e){
     var b = e.target.closest('button[data-panel]'); if (!b) return;
     if (!isSuper() && SUPER_ONLY.indexOf(b.dataset.panel) >= 0) return;  // directors can't switch to super-only panels
+    // leaving the Schedule panel with unsaved drag moves would silently lose them
+    if (b.dataset.panel !== 'schedule' && gridMoves.length && !confirm('You have '+gridMoves.length+' unsaved schedule change(s). Leave without saving? They’ll be lost.')) return;
+    if (b.dataset.panel !== 'schedule') gridMoves = [];
     document.querySelectorAll('#adminNav button').forEach(function(x){ x.classList.toggle('active', x===b); });
     document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('active', p.id==='panel-'+b.dataset.panel); });
     document.getElementById('panelTitle').textContent = b.textContent.replace(/^[^A-Za-z]+/, '').replace(/\s*\d+\+?\s*$/, '').trim();
@@ -1642,7 +1645,13 @@
           var gids={}; gridMoves.forEach(function(m){ gids[m.gid]=1; });
           for(var id in gids){ var g=GAMES.find(function(x){return String(x.id)===String(id);}); if(g) await STS.saveGame(g); }
           GAMES=await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule();
-        } catch(ex){ alert('Couldn\'t save: '+(ex&&ex.message||ex)); btn.disabled=false; btn.textContent='💾 Save changes'; }
+        } catch(ex){
+          // a write failed mid-batch → memory may now disagree with the DB. Re-sync
+          // from the server so the grid shows exactly what actually persisted.
+          alert('Couldn’t save all changes: '+(ex&&ex.message||ex)+'\n\nReloading the schedule so it matches what was saved — re-check and try again.');
+          try { GAMES=await STS.loadGamesScoped(ME, {}); } catch(_){}
+          gridMoves=[]; renderSchedule();
+        }
         return;
       }
       // click a card (without dragging) → open the full editor (teams, time, field, score)
@@ -1745,16 +1754,49 @@
       '<div class="field-row"><div class="field"><label for="g_as">Away Score</label><input class="input" id="g_as" type="number" inputmode="numeric" value="'+(g.away_score!=null?g.away_score:'')+'"></div>'+
       '<div class="field"><label for="g_hs">Home Score</label><input class="input" id="g_hs" type="number" inputmode="numeric" value="'+(g.home_score!=null?g.home_score:'')+'"></div></div>'+
       '<div class="field check"><input type="checkbox" id="g_done"'+(g.done?' checked':'')+'><label for="g_done" style="text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500">Final — count this game in standings</label></div>';
+    // a score is a whole number 0–999 (or blank); reject negatives/decimals/junk
+    function parseScore(raw){ var s=String(raw==null?'':raw).trim(); if(s==='') return null; return /^\d{1,3}$/.test(s) ? +s : NaN; }
+    // games that advance from bracket game #n (away/home = WG-n / LG-n)
+    function refsGame(x, n){ return [x.away,x.home].some(function(s){ var m=/^(WG|LG)-(\d+)$/i.exec(String(s||'')); return m && +m[2]===n; }); }
     document.getElementById('gmDelete').style.display = isNew ? 'none' : '';
-    document.getElementById('gmDelete').onclick = async function(){ if(g.id){ await STS.deleteGame(g.id); GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule(); } closeModal('gameModal'); };
+    document.getElementById('gmDelete').onclick = async function(){
+      if(!g.id){ closeModal('gameModal'); return; }
+      if(g.g!=null){   // bracket game — block delete if later games advance from it (orphan guard)
+        var deps = GAMES.filter(function(x){ return x.form_id===g.form_id && x.id!==g.id && refsGame(x, g.g); });
+        if(deps.length){ alert('Can’t delete this game — '+deps.length+' later bracket game'+(deps.length>1?'s advance':' advances')+' from it. Rebuild the bracket (🏆 Bracket / Pool) if you need to change its structure.'); return; }
+      }
+      if(!confirm('Delete this game? This can’t be undone.')) return;
+      var b=this; b.disabled=true;
+      try { await STS.deleteGame(g.id); GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule(); closeModal('gameModal'); }
+      catch(ex){ alert('Couldn’t delete this game: '+((ex&&ex.message)||ex)); b.disabled=false; }
+    };
     document.getElementById('gmSave').onclick = async function(){
       var fid = isBracket ? g.form_id : document.getElementById('g_form').value;
       if (!fid){ alert('Pick an event for this game.'); return; }
+      var doneChecked = document.getElementById('g_done').checked;
+      var as = parseScore(val('g_as')), hs = parseScore(val('g_hs'));
+      // ── validate scores so a bad entry can't corrupt standings/brackets ──
+      if (Number.isNaN(as) || Number.isNaN(hs)){ alert('Scores must be whole numbers (0–999). Please re-check.'); return; }
+      if (doneChecked){
+        if (as===null || hs===null){ alert('To mark a game Final, enter BOTH scores.'); return; }
+        if (isBracket && as===hs){ alert('Bracket games can’t end in a tie — one team has to advance. Enter the real final score.'); return; }
+      }
+      // editing a bracket result that later games already advanced off of
+      if (isBracket && g.g!=null && doneChecked){
+        var played = GAMES.filter(function(x){ return x.form_id===fid && x.g!=null && x.done && x.id!==g.id && refsGame(x, g.g); });
+        if (played.length && !confirm('Heads up: '+played.length+' later bracket game'+(played.length>1?'s have':' has')+' already been played off this result. Changing this score can change who advanced. Continue?')) return;
+      }
       var f = FORMS.find(function(x){return x.id===fid;});
-      await STS.saveGame({ id:g.id, form_id:fid, g:(isBracket?g.g:undefined), sport:(f&&f.sport)||g.sport||'baseball', division:val('g_div'),
-        away:(awayLock?g.away:val('g_away')), home:(homeLock?g.home:val('g_home')), field:val('g_field'), date:val('g_date'), time:val('g_time'),
-        away_score:val('g_as'), home_score:val('g_hs'), done:document.getElementById('g_done').checked });
-      GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule(); closeModal('gameModal');
+      var b=this, prev=b.textContent; b.disabled=true; b.textContent='Saving…';
+      try {
+        await STS.saveGame({ id:g.id, form_id:fid, g:(isBracket?g.g:undefined), sport:(f&&f.sport)||g.sport||'baseball', division:val('g_div'),
+          away:(awayLock?g.away:val('g_away')), home:(homeLock?g.home:val('g_home')), field:val('g_field'), date:val('g_date'), time:val('g_time'),
+          away_score:as, home_score:hs, done:doneChecked });
+        GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule(); closeModal('gameModal');
+      } catch(ex){
+        alert('Couldn’t save this game: '+((ex&&ex.message)||ex)+'\n\nNothing was changed — please try again.');
+        b.disabled=false; b.textContent=prev;
+      }
     };
     openModal('gameModal');
   }
@@ -1906,33 +1948,51 @@
       if(!window.STSgen){ $('bkNote').textContent='Generator not loaded.'; return; }
       var sport=(f&&f.sport)||'baseball';
       var tiers=($('bk_tiers').value||'').split(',').map(function(s){return s.trim();}).filter(Boolean); if(!tiers.length) tiers=[''];
+      // warn before replacing whatever this event already has (avoids silent stacking)
+      var existing = GAMES.filter(function(g){ return g.form_id===fid; }).length;
+      if(existing && !confirm('“'+((f&&f.title)||fid)+'” already has '+existing+' game'+(existing===1?'':'s')+'. Generating will REPLACE the bracket/pool for this event. Continue?')) return;
+      // tiered: warn if teams don't fill the tiers (some would be silently dropped)
+      if(tiers.length>1 && format!=='roundrobin'){
+        var per0=Math.ceil(teams.length/tiers.length), placed=0;
+        tiers.forEach(function(_,ti){ var n=teams.slice(ti*per0,(ti+1)*per0).length; if(n>=2) placed+=n; });
+        if(placed<teams.length && !confirm((teams.length-placed)+' team(s) don’t fit evenly into '+tiers.length+' tiers and will be LEFT OUT of every bracket. Continue anyway?')) return;
+      }
       var avail=getAvail(fid), restMin=parseInt($('bk_rest').value,10)||0, res;
-      if(format==='roundrobin'){
-        // pool play stays one group; a single label tags it as a division (e.g. 8U)
-        var gpp=parseInt($('bk_gpp').value,10)||3;
-        var pool=window.STSgen.generatePool(teams,{gamesPerTeam:gpp});
-        res=assignSlots(pool, days, slots, fields, avail, restMin, GAMES, fid);
-        await STS.savePool(fid, {sport:sport, division:tiers[0]}, pool);
-      } else if(tiers.length>1){
-        // TIERED: split the (seeded) team list top-down into N tiers, a bracket each
-        var per=Math.ceil(teams.length/tiers.length), all=[];
-        tiers.forEach(function(label,ti){ var tt=teams.slice(ti*per,(ti+1)*per); if(tt.length<2) return; var g=window.STSgen.generateBracket({format:format,teams:tt,startGame:1}); g.forEach(function(x){ x._tier=label; }); all=all.concat(g); });
-        if(all.length<1){ $('bkNote').textContent='Not enough teams to fill the tiers.'; return; }
-        res=assignSlots(all, days, slots, fields, avail, restMin, GAMES, fid);   // all tiers placed together (no field clashes)
-        await STS.clearBracket(fid);   // wipe all existing brackets for this event
-        var byTier={}; all.forEach(function(g){ (byTier[g._tier]=byTier[g._tier]||[]).push(g); });
-        for(var ti=0; ti<tiers.length; ti++){ if(byTier[tiers[ti]]) await STS.saveBracket(fid, {sport:sport, division:tiers[ti]}, byTier[tiers[ti]], {replace:false}); }
-      } else {
-        var games=window.STSgen.generateBracket({format:format, teams:teams, startGame:1});
-        res=assignSlots(games, days, slots, fields, avail, restMin, GAMES, fid);
-        await STS.saveBracket(fid, {sport:sport, division:tiers[0]}, games);
+      var btn=this, prevTxt=btn.textContent; btn.disabled=true; btn.textContent='Generating…';
+      try {
+        if(format==='roundrobin'){
+          // pool play stays one group; a single label tags it as a division (e.g. 8U)
+          var gpp=parseInt($('bk_gpp').value,10)||3;
+          var pool=window.STSgen.generatePool(teams,{gamesPerTeam:gpp});
+          res=assignSlots(pool, days, slots, fields, avail, restMin, GAMES, fid);
+          await STS.savePool(fid, {sport:sport, division:tiers[0]}, pool);
+        } else if(tiers.length>1){
+          // TIERED: split the (seeded) team list top-down into N tiers, a bracket each
+          var per=Math.ceil(teams.length/tiers.length), all=[];
+          tiers.forEach(function(label,ti){ var tt=teams.slice(ti*per,(ti+1)*per); if(tt.length<2) return; var g=window.STSgen.generateBracket({format:format,teams:tt,startGame:1}); g.forEach(function(x){ x._tier=label; }); all=all.concat(g); });
+          if(all.length<1){ $('bkNote').textContent='Not enough teams to fill the tiers.'; return; }
+          res=assignSlots(all, days, slots, fields, avail, restMin, GAMES, fid);   // all tiers placed together (no field clashes)
+          await STS.clearBracket(fid);   // wipe all existing brackets for this event
+          var byTier={}; all.forEach(function(g){ (byTier[g._tier]=byTier[g._tier]||[]).push(g); });
+          for(var ti=0; ti<tiers.length; ti++){ if(byTier[tiers[ti]]) await STS.saveBracket(fid, {sport:sport, division:tiers[ti]}, byTier[tiers[ti]], {replace:false}); }
+        } else {
+          var games=window.STSgen.generateBracket({format:format, teams:teams, startGame:1});
+          res=assignSlots(games, days, slots, fields, avail, restMin, GAMES, fid);
+          await STS.clearBracket(fid);   // wipe ALL old brackets (incl. stale tiers) so none are orphaned
+          await STS.saveBracket(fid, {sport:sport, division:tiers[0]}, games, {replace:false});
+        }
+        if(res && (res.fallback || res.unplaced)){
+          var msgs=[]; if(res.fallback) msgs.push(res.fallback+' game'+(res.fallback===1?'':'s')+' couldn’t honor availability'); if(res.unplaced) msgs.push(res.unplaced+' game'+(res.unplaced===1?'':'s')+' had no open slot — add more fields/times/days');
+          $('bkNote').textContent='⚠ '+msgs.join('; ')+'.';
+        }
+        GAMES=await STS.loadGamesScoped(ME,{}); schedFilt=fid; renderSchedule();
+        if(!res || (!res.fallback && !res.unplaced)) closeModal('bracketModal');
+      } catch(ex){
+        $('bkNote').textContent='Couldn’t generate the bracket: '+((ex&&ex.message)||ex)+'. Please try again.';
+        try { GAMES=await STS.loadGamesScoped(ME,{}); renderSchedule(); } catch(_){}
+      } finally {
+        btn.disabled=false; btn.textContent=prevTxt;
       }
-      if(res && (res.fallback || res.unplaced)){
-        var msgs=[]; if(res.fallback) msgs.push(res.fallback+' game'+(res.fallback===1?'':'s')+' couldn’t honor availability'); if(res.unplaced) msgs.push(res.unplaced+' game'+(res.unplaced===1?'':'s')+' had no open slot — add more fields/times/days');
-        $('bkNote').textContent='⚠ '+msgs.join('; ')+'.';
-      }
-      GAMES=await STS.loadGamesScoped(ME,{}); schedFilt=fid; renderSchedule();
-      if(!res || (!res.fallback && !res.unplaced)) closeModal('bracketModal');
     };
     openModal('bracketModal');
   }

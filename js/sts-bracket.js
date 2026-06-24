@@ -69,7 +69,10 @@
     var gf = finals[0];
     var feederCls = function (raw) { var r = parseRef(raw); return (r.kind === 'WG' || r.kind === 'LG') ? cls[r.g] : null; };
     var winnersSide = feederCls(gf.away) === 'w' ? 'away' : feederCls(gf.home) === 'w' ? 'home' : 'away';
-    var isGrandFinal = feederCls(gf.away) === 'l' || feederCls(gf.home) === 'l';
+    // A double-elim grand final needs the losers-bracket team to win TWICE. Detect it
+    // by the presence of a reset game (>1 final) OR a losers-bracket feeder — the
+    // feeder-class check alone misses the 2-team case where both feeders trace to G1.
+    var isGrandFinal = finals.length > 1 || feederCls(gf.away) === 'l' || feederCls(gf.home) === 'l';
     var champion = null;
     if (isPlayed(gf)) {
       var winSide = gf.away_score > gf.home_score ? 'away' : gf.home_score > gf.away_score ? 'home' : null;

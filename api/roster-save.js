@@ -48,14 +48,19 @@ export default async function handler(req, res) {
     // Index previous values by BOTH name and jersey number, so a coach who renames a
     // player (fix a typo / add a last name) but keeps the same number doesn't wipe the
     // on-file dob/guardian/approval (the coach edits the PUBLIC roster, which has none).
-    let prevDob = {}, prevDobByNum = {}, prevNames = [], prevAppr = {}, prevApprByNum = {}, prevActivePids = new Set();
+    // PID is the durable per-player id (rides on the public roster the coach loads),
+    // so it survives a rename AND a renumber — making it the safe primary key for
+    // recovering on-file dob/guardian/approval. Name/number are fallbacks only.
+    let prevDob = {}, prevDobByNum = {}, prevDobByPid = {}, prevNames = [], prevAppr = {}, prevApprByNum = {}, prevApprByPid = {}, prevActivePids = new Set();
     try {
       const prev = await fsGet(`team_rosters/${team.id}`);
       (prev && Array.isArray(prev.roster) ? prev.roster : []).forEach(p => {
         const k = String(p.name || '').toLowerCase().trim();
         const nk = String(p.num || '').trim();
+        const pk = String(p.pid || '').trim();
         const appr = { guardian_email: p.guardian_email || '', approval_token: p.approval_token || '', approved: !!p.approved, approved_at: p.approved_at || '', approval_sent: !!p.approval_sent };
-        if (p.dob) { if (k) prevDob[k] = p.dob; if (nk) prevDobByNum[nk] = p.dob; }
+        if (p.dob) { if (pk) prevDobByPid[pk] = p.dob; if (k) prevDob[k] = p.dob; if (nk) prevDobByNum[nk] = p.dob; }
+        if (pk) prevApprByPid[pk] = appr;
         if (k) prevAppr[k] = appr;
         if (nk) prevApprByNum[nk] = appr;
         if (p.name) prevNames.push(String(p.name).trim());
@@ -71,8 +76,9 @@ export default async function handler(req, res) {
         const name = String(p.name || '').slice(0, 60);
         const key = name.toLowerCase().trim();
         const numKey = String(p.num || '').trim();
-        const dob = String(p.dob || '').slice(0, 10) || prevDob[key] || prevDobByNum[numKey] || '';
-        const pa = prevAppr[key] || prevApprByNum[numKey] || {};
+        const pidIn = String(p.pid || '').trim();   // durable id from the public roster
+        const dob = String(p.dob || '').slice(0, 10) || (pidIn && prevDobByPid[pidIn]) || prevDob[key] || prevDobByNum[numKey] || '';
+        const pa = (pidIn && prevApprByPid[pidIn]) || prevAppr[key] || prevApprByNum[numKey] || {};
         const guardian_email = String(p.guardian_email || pa.guardian_email || '').slice(0, 200);
         const approval_token = String(p.approval_token || pa.approval_token || '').slice(0, 40);
         const approved = (p.approved != null ? !!p.approved : !!pa.approved);
