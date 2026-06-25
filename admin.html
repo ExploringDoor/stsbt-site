@@ -153,7 +153,7 @@
           <select class="input" id="schedEvent" style="max-width:240px"><option value="">All events</option></select>
           <div class="pill-tabs" id="schedViewToggle"><button class="pill active" data-view="list">☰ List</button><button class="pill" data-view="grid">▦ Grid</button></div>
         </div>
-        <div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" id="printSchedBtn">🖨 Print / Export</button><a class="btn btn-outline btn-sm hidden" id="viewBracketBtn" target="_blank" rel="noopener">👁 View Bracket ↗</a><button class="btn btn-navy btn-sm hidden" id="seedTeamsBtn">🌱 Seed Teams</button><button class="btn btn-outline btn-sm" id="bracketBtn">🏆 Bracket / Pool</button><button class="btn btn-red btn-sm" id="newGameBtn">+ Add Game</button></div>
+        <div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" id="printSchedBtn">🖨 Print / Export</button><a class="btn btn-outline btn-sm hidden" id="viewBracketBtn" target="_blank" rel="noopener">👁 View Bracket ↗</a><button class="btn btn-navy btn-sm hidden" id="seedTeamsBtn">🌱 Seed Teams</button><button class="btn btn-outline btn-sm" id="bracketBtn">🏆 Bracket / Pool</button><button class="btn btn-red btn-sm" id="newGameBtn">+ Add Game</button><button class="btn btn-outline btn-sm hidden" id="clearGamesBtn" style="color:var(--sts-red)" title="Delete every game for this event">🗑 Clear games</button></div>
       </div>
       <p class="muted" style="font-size:var(--text-sm)">Create games and post scores for your events. Standings on the public site update automatically from finished games.</p>
       <div id="schedPublish" style="margin-bottom:var(--space-3)"></div>
@@ -1561,6 +1561,9 @@
     var stb = document.getElementById('seedTeamsBtn');
     var hasSeeds = schedFilt && GAMES.some(function(g){ return g.form_id===schedFilt && g.g!=null && (/^Seed\s*\d+$/i.test(String(g.away||'')) || /^Seed\s*\d+$/i.test(String(g.home||''))); });
     stb.classList.toggle('hidden', !hasSeeds);
+    // "Clear games" — show when the selected event has any games (reset/cleanup)
+    var cgb = document.getElementById('clearGamesBtn');
+    if (cgb) cgb.classList.toggle('hidden', !(schedFilt && GAMES.some(function(g){ return g.form_id===schedFilt; })));
     // per-event publish status (gate the public schedule until Keith releases it)
     var pubBar = document.getElementById('schedPublish');
     if (schedFilt) {
@@ -1757,6 +1760,18 @@
   document.getElementById('printSchedBtn').addEventListener('click', buildPrintView);
   // Seed Teams — fill "Seed N" bracket slots from the current pool standings,
   // keeping each game's date/time/field exactly as scheduled.
+  document.getElementById('clearGamesBtn').addEventListener('click', async function(){
+    if(!schedFilt){ alert('Pick an event first.'); return; }
+    var ev = GAMES.filter(function(g){ return g.form_id===schedFilt; });
+    if(!ev.length){ alert('This event has no games to clear.'); return; }
+    var f = FORMS.find(function(x){ return x.id===schedFilt; }), name = f ? f.title : schedFilt;
+    if(!confirm('Delete ALL '+ev.length+' game'+(ev.length===1?'':'s')+' for “'+name+'”?\n\nThis wipes the whole schedule + bracket for this event and can’t be undone. (Teams and registrations are NOT affected.)')) return;
+    var btn=this, was=btn.textContent; btn.disabled=true; btn.textContent='Clearing…';
+    try {
+      await STS.clearBracket(schedFilt); await STS.clearPool(schedFilt);   // bracket games + pool/regular games
+      GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule();
+    } catch(ex){ alert('Couldn’t clear: '+((ex&&ex.message)||ex)); btn.disabled=false; btn.textContent=was; }
+  });
   document.getElementById('seedTeamsBtn').addEventListener('click', async function(){
     var fid = schedFilt; if(!fid){ alert('Pick an event first.'); return; }
     var bgAll = GAMES.filter(function(g){ return g.form_id===fid && g.g!=null; });
