@@ -117,7 +117,7 @@
         var isAway=norm(aN)===TN, isHome=norm(hN)===TN;
         if(!isAway && !isHome) return;
         var my=isAway?g.away_score:g.home_score, op=isAway?g.home_score:g.away_score, opp=isAway?hN:aN;
-        out.push({ id:g.id, date:g.date||'', event:titleFor(g.form_id), opp:opp, my:my, op:op, res:(my>op?'W':(op>my?'L':'T')), champ:isChamp(g) });
+        out.push({ id:g.id, date:g.date||'', event:titleFor(g.form_id), opp:opp, my:my, op:op, res:(my>op?'W':(op>my?'L':'T')), forfeit:!!g.forfeit, forfeit_by:g.forfeit_by||'', champ:isChamp(g) });
       });
       return out;
     }
@@ -168,7 +168,7 @@
           var oppS = resolveTeam(r.opp);
           var oppCell = r.opp ? (oppS ? '<a href="team.html?id='+esc(oppS)+'">'+esc(r.opp)+'</a>' : esc(r.opp)) : '<span class="muted">TBD</span>';
           var teamCell = '<a href="team.html?id='+esc(r.teamSlug)+'">'+esc(r.teamName)+'</a>'+(r.guest?' <span class="pl-guest">Guest</span>':'')+(r.champ?' <span title="Championship game">🏆</span>':'');
-          return '<tr><td>'+esc(fmtDate(r.date))+'</td><td>'+teamCell+'</td><td>'+oppCell+'</td><td class="'+rc+'"><b>'+r.res+'</b> '+r.my+'–'+r.op+'</td></tr>'; }).join('')+
+          return '<tr><td>'+esc(fmtDate(r.date))+'</td><td>'+teamCell+'</td><td>'+oppCell+'</td><td class="'+rc+'"><b>'+r.res+'</b> '+r.my+'–'+r.op+(r.forfeit?' <span class="ff-tag">'+(r.forfeit_by==='both'?'Dbl FFT':'FFT')+'</span>':'')+'</td></tr>'; }).join('')+
         '</tbody></table></div>'
       : '<div class="empty">No games played yet — games show here as scores are posted for this player\'s teams.</div>';
 

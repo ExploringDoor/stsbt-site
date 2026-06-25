@@ -123,7 +123,8 @@
         var evCity = (FORM.location||'').split(',')[0].trim();
         var fLabel = g.field ? (evCity?evCity+' · '+g.field:g.field) : '';
         var fieldHTML = g.field ? ' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent([g.field,evCity].filter(Boolean).join(', '))+'" onclick="event.stopPropagation()">📍 '+esc(fLabel)+'</a>' : '';
-        var result = played ? '<div class="result">'+g.away_score+'–'+g.home_score+'</div>' : '<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+fieldHTML+'</div>';
+        var ffTag = g.forfeit ? '<span class="ff-tag">'+(g.forfeit_by==='both'?'Double forfeit':'Forfeit')+'</span>' : '';
+        var result = played ? '<div class="result">'+g.away_score+'–'+g.home_score+'</div>'+ffTag : '<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+fieldHTML+'</div>';
         var tag = g.g!=null ? ' <span class="muted" style="font-size:10px">· Game '+g.g+'</span>' : '';
         return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtTime(g.time)))+'</div>'+
           '<div class="matchup"><span class="'+(aWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g.away))+'</span><span class="vs">vs</span><span class="'+(hWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g.home))+'</span>'+tag+'</div>'+

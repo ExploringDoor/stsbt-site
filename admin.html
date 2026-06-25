@@ -1592,9 +1592,11 @@
     var teamBook={}, fieldBook={};
     (games||[]).forEach(function(g){
       if(gUnscheduled(g)) return;
+      var seenK={};   // dedupe within a game so a typo'd "A vs A" can't flag itself
       [g.away,g.home].forEach(function(t){
         if(gIsPlaceholder(t)) return;
         var k=(g.date||'')+'|'+(g.time||'')+'|'+String(t).toLowerCase();
+        if(seenK[k]) return; seenK[k]=1;
         (teamBook[k]=teamBook[k]||[]).push(g.id);
       });
       var fk=(g.date||'')+'|'+(g.time||'')+'|'+g.field;
