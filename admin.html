@@ -1582,39 +1582,79 @@
   function tKey(t){ var p=String(t||'').split(':'); var h=parseInt(p[0],10)||0, m=parseInt(p[1],10)||0; return h*60+m; }
   function hhmm(m){ return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
   function fmtDay(d){ if(!d||d==='TBD') return 'Date TBD'; var dt=new Date(d+'T12:00:00'); if(isNaN(dt)) return d; return dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}); }
+  // ── SCHEDULE CONFLICT MODEL (event-wide, date-aware) — one source of truth used
+  //    by the grid colors, the drag-onto-occupied check, and the save-gate. Empty
+  //    time OR field = UNSCHEDULED (can't verify) → never a hard clash. Seed N /
+  //    WG-/LG- / BYE placeholders never clash. Same time on a DIFFERENT day is fine.
+  function gUnscheduled(g){ return !g.time || !g.field; }
+  function gIsPlaceholder(t){ return !t || /^seed\s*\d+$/i.test(t) || /^(wg|lg)-\d+$/i.test(t) || /^bye$/i.test(t); }
+  function scanConflicts(games){
+    var teamBook={}, fieldBook={};
+    (games||[]).forEach(function(g){
+      if(gUnscheduled(g)) return;
+      [g.away,g.home].forEach(function(t){
+        if(gIsPlaceholder(t)) return;
+        var k=(g.date||'')+'|'+(g.time||'')+'|'+String(t).toLowerCase();
+        (teamBook[k]=teamBook[k]||[]).push(g.id);
+      });
+      var fk=(g.date||'')+'|'+(g.time||'')+'|'+g.field;
+      (fieldBook[fk]=fieldBook[fk]||[]).push(g.id);
+    });
+    var out={}, teamN=0, fieldN=0;
+    function flag(id){ return out[id]||(out[id]={team:false,field:false}); }
+    Object.keys(teamBook).forEach(function(k){ var ids=teamBook[k]; if(ids.length>1){ teamN++; ids.forEach(function(id){ flag(id).team=true; }); } });
+    Object.keys(fieldBook).forEach(function(k){ var ids=fieldBook[k]; if(ids.length>1){ fieldN++; ids.forEach(function(id){ flag(id).field=true; }); } });
+    return { byGid:out, teamConflicts:teamN, fieldConflicts:fieldN, has:(teamN+fieldN)>0 };
+  }
+  // Save-gate: hard CONFIRM (not block — Keith builds incrementally with TBD games).
+  function conflictGate(eventIds){
+    var pool=GAMES.filter(function(g){ return eventIds.indexOf(g.form_id)>=0; });
+    var c=scanConflicts(pool);
+    if(!c.has) return true;
+    var lines=[];
+    if(c.teamConflicts) lines.push('• '+c.teamConflicts+' team double-booking'+(c.teamConflicts===1?'':'s')+' (a team in two games at the same date & time)');
+    if(c.fieldConflicts) lines.push('• '+c.fieldConflicts+' field+time clash'+(c.fieldConflicts===1?'':'es')+' (two games on one field at the same time)');
+    return confirm('This schedule has UNRESOLVED conflicts:\n\n'+lines.join('\n')+'\n\nSave anyway? Coaches and the public schedule will show these clashes.');
+  }
   function renderScheduleGrid(games){
     var wrap=document.getElementById('scheduleWrap');
     if(!schedFilt){ wrap.innerHTML='<div class="empty">Pick a tournament above to use the drag-and-drop grid.</div>'; return; }
     var byDate={}; games.forEach(function(g){ var d=g.date||'TBD'; (byDate[d]=byDate[d]||[]).push(g); });
+    var conf=scanConflicts(games);   // one event-wide, date-aware scan drives all the colors
     var html=Object.keys(byDate).sort().map(function(date){
       var dg=byDate[date];
       var fields=Array.from(new Set(dg.map(function(g){return g.field||'(no field)';}))).sort();
       var times=Array.from(new Set(dg.map(function(g){return g.time||'(no time)';}))).sort(function(a,b){return tKey(a)-tKey(b);});
-      var teamTime={}; dg.forEach(function(g){ [g.away,g.home].forEach(function(t){ if(t){ var k=t.toLowerCase()+'@@'+(g.time||''); teamTime[k]=(teamTime[k]||0)+1; } }); });
-      function conflict(g){ return [g.away,g.home].some(function(t){ return t && teamTime[t.toLowerCase()+'@@'+(g.time||'')]>1; }); }
       var cell={}; dg.forEach(function(g){ var k=(g.field||'(no field)')+'|'+(g.time||'(no time)'); (cell[k]=cell[k]||[]).push(g); });
       var head='<tr><th style="min-width:64px">Time</th>'+fields.map(function(f){return '<th>'+esc(f)+'</th>';}).join('')+'</tr>';
       var body=times.map(function(tm){
         return '<tr><td style="font-weight:600;white-space:nowrap">'+esc(fmtGTime(tm)||tm)+'</td>'+fields.map(function(f){
-          var gs=cell[f+'|'+tm]||[], dbl=gs.length>1;
+          var gs=cell[f+'|'+tm]||[];
+          var anyFieldClash=gs.some(function(x){ var c=conf.byGid[x.id]; return c&&c.field; });
           var cards=gs.map(function(g){
-            var cf=conflict(g), sc=(g.done&&g.away_score!=null&&g.home_score!=null)?(g.away_score+'–'+g.home_score):'';
-            return '<div class="grid-card" draggable="true" data-gid="'+esc(g.id)+'" title="Click to edit · drag to move" style="cursor:pointer'+(cf?';border-color:var(--sts-red)':'')+'">'+
+            var ci=conf.byGid[g.id]||{}, cf=!!ci.team, fclash=!!ci.field, un=gUnscheduled(g);
+            var sc=(g.done&&g.away_score!=null&&g.home_score!=null)?(g.away_score+'–'+g.home_score):'';
+            return '<div class="grid-card" draggable="true" data-gid="'+esc(g.id)+'" title="Click to edit · drag to move" style="cursor:pointer'+((cf||fclash)?';border-color:var(--sts-red)':'')+'">'+
               '<div class="gc-teams">'+esc(g.away||'TBD')+'<span class="muted"> v </span>'+esc(g.home||'TBD')+'</div>'+
               (sc?'<div class="gc-score">'+sc+'</div>':'<div class="gc-st muted">scheduled</div>')+
-              (cf?'<div class="gc-warn">⚠ team double-booked</div>':'')+'</div>';
+              (cf?'<div class="gc-warn">⚠ team double-booked</div>':'')+
+              (fclash?'<div class="gc-warn">⚠ field+time clash</div>':'')+
+              (un&&!g.done?'<div class="gc-st muted">⏳ unscheduled — set a time & field</div>':'')+'</div>';
           }).join('');
-          return '<td class="grid-cell'+(dbl?' grid-cell-dbl':'')+'" data-field="'+esc(f)+'" data-time="'+esc(tm)+'">'+cards+'</td>';
+          return '<td class="grid-cell'+(anyFieldClash?' grid-cell-dbl':'')+'" data-field="'+esc(f)+'" data-time="'+esc(tm)+'">'+cards+'</td>';
         }).join('')+'</tr>';
       }).join('');
       return '<h3 style="margin:var(--space-5) 0 var(--space-2)">'+esc(fmtDay(date))+'</h3>'+
         '<div class="table-wrap"><table class="tbl grid-tbl">'+head+body+'</table></div>';
     }).join('');
     var n=gridMoves.length;
+    var cc=conf.teamConflicts+conf.fieldConflicts;
+    var confBanner = cc ? '<span style="font-size:var(--text-sm);color:var(--sts-red);font-weight:700">⚠ '+
+      [(conf.teamConflicts?conf.teamConflicts+' team double-book'+(conf.teamConflicts===1?'':'s'):''), (conf.fieldConflicts?conf.fieldConflicts+' field clash'+(conf.fieldConflicts===1?'':'es'):'')].filter(Boolean).join(' · ')+'</span>' : '';
     var toolbar='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">'+
       '<button class="btn btn-navy btn-sm" id="gridSave"'+(n?'':' disabled')+'>💾 Save changes</button>'+
       '<button class="btn btn-outline btn-sm" id="gridUndo"'+(n?'':' disabled')+'>↶ Undo last move</button>'+
-      '<span style="font-size:var(--text-sm)">'+(n?'<b style="color:var(--sts-red)">'+n+' unsaved change'+(n===1?'':'s')+'</b>':'<span class="muted">No unsaved changes</span>')+'</span></div>';
+      '<span style="font-size:var(--text-sm)">'+(n?'<b style="color:var(--sts-red)">'+n+' unsaved change'+(n===1?'':'s')+'</b>':'<span class="muted">No unsaved changes</span>')+'</span>'+confBanner+'</div>';
     var howto='<div class="notice notice-info" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm);margin-bottom:12px"><b>How this works:</b> columns are <b>fields</b>, rows are <b>start times</b>, and each card is a game. <b>Drag a card</b> to move it to a different field/time, or <b>click a card</b> to edit its teams, time, field, or score. New games (and new times/fields) come from <b>“+ Add Game”</b> up top. A <b style="color:var(--sts-red)">red card</b> = a team is booked twice at once; an <b style="color:#b45309">orange cell</b> = two games share one field+time. <b>Drag changes don’t save until you click “Save changes.”</b></div>';
     wrap.innerHTML=toolbar+howto+html;
   }
@@ -1628,6 +1668,15 @@
       var g=GAMES.find(function(x){return String(x.id)===String(dragGid);}); dragGid=null; if(!g) return;
       var nf=cell.getAttribute('data-field'), nt=cell.getAttribute('data-time');
       if((g.field||'(no field)')===nf && (g.time||'(no time)')===nt) return;
+      // warn if dropping here would double-book a team or a field (dry-run the scanner)
+      if(nf!=='(no field)' && nt!=='(no time)'){
+        var probe=GAMES.filter(function(x){return x.form_id===g.form_id;}).map(function(x){ return String(x.id)===String(g.id) ? Object.assign({},x,{field:nf,time:nt}) : x; });
+        var pc=scanConflicts(probe).byGid[g.id];
+        if(pc && (pc.team||pc.field)){
+          var what=pc.field ? 'another game is already on '+nf+' at '+(fmtGTime(nt)||nt) : 'a team here is already booked at '+(fmtGTime(nt)||nt);
+          if(!confirm('Heads up — '+what+'.\n\nDrop here anyway? You can still fix it before saving.')) return;
+        }
+      }
       // DRAFT: record the move + update in memory only. Nothing saves until "Save changes".
       gridMoves.push({ gid:g.id, prevField:g.field||'', prevTime:g.time||'' });
       g.field = nf==='(no field)'?'':nf; g.time = nt==='(no time)'?'':nt;
@@ -1640,6 +1689,8 @@
       }
       if(e.target.closest('#gridSave')){
         if(!gridMoves.length) return;
+        var gfids={}; gridMoves.forEach(function(m){ var gg=GAMES.find(function(x){return String(x.id)===String(m.gid);}); if(gg) gfids[gg.form_id]=1; });
+        if(!conflictGate(Object.keys(gfids))) return;   // unresolved conflicts → confirm before saving
         var btn=e.target.closest('#gridSave'); btn.disabled=true; btn.textContent='Saving…';
         try {
           var gids={}; gridMoves.forEach(function(m){ gids[m.gid]=1; });
@@ -1753,7 +1804,31 @@
       '<div class="field"><label for="g_home">Home Team</label><input class="input" id="g_home" '+(homeLock?'readonly':'list="teamNames"')+' value="'+esc(g.home||'')+'"></div></div>'+
       '<div class="field-row"><div class="field"><label for="g_as">Away Score</label><input class="input" id="g_as" type="number" inputmode="numeric" value="'+(g.away_score!=null?g.away_score:'')+'"></div>'+
       '<div class="field"><label for="g_hs">Home Score</label><input class="input" id="g_hs" type="number" inputmode="numeric" value="'+(g.home_score!=null?g.home_score:'')+'"></div></div>'+
+      '<div class="field"><label for="g_forfeit">Forfeit <span class="muted">(team couldn’t field 8 / no-show)</span></label>'+
+        '<select class="input" id="g_forfeit">'+
+          '<option value="">— No forfeit —</option>'+
+          '<option value="away"'+(g.forfeit&&g.forfeit_by==='away'?' selected':'')+'>'+esc(g.away||'Away')+' forfeits</option>'+
+          '<option value="home"'+(g.forfeit&&g.forfeit_by==='home'?' selected':'')+'>'+esc(g.home||'Home')+' forfeits</option>'+
+          '<option value="both"'+(g.forfeit&&g.forfeit_by==='both'?' selected':'')+'>Double forfeit (neither fielded 8)</option>'+
+        '</select></div>'+
       '<div class="field check"><input type="checkbox" id="g_done"'+(g.done?' checked':'')+'><label for="g_done" style="text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500">Final — count this game in standings</label></div>';
+    // Forfeit picker auto-fills the 7–0 (or 0–0) result, locks the score inputs, and
+    // forces Final — so a saved record can never contradict the chosen forfeit.
+    (function(){
+      var sel=document.getElementById('g_forfeit'), as=document.getElementById('g_as'), hs=document.getElementById('g_hs'), dn=document.getElementById('g_done');
+      function apply(){
+        var v=sel.value, on=(v==='away'||v==='home'||v==='both');
+        if(v==='away'){ as.value=0; hs.value=7; } else if(v==='home'){ as.value=7; hs.value=0; } else if(v==='both'){ as.value=0; hs.value=0; }
+        if(on) dn.checked=true;
+        as.disabled=on; hs.disabled=on;
+        as.parentElement.style.opacity = on?'.55':''; hs.parentElement.style.opacity = on?'.55':'';
+      }
+      sel.addEventListener('change', function(){
+        if(sel.value===''){ as.disabled=false; hs.disabled=false; as.parentElement.style.opacity=''; hs.parentElement.style.opacity=''; as.value=''; hs.value=''; dn.checked=false; return; }
+        apply();
+      });
+      if(g.forfeit) apply();   // re-hydrate when editing an existing forfeit
+    })();
     // a score is a whole number 0–999 (or blank); reject negatives/decimals/junk
     function parseScore(raw){ var s=String(raw==null?'':raw).trim(); if(s==='') return null; return /^\d{1,3}$/.test(s) ? +s : NaN; }
     // games that advance from bracket game #n (away/home = WG-n / LG-n)
@@ -1775,6 +1850,15 @@
       if (!fid){ alert('Pick an event for this game.'); return; }
       var doneChecked = document.getElementById('g_done').checked;
       var as = parseScore(val('g_as')), hs = parseScore(val('g_hs'));
+      // ── forfeit is authoritative: derive the score from who forfeited (don't trust
+      //    the disabled inputs), force Final, and block a bracket double-forfeit ──
+      var ffBy = document.getElementById('g_forfeit').value;   // '', 'away', 'home', 'both'
+      if (ffBy){
+        as = ffBy==='home' ? 7 : 0;
+        hs = ffBy==='away' ? 7 : 0;   // 'both' → 0–0
+        doneChecked = true;
+        if (isBracket && ffBy==='both'){ alert('A bracket game can’t be a double forfeit — one team has to advance. Record a single forfeit, or resolve it manually.'); return; }
+      }
       // ── validate scores so a bad entry can't corrupt standings/brackets ──
       if (Number.isNaN(as) || Number.isNaN(hs)){ alert('Scores must be whole numbers (0–999). Please re-check.'); return; }
       if (doneChecked){
@@ -1786,12 +1870,20 @@
         var played = GAMES.filter(function(x){ return x.form_id===fid && x.g!=null && x.done && x.id!==g.id && refsGame(x, g.g); });
         if (played.length && !confirm('Heads up: '+played.length+' later bracket game'+(played.length>1?'s have':' has')+' already been played off this result. Changing this score can change who advanced. Continue?')) return;
       }
+      // conflict gate — would this date/time/field double-book a team or the field?
+      var probeRec=Object.assign({},g,{id:g.id||'__new__',date:val('g_date'),time:val('g_time'),field:val('g_field'),away:(awayLock?g.away:val('g_away')),home:(homeLock?g.home:val('g_home'))});
+      var probePool=GAMES.filter(function(x){return x.form_id===fid && String(x.id)!==String(probeRec.id);}).concat([probeRec]);
+      var pc2=scanConflicts(probePool).byGid[probeRec.id];
+      if(pc2 && (pc2.team||pc2.field)){
+        var m2=(pc2.team?'• This puts a team in two games at the same date & time.\n':'')+(pc2.field?'• Another game is already on this field at this time.\n':'');
+        if(!confirm('Conflict:\n\n'+m2+'\nSave this game anyway?')) return;
+      }
       var f = FORMS.find(function(x){return x.id===fid;});
       var b=this, prev=b.textContent; b.disabled=true; b.textContent='Saving…';
       try {
         await STS.saveGame({ id:g.id, form_id:fid, g:(isBracket?g.g:undefined), sport:(f&&f.sport)||g.sport||'baseball', division:val('g_div'),
           away:(awayLock?g.away:val('g_away')), home:(homeLock?g.home:val('g_home')), field:val('g_field'), date:val('g_date'), time:val('g_time'),
-          away_score:as, home_score:hs, done:doneChecked });
+          away_score:as, home_score:hs, done:doneChecked, forfeit:!!ffBy, forfeit_by:ffBy||'' });
         GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule(); closeModal('gameModal');
       } catch(ex){
         alert('Couldn’t save this game: '+((ex&&ex.message)||ex)+'\n\nNothing was changed — please try again.');

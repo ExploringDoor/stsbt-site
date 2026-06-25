@@ -103,6 +103,7 @@
 
   var MODE='scores';   // final results only (companion to schedule.html, which shows games NOT yet final)
   function isPlayed(g){ return g.done && g.away_score!=null && g.home_score!=null; }
+  function ffTag(g){ return !g.forfeit ? '' : '<span class="ff-tag">'+(g.forfeit_by==='both'?'Double forfeit':'Forfeit')+'</span>'; }
   var GAMES=[], FORMS=[], filt={sport:'',event:'',season:''}, bracketTables={}, view='grid', curWeek='', curDay='';
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
   function cityFor(fid){ var l=(FORMS.find(function(x){return x.id===fid;})||{}).location||''; return l?l.split(',')[0].trim():''; }
@@ -132,7 +133,7 @@
     function row(nm,sc,win,lose){ return '<div class="sch-team'+(win?' win':'')+(lose?' lose':'')+'">'+logo(nm)+'<span class="tn">'+esc(nm)+'</span>'+(played?'<span class="sc">'+sc+'</span>':'')+'</div>'; }
     var foot='<span class="tour">'+esc(titleFor(g.form_id))+(g.division?' · '+esc(g.division):'')+'</span><span class="cue">'+(played?'Recap':'Preview')+' ›</span>';
     return '<div class="sch-card" data-gid="'+esc(g.id)+'" role="button" tabindex="0">'+
-      '<div class="sch-chead">'+esc(head)+'</div>'+
+      '<div class="sch-chead">'+esc(head)+ffTag(g)+'</div>'+
       '<div class="sch-cbody">'+row(A,g.away_score,aWin,played&&!tie&&!aWin)+row(H,g.home_score,hWin,played&&!tie&&!hWin)+'</div>'+
       '<div class="sch-cfoot">'+foot+'</div></div>';
   }
@@ -141,7 +142,7 @@
     var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score, city=cityFor(g.form_id);
     var fLabel=g.field?(city?city+' · '+g.field:g.field):'';
     var fieldHTML=g.field?' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent([g.field,city].filter(Boolean).join(', '))+'" onclick="event.stopPropagation()">📍 '+esc(fLabel)+'</a>':'';
-    var result=played?'<div class="result">'+g.away_score+'–'+g.home_score+'</div>':'<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+fieldHTML+'</div>';
+    var result=played?'<div class="result">'+g.away_score+'–'+g.home_score+'</div>'+ffTag(g):'<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+fieldHTML+'</div>';
     return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtTime(g.time)))+'</div>'+
       '<div class="matchup"><span class="'+(aWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.away))+'</span><span class="vs">vs</span><span class="'+(hWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.home))+'</span>'+(g.division?' <span class="muted" style="font-size:var(--text-xs)">· '+esc(g.division)+'</span>':'')+'</div>'+result+'</div>';
   }

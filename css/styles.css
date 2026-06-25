@@ -280,6 +280,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-v
 .badge-red { background: var(--sts-red); color: #fff; }
 .badge-gold { background: var(--gold); color: var(--sts-navy); }
 .badge-sport { background: #EEF2FF; color: var(--sts-navy); }
+.ff-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #FFF7ED; color: #B45309; border: 1px solid #FED7AA; vertical-align: middle; white-space: nowrap; }
 
 /* ── Forms ─────────────────────────────────────────────────────────── */
 .form-wrap { max-width: 640px; margin: 0 auto; }

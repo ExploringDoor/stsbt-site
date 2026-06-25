@@ -958,7 +958,11 @@ export async function saveGame(game) {
     date: game.date || '', time: game.time || '', field: game.field || '',
     away_score: numScore(game.away_score),
     home_score: numScore(game.home_score),
-    done: !!game.done
+    done: !!game.done,
+    // forfeit metadata — always written (so merge:true can CLEAR a removed forfeit).
+    // The 7–0/0–0 lives in the score; forfeit_by drives W/L + the standings penalty.
+    forfeit: !!game.forfeit,
+    forfeit_by: game.forfeit ? (game.forfeit_by || '') : ''
   };
   if (game.g != null) rec.g = game.g;   // bracket game number (kept on score edits)
   if (isConfigured) {
@@ -1046,11 +1050,22 @@ export function computeStandings(games) {
     var as = Number(g.away_score), hs = Number(g.home_score);
     if (!isFinite(as) || !isFinite(hs)) return;   // a hand-edited non-numeric score can't poison standings
     var a = row(g.away), h = row(g.home);
-    a.gp++; h.gp++; a.rs += as; a.ra += hs; h.rs += hs; h.ra += as;
+    a.gp++; h.gp++;
+    // FORFEIT: the win is awarded by who forfeited (forfeit_by), NOT the recorded
+    // 7–0 — and NO run stats accrue, so a phantom forfeit score can never decide a
+    // runs-against / run-differential / runs-for tiebreaker. The forfeiter is charged
+    // the ff penalty. (Double forfeit = both lose, both charged.)
+    if (g.forfeit && (g.forfeit_by === 'away' || g.forfeit_by === 'home' || g.forfeit_by === 'both')) {
+      if (g.forfeit_by === 'both') { a.l++; h.l++; a.ff++; h.ff++; }
+      else if (g.forfeit_by === 'away') { h.w++; a.l++; hh(g.home, g.away).w++; hh(g.away, g.home).l++; a.ff++; }
+      else { a.w++; h.l++; hh(g.away, g.home).w++; hh(g.home, g.away).l++; h.ff++; }
+      return;
+    }
+    a.rs += as; a.ra += hs; h.rs += hs; h.ra += as;
     var m = as - hs; if (m > 10) m = 10; else if (m < -10) m = -10;   // run-diff capped at ±10/game
     a.cdiff += m; h.cdiff -= m;
-    if (as > hs) { a.w++; h.l++; hh(g.away, g.home).w++; hh(g.home, g.away).l++; if (g.forfeit) h.ff++; }
-    else if (hs > as) { h.w++; a.l++; hh(g.home, g.away).w++; hh(g.away, g.home).l++; if (g.forfeit) a.ff++; }
+    if (as > hs) { a.w++; h.l++; hh(g.away, g.home).w++; hh(g.home, g.away).l++; }
+    else if (hs > as) { h.w++; a.l++; hh(g.home, g.away).w++; hh(g.away, g.home).l++; }
     else { a.ties++; h.ties++; }
   });
   var rows = Object.keys(t).map(function (k) {
