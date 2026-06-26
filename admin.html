@@ -1841,6 +1841,12 @@
     var _efid = g.form_id || schedFilt || '', _ef = {}, _eflds = [];
     GAMES.forEach(function(x){ if(x.form_id===_efid && x.field && !_ef[x.field]){ _ef[x.field]=1; _eflds.push(x.field); } });
     _eflds.sort();
+    // teams in THIS tournament (registered + already on its games) → scoped away/home dropdown
+    var _et = {}, _etms = [];
+    REGS.forEach(function(r){ if(r.form_id===_efid && r.status!=='archived' && r.team_name && !_et[r.team_name.toLowerCase()]){ _et[r.team_name.toLowerCase()]=1; _etms.push(r.team_name); } });
+    GAMES.forEach(function(x){ if(x.form_id===_efid){ [x.away,x.home].forEach(function(nm){ if(nm && !/^(WG|LG)-\d+$/i.test(String(nm)) && !/^Seed\s*\d+$/i.test(String(nm)) && !/^(tbd|bye)$/i.test(String(nm)) && !_et[String(nm).toLowerCase()]){ _et[String(nm).toLowerCase()]=1; _etms.push(nm); } }); } });
+    _etms.sort();
+    var _teamListHTML = '<datalist id="g_teamList">'+_etms.map(function(n){return '<option value="'+esc(n)+'"></option>';}).join('')+'</datalist>';
     document.getElementById('gmBody').innerHTML =
       '<div class="field"><label for="g_form">Event</label><select class="input" id="g_form"'+(isBracket?' disabled':'')+'>'+tf.map(function(f){return '<option value="'+esc(f.id)+'"'+(g.form_id===f.id?' selected':'')+'>'+esc(f.title)+'</option>';}).join('')+'</select></div>'+
       (isBracket?'<div class="notice notice-info" style="font-size:var(--text-xs)">Bracket game. '+(slotsEditable?'You can type a team into a first-round slot (or use <b>🌱 Seed Teams</b> to fill them from standings). ':'')+'Slots that feed from another game advance automatically from scores.</div>':'')+
@@ -1848,8 +1854,9 @@
       '<div class="field"><label for="g_field">Field</label><input class="input" id="g_field" list="g_fieldList" value="'+esc(g.field||'')+'" placeholder="pick or type a field"><datalist id="g_fieldList">'+_eflds.map(function(f){return '<option value="'+esc(f)+'"></option>';}).join('')+'</datalist></div></div>'+
       '<div class="field-row"><div class="field"><label for="g_date">Date</label><input class="input" id="g_date" type="date" value="'+esc(g.date||'')+'"></div>'+
       '<div class="field"><label for="g_time">Time</label><input class="input" id="g_time" type="time" value="'+esc(g.time||'')+'"></div></div>'+
-      '<div class="field-row"><div class="field"><label for="g_away">Away Team</label><input class="input" id="g_away" '+(awayLock?'readonly':'list="teamNames"')+' value="'+esc(g.away||'')+'"></div>'+
-      '<div class="field"><label for="g_home">Home Team</label><input class="input" id="g_home" '+(homeLock?'readonly':'list="teamNames"')+' value="'+esc(g.home||'')+'"></div></div>'+
+      _teamListHTML+
+      '<div class="field-row"><div class="field"><label for="g_away">Away Team</label><input class="input" id="g_away" '+(awayLock?'readonly':'list="g_teamList"')+' value="'+esc(g.away||'')+'" placeholder="pick a team"></div>'+
+      '<div class="field"><label for="g_home">Home Team</label><input class="input" id="g_home" '+(homeLock?'readonly':'list="g_teamList"')+' value="'+esc(g.home||'')+'" placeholder="pick a team"></div></div>'+
       '<div class="field-row"><div class="field"><label for="g_as">Away Score</label><input class="input" id="g_as" type="number" inputmode="numeric" value="'+(g.away_score!=null?g.away_score:'')+'"></div>'+
       '<div class="field"><label for="g_hs">Home Score</label><input class="input" id="g_hs" type="number" inputmode="numeric" value="'+(g.home_score!=null?g.home_score:'')+'"></div></div>'+
       '<div class="field"><label for="g_forfeit">Forfeit <span class="muted">(team couldn’t field 8 / no-show)</span></label>'+
