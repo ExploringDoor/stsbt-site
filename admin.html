@@ -2038,8 +2038,8 @@
     function renderDays(){ days.sort(); $('bk_dayChips').innerHTML = days.length?days.map(function(d,i){return chip(dlabel(d),'day',i);}).join(''):'<span class="muted" style="font-size:var(--text-sm)">Add at least one day.</span>'; }
     function renderFields(){ $('bk_fieldChips').innerHTML = fields.length?fields.map(function(f,i){return chip(f,'field',i);}).join(''):'<span class="muted" style="font-size:var(--text-sm)">Add at least one field.</span>'; }
     function renderSlots(){ slots.sort(function(a,b){return tKey(a)-tKey(b);}); $('bk_timeChips').innerHTML = slots.length?slots.map(function(s,i){return chip(fmtGTime(s),'slot',i);}).join(''):'<span class="muted" style="font-size:var(--text-sm)">Build your time slots above.</span>'; }
-    function regTeamsFor(fid){ var out=[],seen={}; REGS.forEach(function(r){ if(r.form_id===fid && r.team_name && !seen[r.team_name.toLowerCase()]){ seen[r.team_name.toLowerCase()]=1; out.push(r.team_name); } }); return out; }
-    function teamDivMap(fid){ var m={}; REGS.forEach(function(r){ if(r.form_id===fid && r.team_name && m[r.team_name.toLowerCase()]==null) m[r.team_name.toLowerCase()]=r.division||r.age_class||''; }); return m; }
+    function regTeamsFor(fid){ var out=[],seen={}; REGS.forEach(function(r){ if(r.form_id===fid && r.status!=='archived' && r.team_name && !seen[r.team_name.toLowerCase()]){ seen[r.team_name.toLowerCase()]=1; out.push(r.team_name); } }); return out; }
+    function teamDivMap(fid){ var m={}; REGS.forEach(function(r){ if(r.form_id===fid && r.status!=='archived' && r.team_name && m[r.team_name.toLowerCase()]==null) m[r.team_name.toLowerCase()]=r.division||r.age_class||''; }); return m; }
     function renderTeamQuick(list,dmap){ var q=$('bk_teamQuick'); if(!q) return; if(list.length<2){ q.innerHTML=''; return; }
       var divs=[],seen={}; list.forEach(function(t){ var d=dmap[t.toLowerCase()]||''; if(d && !seen[d]){ seen[d]=1; divs.push(d); } });
       divs.sort(function(a,b){ var na=parseInt(a,10), nb=parseInt(b,10); if(!isNaN(na)&&!isNaN(nb)&&na!==nb) return na-nb; return a.localeCompare(b); });
