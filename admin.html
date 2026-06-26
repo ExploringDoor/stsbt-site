@@ -1826,11 +1826,15 @@
     var slotsEditable = isBracket && (!awayLock || !homeLock);
     document.getElementById('gmTitle').textContent = isNew ? 'Add Game' : (isBracket ? 'Bracket Game '+g.g : 'Edit Game');
     var tf = TOURNEY_FORMS();
+    // fields already used in THIS tournament → offer them as a dropdown (pick or type)
+    var _efid = g.form_id || schedFilt || '', _ef = {}, _eflds = [];
+    GAMES.forEach(function(x){ if(x.form_id===_efid && x.field && !_ef[x.field]){ _ef[x.field]=1; _eflds.push(x.field); } });
+    _eflds.sort();
     document.getElementById('gmBody').innerHTML =
       '<div class="field"><label for="g_form">Event</label><select class="input" id="g_form"'+(isBracket?' disabled':'')+'>'+tf.map(function(f){return '<option value="'+esc(f.id)+'"'+(g.form_id===f.id?' selected':'')+'>'+esc(f.title)+'</option>';}).join('')+'</select></div>'+
       (isBracket?'<div class="notice notice-info" style="font-size:var(--text-xs)">Bracket game. '+(slotsEditable?'You can type a team into a first-round slot (or use <b>🌱 Seed Teams</b> to fill them from standings). ':'')+'Slots that feed from another game advance automatically from scores.</div>':'')+
       '<div class="field-row"><div class="field"><label for="g_div">Division</label><input class="input" id="g_div" value="'+esc(g.division||'')+'" placeholder="e.g. Triple-A / 12U"></div>'+
-      '<div class="field"><label for="g_field">Field</label><input class="input" id="g_field" value="'+esc(g.field||'')+'"></div></div>'+
+      '<div class="field"><label for="g_field">Field</label><input class="input" id="g_field" list="g_fieldList" value="'+esc(g.field||'')+'" placeholder="pick or type a field"><datalist id="g_fieldList">'+_eflds.map(function(f){return '<option value="'+esc(f)+'"></option>';}).join('')+'</datalist></div></div>'+
       '<div class="field-row"><div class="field"><label for="g_date">Date</label><input class="input" id="g_date" type="date" value="'+esc(g.date||'')+'"></div>'+
       '<div class="field"><label for="g_time">Time</label><input class="input" id="g_time" type="time" value="'+esc(g.time||'')+'"></div></div>'+
       '<div class="field-row"><div class="field"><label for="g_away">Away Team</label><input class="input" id="g_away" '+(awayLock?'readonly':'list="teamNames"')+' value="'+esc(g.away||'')+'"></div>'+
@@ -1913,13 +1917,17 @@
       }
       var f = FORMS.find(function(x){return x.id===fid;});
       var b=this, prev=b.textContent; b.disabled=true; b.textContent='Saving…';
+      // never let the button get stuck on "Saving…": time the write out and re-enable
+      function withTimeout(p,ms){ return Promise.race([p, new Promise(function(_,rej){ setTimeout(function(){ rej(new Error('the save timed out — check your internet connection and try again')); }, ms); })]); }
       try {
-        await STS.saveGame({ id:g.id, form_id:fid, g:(isBracket?g.g:undefined), sport:(f&&f.sport)||g.sport||'baseball', division:val('g_div'),
+        await withTimeout(STS.saveGame({ id:g.id, form_id:fid, g:(isBracket?g.g:undefined), sport:(f&&f.sport)||g.sport||'baseball', division:val('g_div'),
           away:(awayLock?g.away:val('g_away')), home:(homeLock?g.home:val('g_home')), field:val('g_field'), date:val('g_date'), time:val('g_time'),
-          away_score:as, home_score:hs, done:doneChecked, forfeit:!!ffBy, forfeit_by:ffBy||'' });
+          away_score:as, home_score:hs, done:doneChecked, forfeit:!!ffBy, forfeit_by:ffBy||'' }), 15000);
         GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule(); closeModal('gameModal');
       } catch(ex){
-        alert('Couldn’t save this game: '+((ex&&ex.message)||ex)+'\n\nNothing was changed — please try again.');
+        var em=(ex&&ex.message)||String(ex);
+        if(/permission|insufficient/i.test(em)) em='the database refused the write (permission). If you just updated the site, hard-refresh the page (Cmd-Shift-R) and try again.';
+        alert('Couldn’t save this game: '+em+'\n\nNothing was changed.');
         b.disabled=false; b.textContent=prev;
       }
     };
@@ -1993,7 +2001,7 @@
     document.getElementById('bkBody').innerHTML =
       '<div class="field"><label for="bk_form">Tournament</label><select class="input" id="bk_form">'+tf.map(function(f){return '<option value="'+esc(f.id)+'"'+(f.id===fid0?' selected':'')+'>'+esc(f.title)+'</option>';}).join('')+'</select></div>'+
       '<div class="field"><label>Format</label><div class="pill-tabs" id="bk_fmt"><button type="button" class="pill active" data-fmt="roundrobin">Round robin (pool)</button><button type="button" class="pill" data-fmt="single">Single elim</button><button type="button" class="pill" data-fmt="double">Double elim</button></div></div>'+
-      '<div class="field" id="bk_gppWrap"><label for="bk_gpp">Pool games per team</label><input class="input" id="bk_gpp" type="number" value="3" min="1" max="10" style="max-width:110px"></div>'+
+      '<div class="field" id="bk_gppWrap"><label for="bk_gpp">Pool games per team</label><input class="input" id="bk_gpp" type="number" value="2" min="1" max="10" style="max-width:110px"></div>'+
       '<div class="field"><label for="bk_tiers">Bracket / division label <span class="muted">(optional)</span></label><input class="input" id="bk_tiers" placeholder="one label (8U Open) — or several tiers: Diamond, Platinum, Gold" list="bk_tierList"><datalist id="bk_tierList"><option>Diamond</option><option>Platinum</option><option>Gold</option></datalist><div class="muted" style="font-size:var(--text-xs);margin-top:4px" id="bk_tierHint"></div></div>'+
       '<div class="field check" id="bk_emptyWrap" style="display:none"><input type="checkbox" id="bk_empty"><label for="bk_empty" style="text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500">Teams aren’t set yet — build the bracket with seed placeholders (Seed 1…N). You’ll drop the real teams in once pool play wraps.</label></div>'+
       '<div class="field hidden" id="bk_countWrap"><label for="bk_count">How many teams will be in the bracket?</label><input class="input" id="bk_count" type="number" min="2" max="64" value="8" style="max-width:110px"></div>'+

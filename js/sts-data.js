@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────
 import { db, isConfigured } from './firebase-init.js';
 import {
-  collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc, deleteField,
+  collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, serverTimestamp, getCountFromServer
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
 
@@ -997,10 +997,7 @@ export async function saveGame(game) {
   // Setting a forfeit needs the rule to permit forfeit/forfeit_by (see firestore.rules).
   if (game.forfeit) { rec.forfeit = true; rec.forfeit_by = game.forfeit_by || ''; }
   if (isConfigured) {
-    if (game.id) {
-      if (!game.forfeit) { rec.forfeit = deleteField(); rec.forfeit_by = deleteField(); }   // clear any prior forfeit
-      await setDoc(doc(db, 'games', game.id), rec, { merge: true }); return game.id;
-    }
+    if (game.id) { await setDoc(doc(db, 'games', game.id), rec, { merge: true }); return game.id; }
     var ref = await addDoc(collection(db, 'games'), rec); return ref.id;
   }
   if (game.id) { var i = _games.findIndex(function (g) { return g.id === game.id; }); if (i >= 0) { _games[i] = Object.assign(_games[i], rec); if (!game.forfeit) { _games[i].forfeit = false; _games[i].forfeit_by = ''; } } return game.id; }

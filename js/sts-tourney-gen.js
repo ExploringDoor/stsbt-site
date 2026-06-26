@@ -125,23 +125,42 @@
   }
 
   // ── Round-robin / pool-play generator ──────────────────────────────
-  // Each team plays `gamesPerTeam` pool games (or a full round robin if omitted).
-  // Returns [{ away, home }] with real team names (no advancement refs) — these are
-  // ordinary games that feed standings; the bracket is then seeded from those standings.
+  // BALANCED: every team plays the SAME number of games. Full round robin when
+  // gamesPerTeam covers it; otherwise a circulant k-regular schedule — offsets
+  // 1..⌊k/2⌋ give 2 games each, plus a half-offset matching for an odd k. Each team
+  // gets EXACTLY k games when n·k is even; only when parity forbids it (e.g. 5 teams
+  // × 3 games) does a single team come up one game short. Returns [{away,home}].
   function generatePool(teams, opts) {
     opts = opts || {};
-    var t = teams.slice();
-    if (t.length < 2) return [];
-    if (t.length % 2 === 1) t.push(null);                 // odd count → rotating bye
-    var n = t.length, fullRounds = n - 1, half = n / 2;
-    var want = opts.gamesPerTeam ? Math.max(1, Math.min(opts.gamesPerTeam, fullRounds)) : fullRounds;
-    var arr = t.slice(), games = [];
-    for (var r = 0; r < want; r++) {
-      for (var i = 0; i < half; i++) {
-        var a = arr[i], b = arr[n - 1 - i];
-        if (a != null && b != null) games.push((r % 2) ? { away: b, home: a } : { away: a, home: b });
+    var t = teams.slice(), n = t.length;
+    if (n < 2) return [];
+    var k = opts.gamesPerTeam ? Math.max(1, Math.min(opts.gamesPerTeam, n - 1)) : (n - 1);
+    if (k >= n - 1) return roundRobinAll(t);
+    var seen = {}, games = [], flip = 0, deg = []; for (var z = 0; z < n; z++) deg[z] = 0;
+    function add(i, j) {
+      if (i === j) return;
+      var a = i < j ? i : j, b = i < j ? j : i, key = a + '-' + b;
+      if (seen[key]) return; seen[key] = 1; deg[i]++; deg[j]++;
+      games.push((flip++ & 1) ? { away: t[b], home: t[a] } : { away: t[a], home: t[b] });
+    }
+    function minDeg() { var m = deg[0]; for (var x = 1; x < n; x++) if (deg[x] < m) m = deg[x]; return m; }
+    for (var d = 1; d <= Math.floor(k / 2); d++) { for (var i = 0; i < n; i++) add(i, (i + d) % n); }
+    if (k % 2 === 1) {
+      if (n % 2 === 0) { for (var p = 0; p < n / 2; p++) add(p, p + n / 2); }    // perfect matching → +1 each
+      else {  // odd n & odd k → exact-k impossible; greedily bump teams toward k (one stays a game short)
+        for (var off = Math.floor(k / 2) + 1; off < n && minDeg() < k; off++)
+          for (var s = 0; s < n; s++) { var u = (s + off) % n; if (deg[s] < k && deg[u] < k) add(s, u); }
       }
-      arr.splice(1, 0, arr.pop());                          // rotate, keep first fixed
+    }
+    return games;
+  }
+  // Full round robin (everyone plays everyone) via the circle method.
+  function roundRobinAll(teams) {
+    var arr = teams.slice(); if (arr.length % 2 === 1) arr.push(null);
+    var m = arr.length, rounds = m - 1, half = m / 2, games = [];
+    for (var r = 0; r < rounds; r++) {
+      for (var i = 0; i < half; i++) { var a = arr[i], b = arr[m - 1 - i]; if (a != null && b != null) games.push((r % 2) ? { away: b, home: a } : { away: a, home: b }); }
+      arr.splice(1, 0, arr.pop());
     }
     return games;
   }
