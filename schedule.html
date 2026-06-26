@@ -99,7 +99,9 @@
   function fmtMD(ds){ var d=D(ds); return MON[d.getMonth()]+' '+d.getDate(); }
   function fmtTime(t){ if(!t) return ''; var p=String(t).split(':'); var h=+p[0],m=p[1]||'00'; if(isNaN(h)) return t; var ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+m+' '+ap; }
   function addMin(t,m){ if(!t||!m) return ''; var p=String(t).split(':'),h=+p[0],mm=+(p[1]||0); if(isNaN(h)) return ''; var x=((h*60+mm+(+m))%1440+1440)%1440; return ('0'+Math.floor(x/60)).slice(-2)+':'+('0'+(x%60)).slice(-2); }
-  function fmtWhen(g){ var f=FORMS.find(function(x){return x.id===g.form_id;}); var L=(f&&f.game_length_min)||0; return (L&&g.time) ? fmtTime(g.time)+'–'+fmtTime(addMin(g.time,L)) : fmtTime(g.time); }
+  function ageBand(d){ var n=parseInt(String(d||'').replace(/\D/g,''),10); return n?(n<=8?0:(n<=10?1:2)):-1; }
+  function defLen(d,bk){ var b=ageBand(d); return b<0?0:(bk?[75,90,105][b]:[60,75,90][b]); }
+  function fmtWhen(g){ var f=FORMS.find(function(x){return x.id===g.form_id;}); var L=(f&&f.game_length_min)||defLen(g.division, g.g!=null); return (L&&g.time) ? fmtTime(g.time)+'–'+fmtTime(addMin(g.time,L)) : fmtTime(g.time); }
   function weekStart(ds){ var d=D(ds); d.setDate(d.getDate()-d.getDay()); return d.toISOString().slice(0,10); }
   function logo(name){ return window.STSlogos?STSlogos.html(name,30):''; }
 
