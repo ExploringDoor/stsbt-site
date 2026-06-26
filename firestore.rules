@@ -24,12 +24,14 @@ service cloud.firestore {
     // to a finite number or null client-side in saveGame; rules pin the key set + types.)
     function gameShapeOK() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['form_id','sport','division','away','home','date','time','field','away_score','home_score','done','g'])
+      return d.keys().hasOnly(['form_id','sport','division','away','home','date','time','field','away_score','home_score','done','g','forfeit','forfeit_by'])
           && d.form_id is string && d.away is string && d.home is string
           && (d.away_score == null || d.away_score is number)
           && (d.home_score == null || d.home_score is number)
           && d.done is bool
-          && (!('g' in d) || d.g is int);   // bracket game number (single/double elim)
+          && (!('g' in d) || d.g is int)               // bracket game number (single/double elim)
+          && (!('forfeit' in d) || d.forfeit is bool)  // forfeit metadata (optional)
+          && (!('forfeit_by' in d) || d.forfeit_by is string);
     }
 
     // ── FORMS (events): public read; super-only writes ───────────────

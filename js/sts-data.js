@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────
 import { db, isConfigured } from './firebase-init.js';
 import {
-  collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
+  collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc, deleteField,
   query, where, orderBy, serverTimestamp, getCountFromServer
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
 
@@ -988,18 +988,23 @@ export async function saveGame(game) {
     date: game.date || '', time: game.time || '', field: game.field || '',
     away_score: numScore(game.away_score),
     home_score: numScore(game.home_score),
-    done: !!game.done,
-    // forfeit metadata — always written (so merge:true can CLEAR a removed forfeit).
-    // The 7–0/0–0 lives in the score; forfeit_by drives W/L + the standings penalty.
-    forfeit: !!game.forfeit,
-    forfeit_by: game.forfeit ? (game.forfeit_by || '') : ''
+    done: !!game.done
   };
   if (game.g != null) rec.g = game.g;   // bracket game number (kept on score edits)
+  // forfeit metadata — written ONLY when a forfeit is actually set, so an ordinary game
+  // doc stays within the keys the Firestore `gameShapeOK` rule allows. (A stray forfeit
+  // field on every game was being rejected as "insufficient permissions" on live.)
+  // Setting a forfeit needs the rule to permit forfeit/forfeit_by (see firestore.rules).
+  if (game.forfeit) { rec.forfeit = true; rec.forfeit_by = game.forfeit_by || ''; }
   if (isConfigured) {
-    if (game.id) { await setDoc(doc(db, 'games', game.id), rec, { merge: true }); return game.id; }
+    if (game.id) {
+      if (!game.forfeit) { rec.forfeit = deleteField(); rec.forfeit_by = deleteField(); }   // clear any prior forfeit
+      await setDoc(doc(db, 'games', game.id), rec, { merge: true }); return game.id;
+    }
     var ref = await addDoc(collection(db, 'games'), rec); return ref.id;
   }
-  if (game.id) { var i = _games.findIndex(function (g) { return g.id === game.id; }); if (i >= 0) _games[i] = Object.assign(_games[i], rec); return game.id; }
+  if (game.id) { var i = _games.findIndex(function (g) { return g.id === game.id; }); if (i >= 0) { _games[i] = Object.assign(_games[i], rec); if (!game.forfeit) { _games[i].forfeit = false; _games[i].forfeit_by = ''; } } return game.id; }
+  if (!game.forfeit) { rec.forfeit = false; rec.forfeit_by = ''; }
   rec.id = 'g' + (++_gameSeq); _games.push(rec); return rec.id;
 }
 // Save a batch of round-robin pool games (regular games, no bracket `g`).
