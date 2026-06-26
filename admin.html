@@ -1546,7 +1546,13 @@
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
   function refreshSchedControls(){
     var tf = TOURNEY_FORMS();
-    document.getElementById('schedEvent').innerHTML = '<option value="">All events</option>' + tf.map(function(f){ return '<option value="'+esc(f.id)+'"'+(schedFilt===f.id?' selected':'')+'>'+esc(f.title)+'</option>'; }).join('');
+    // Orphaned events: games whose tournament Form was deleted (form_id not in FORMS).
+    // Surface them so they can be selected + cleared (otherwise they're undeletable).
+    var formIds={}; FORMS.forEach(function(f){ formIds[f.id]=1; });
+    var orphans=[], seenO={}; GAMES.forEach(function(g){ if(g.form_id && !formIds[g.form_id] && !seenO[g.form_id]){ seenO[g.form_id]=1; orphans.push(g.form_id); } });
+    document.getElementById('schedEvent').innerHTML = '<option value="">All events</option>'
+      + tf.map(function(f){ return '<option value="'+esc(f.id)+'"'+(schedFilt===f.id?' selected':'')+'>'+esc(f.title)+'</option>'; }).join('')
+      + (orphans.length ? '<optgroup label="⚠ Orphaned games — select then Clear games">'+orphans.map(function(id){ return '<option value="'+esc(id)+'"'+(schedFilt===id?' selected':'')+'>'+esc(id.length>16?id.slice(0,16)+'…':id)+'</option>'; }).join('')+'</optgroup>' : '');
     var names = {}; REGS.forEach(function(r){ if(r.team_name) names[r.team_name]=1; }); GAMES.forEach(function(g){ if(g.away)names[g.away]=1; if(g.home)names[g.home]=1; });
     document.getElementById('teamNames').innerHTML = Object.keys(names).sort().map(function(n){ return '<option value="'+esc(n)+'">'; }).join('');
   }
