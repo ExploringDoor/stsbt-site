@@ -101,7 +101,7 @@
     if(!bg.length){ out.innerHTML = standsHTML || '<div class="bk-empty">No bracket posted for this event yet.</div>'; return; }
     var name = titleFor(cur) + (curDiv ? ' — '+curDiv : '');
     var venue = (FORMS.find(function(x){return x.id===cur;})||{}).location || '';
-    out.innerHTML = standsHTML + '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: name, teamLinks: true, teamHref:function(n){ return resolveTeam(n, curDiv); }, venue: venue })+'</div>';
+    out.innerHTML = standsHTML + '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: name, teamLinks: true, teamHref:function(n){ return resolveTeam(n, curDiv); }, venue: venue, gameLengthMin:((FORMS.find(function(x){return x.id===cur;})||{}).game_length_min)||0 })+'</div>';
     STSbracketRender.wireHover(out);
     ZOOM=1; applyZoom();
     if (window.STSfx) STSfx.arm(document);

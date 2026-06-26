@@ -1311,6 +1311,7 @@
       '<div class="field-row"><div class="field"><label>Start Date</label><input class="input" type="date" id="f_start" value="'+esc(f.start_date||'')+'"></div>'+
       '<div class="field"><label>End Date <span class="muted">(optional)</span></label><input class="input" type="date" id="f_end" value="'+esc(f.end_date||'')+'"></div></div>'+
       '<div class="field"><label>Location</label><input class="input" id="f_loc" value="'+esc(f.location||'')+'"></div>'+
+      '<div class="field"><label>Game length <span class="muted">(minutes — schedules then show a start–end time, e.g. 80 → 8:00–9:20)</span></label><input class="input" id="f_glen_min" type="number" min="0" step="5" placeholder="e.g. 80" value="'+(f.game_length_min||'')+'" style="max-width:150px"></div>'+
       '<div class="field"><label>Tournament Website <span class="muted">(optional — links the public tournament card to an outside site)</span></label><input class="input" id="f_url" type="url" placeholder="https://…" value="'+esc(f.info_url||'')+'"></div>'+
       '<div class="field"><label>Rules &amp; Format <span class="muted">(optional — shown on the public tournament page: time limits, run rules, game balls, etc.)</span></label><textarea class="input" id="f_notes" style="min-height:150px;white-space:pre-wrap" placeholder="e.g.\nTime Limits: Pool Play 1hr 20min (Finish the Inning)\nRun Rules: 20 Anytime, 15 after 2, 12 after 3…\nTeams provide their own genuine-leather game balls.">'+esc(f.notes||'')+'</textarea></div>'+
       '<div class="field"><label>Divisions <span class="muted">(check the classifications this event offers)</span></label><div class="dv-grid" id="f_divs">'+divChipsHTML(f.sport||'baseball', f.divisions||[])+'</div></div>'+
@@ -1347,6 +1348,7 @@
       f.title = val('f_title'); f.type = val('f_type'); f.sport = val('f_sport');
       f.info_url = val('f_url').trim();
       f.notes = val('f_notes');
+      f.game_length_min = parseInt(val('f_glen_min'),10)||0;
       f.start_date = val('f_start'); f.end_date = val('f_end');
       f.event_dates = fmtEventDates(f.start_date, f.end_date) || f.event_dates || '';
       f.location = val('f_loc');
@@ -1545,6 +1547,10 @@
   // ── SCHEDULE / SCORES (super + directors, scoped to their events) ───
   function TOURNEY_FORMS(){ return FORMS.filter(function(f){ return f.type==='tournament'; }); }
   function fmtGTime(t){ if(!t) return ''; var p=String(t).split(':'); var h=+p[0],m=p[1]||'00'; if(isNaN(h)) return t; var ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+m+' '+ap; }
+  // end time = start + the tournament's game length (minutes); shown as a start–end span
+  function addMin(t,m){ if(!t||!m) return ''; var p=String(t).split(':'),h=+p[0],mm=+(p[1]||0); if(isNaN(h)) return ''; var x=((h*60+mm+(+m))%1440+1440)%1440; return ('0'+Math.floor(x/60)).slice(-2)+':'+('0'+(x%60)).slice(-2); }
+  function gLen(g){ var f=FORMS.find(function(x){return x.id===g.form_id;}); return (f&&f.game_length_min)||0; }
+  function gWhen(g){ var L=gLen(g); return (L&&g.time) ? fmtGTime(g.time)+'–'+fmtGTime(addMin(g.time,L)) : fmtGTime(g.time); }
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
   function refreshSchedControls(){
     var tf = TOURNEY_FORMS();
@@ -1591,7 +1597,7 @@
       var body = byEvent[fid].map(function(g){
         var score = (g.done && g.away_score!=null && g.home_score!=null) ? (g.away_score+'–'+g.home_score) : '<span class="muted">—</span>';
         var status = g.done ? '<span class="badge badge-paid">Final</span>' : '<span class="badge badge-pending">Scheduled</span>';
-        return '<tr><td>'+esc(g.date||'TBD')+'</td><td>'+esc(fmtGTime(g.time))+'</td><td>'+esc(g.field||'')+'</td>'+
+        return '<tr><td>'+esc(g.date||'TBD')+'</td><td>'+esc(gWhen(g))+'</td><td>'+esc(g.field||'')+'</td>'+
           '<td><b>'+esc(g.away||'TBD')+'</b></td><td class="num">'+score+'</td><td><b>'+esc(g.home||'TBD')+'</b></td>'+
           '<td>'+status+'</td><td><div class="actions"><button class="icon-btn" data-gedit="'+esc(g.id)+'">✎ Edit</button></div></td></tr>';
       }).join('');
@@ -1751,11 +1757,11 @@
     function cmp(a,b){ return (a.date||'').localeCompare(b.date||'') || tKey(a.time)-tKey(b.time) || (a.field||'').localeCompare(b.field||''); }
     games.sort(cmp);
     var byDate={}; games.forEach(function(g){ (byDate[g.date||'TBD']=byDate[g.date||'TBD']||[]).push(g); });
-    var master=Object.keys(byDate).sort().map(function(d){ return '<h3>'+esc(dnm(d))+'</h3><table><thead><tr><th>Time</th><th>Field</th><th>Matchup</th><th>Score</th></tr></thead><tbody>'+byDate[d].map(function(g){ return '<tr><td>'+esc(fmtGTime(g.time)||'TBD')+'</td><td>'+esc(g.field||'')+'</td><td>'+esc(nm(g,g.away)||'TBD')+' v '+esc(nm(g,g.home)||'TBD')+esc(ev(g))+'</td><td>'+esc(sc(g))+'</td></tr>'; }).join('')+'</tbody></table>'; }).join('');
+    var master=Object.keys(byDate).sort().map(function(d){ return '<h3>'+esc(dnm(d))+'</h3><table><thead><tr><th>Time</th><th>Field</th><th>Matchup</th><th>Score</th></tr></thead><tbody>'+byDate[d].map(function(g){ return '<tr><td>'+esc(gWhen(g)||'TBD')+'</td><td>'+esc(g.field||'')+'</td><td>'+esc(nm(g,g.away)||'TBD')+' v '+esc(nm(g,g.home)||'TBD')+esc(ev(g))+'</td><td>'+esc(sc(g))+'</td></tr>'; }).join('')+'</tbody></table>'; }).join('');
     var byField={}; games.forEach(function(g){ (byField[g.field||'(no field)']=byField[g.field||'(no field)']||[]).push(g); });
-    var fieldSec=Object.keys(byField).sort().map(function(f){ return '<h3>Field: '+esc(f)+'</h3><table><thead><tr><th>Day</th><th>Time</th><th>Matchup</th><th>Score</th></tr></thead><tbody>'+byField[f].map(function(g){ return '<tr><td>'+esc(dnm(g.date))+'</td><td>'+esc(fmtGTime(g.time)||'TBD')+'</td><td>'+esc(nm(g,g.away)||'TBD')+' v '+esc(nm(g,g.home)||'TBD')+esc(ev(g))+'</td><td>'+esc(sc(g))+'</td></tr>'; }).join('')+'</tbody></table>'; }).join('');
+    var fieldSec=Object.keys(byField).sort().map(function(f){ return '<h3>Field: '+esc(f)+'</h3><table><thead><tr><th>Day</th><th>Time</th><th>Matchup</th><th>Score</th></tr></thead><tbody>'+byField[f].map(function(g){ return '<tr><td>'+esc(dnm(g.date))+'</td><td>'+esc(gWhen(g)||'TBD')+'</td><td>'+esc(nm(g,g.away)||'TBD')+' v '+esc(nm(g,g.home)||'TBD')+esc(ev(g))+'</td><td>'+esc(sc(g))+'</td></tr>'; }).join('')+'</tbody></table>'; }).join('');
     var teams={}; games.forEach(function(g){ [['a',g.away,g.home],['h',g.home,g.away]].forEach(function(p){ var n=nm(g,p[1]); if(n && !/^(winner|loser) of game|^bye$|^tbd$/i.test(n)){ (teams[n]=teams[n]||[]).push({g:g,opp:nm(g,p[2])}); } }); });
-    var teamSec=Object.keys(teams).sort().map(function(t){ return '<h3>'+esc(t)+'</h3><table><thead><tr><th>Day</th><th>Time</th><th>Field</th><th>Opponent</th><th>Score</th></tr></thead><tbody>'+teams[t].sort(function(a,b){return cmp(a.g,b.g);}).map(function(x){ var g=x.g; return '<tr><td>'+esc(dnm(g.date))+'</td><td>'+esc(fmtGTime(g.time)||'TBD')+'</td><td>'+esc(g.field||'')+'</td><td>'+esc(x.opp||'TBD')+esc(ev(g))+'</td><td>'+esc(sc(g))+'</td></tr>'; }).join('')+'</tbody></table>'; }).join('');
+    var teamSec=Object.keys(teams).sort().map(function(t){ return '<h3>'+esc(t)+'</h3><table><thead><tr><th>Day</th><th>Time</th><th>Field</th><th>Opponent</th><th>Score</th></tr></thead><tbody>'+teams[t].sort(function(a,b){return cmp(a.g,b.g);}).map(function(x){ var g=x.g; return '<tr><td>'+esc(dnm(g.date))+'</td><td>'+esc(gWhen(g)||'TBD')+'</td><td>'+esc(g.field||'')+'</td><td>'+esc(x.opp||'TBD')+esc(ev(g))+'</td><td>'+esc(sc(g))+'</td></tr>'; }).join('')+'</tbody></table>'; }).join('');
     var css='body{font-family:system-ui,Arial,sans-serif;color:#111;background:#fff;margin:22px;font-size:12px}h1{font-size:20px;margin:0;color:#00224f}h2{font-size:15px;margin:22px 0 6px;border-bottom:2px solid #00224f;padding-bottom:3px;color:#00224f}h3{font-size:13px;margin:13px 0 4px}table{width:100%;border-collapse:collapse;margin-bottom:8px}th,td{border:1px solid #ccc;padding:4px 7px;text-align:left}th{background:#eef2f8}.sub{color:#555;margin:2px 0 4px;font-size:11px}.sec{page-break-before:always}@media print{.noprint{display:none}body{margin:0}}';
     var html='<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+' — Schedule</title><style>'+css+'</style></head><body>'+
       '<div class="noprint" style="margin-bottom:14px"><button onclick="window.print()" style="padding:8px 16px;font-size:14px;cursor:pointer">🖨 Print this</button></div>'+

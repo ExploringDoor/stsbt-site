@@ -14,6 +14,8 @@
   var LINK_TEAMS = false;   // when true, concrete team names link to their team page
   var TEAM_HREF = null;     // optional name→slug resolver (teams are name+age; bare slug misses)
   var VENUE = '';           // host city to prefix field names (e.g. "Gatesville · Arnold Field")
+  var GLEN = 0;             // game length (min) → show a start–end time when set
+  function addMin(t,m){ if(!t||!m) return ''; var p=String(t).split(':'),h=+p[0],mm=+(p[1]||0); if(isNaN(h)) return ''; var x=((h*60+mm+(+m))%1440+1440)%1440; return ('0'+Math.floor(x/60)).slice(-2)+':'+('0'+(x%60)).slice(-2); }
   function slugify(s){ return String(s==null?'':s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
 
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
@@ -49,7 +51,8 @@
     var tag = cls==='f'?'<span class="tag f">🏆 Final</span>':cls==='l'?'<span class="tag l">Losers</span>':'<span class="tag w">Winners</span>';
     var cd = (g.date && !/^(n\/?a|tbd|tba)$/i.test(g.date)) ? new Date(g.date+'T12:00:00') : null;
     var dStr = (cd&&!isNaN(cd)) ? cd.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) : '';
-    var when = [dStr||null, g.time?fmtTime(g.time):null].filter(Boolean).join(' · ');
+    var ts = g.time ? (GLEN ? fmtTime(g.time)+'–'+fmtTime(addMin(g.time,GLEN)) : fmtTime(g.time)) : null;
+    var when = [dStr||null, ts].filter(Boolean).join(' · ');
     var field = g.field?String(g.field):'';
     var fieldLabel = field ? (VENUE ? VENUE+' · '+field : field) : '';
     var fieldQuery = [field, VENUE].filter(Boolean).join(', ');
@@ -169,6 +172,7 @@
   function render(games, meta){
     meta = meta || {};
     LINK_TEAMS = !!meta.teamLinks;
+    GLEN = (meta.gameLengthMin) || 0;
     TEAM_HREF = (typeof meta.teamHref === 'function') ? meta.teamHref : null;
     VENUE = meta.venue ? String(meta.venue).split(',')[0].trim() : '';
     if (!games || !games.length) return '<div class="bk-empty">No bracket games yet.</div>';

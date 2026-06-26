@@ -98,6 +98,8 @@
   function dowFull(ds){ var d=D(ds); return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()]; }
   function fmtMD(ds){ var d=D(ds); return MON[d.getMonth()]+' '+d.getDate(); }
   function fmtTime(t){ if(!t) return ''; var p=String(t).split(':'); var h=+p[0],m=p[1]||'00'; if(isNaN(h)) return t; var ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+m+' '+ap; }
+  function addMin(t,m){ if(!t||!m) return ''; var p=String(t).split(':'),h=+p[0],mm=+(p[1]||0); if(isNaN(h)) return ''; var x=((h*60+mm+(+m))%1440+1440)%1440; return ('0'+Math.floor(x/60)).slice(-2)+':'+('0'+(x%60)).slice(-2); }
+  function fmtWhen(g){ var f=FORMS.find(function(x){return x.id===g.form_id;}); var L=(f&&f.game_length_min)||0; return (L&&g.time) ? fmtTime(g.time)+'–'+fmtTime(addMin(g.time,L)) : fmtTime(g.time); }
   function weekStart(ds){ var d=D(ds); d.setDate(d.getDate()-d.getDay()); return d.toISOString().slice(0,10); }
   function logo(name){ return window.STSlogos?STSlogos.html(name,30):''; }
 
@@ -128,7 +130,7 @@
     var played=g.done && g.away_score!=null && g.home_score!=null, tie=played&&g.away_score===g.home_score;
     var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score;
     var A=sideName(g,g.away), H=sideName(g,g.home), city=cityFor(g.form_id);
-    var head=[DOW[D(g.date).getDay()].toUpperCase()+' '+MON[D(g.date).getMonth()].toUpperCase()+' '+D(g.date).getDate(), fmtTime(g.time), (g.field?(city?city+' · '+g.field:g.field):'')].filter(Boolean).join(' · ');
+    var head=[DOW[D(g.date).getDay()].toUpperCase()+' '+MON[D(g.date).getMonth()].toUpperCase()+' '+D(g.date).getDate(), fmtWhen(g), (g.field?(city?city+' · '+g.field:g.field):'')].filter(Boolean).join(' · ');
     function row(nm,sc,win,lose){ return '<div class="sch-team'+(win?' win':'')+(lose?' lose':'')+'">'+logo(nm)+'<span class="tn">'+esc(nm)+'</span>'+(played?'<span class="sc">'+sc+'</span>':'')+'</div>'; }
     var foot='<span class="tour">'+esc(titleFor(g.form_id))+(g.division?' · '+esc(g.division):'')+'</span><span class="cue">'+(played?'Recap':'Preview')+' ›</span>';
     return '<div class="sch-card" data-gid="'+esc(g.id)+'" role="button" tabindex="0">'+
@@ -141,8 +143,8 @@
     var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score, city=cityFor(g.form_id);
     var fLabel=g.field?(city?city+' · '+g.field:g.field):'';
     var fieldHTML=g.field?' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent([g.field,city].filter(Boolean).join(', '))+'" onclick="event.stopPropagation()">📍 '+esc(fLabel)+'</a>':'';
-    var result=played?'<div class="result">'+g.away_score+'–'+g.home_score+'</div>':'<div class="result sched">'+esc(fmtTime(g.time)||'TBD')+fieldHTML+'</div>';
-    return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtTime(g.time)))+'</div>'+
+    var result=played?'<div class="result">'+g.away_score+'–'+g.home_score+'</div>':'<div class="result sched">'+esc(fmtWhen(g)||'TBD')+fieldHTML+'</div>';
+    return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtWhen(g)))+'</div>'+
       '<div class="matchup"><span class="'+(aWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.away))+'</span><span class="vs">vs</span><span class="'+(hWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g,g.home))+'</span>'+(g.division?' <span class="muted" style="font-size:var(--text-xs)">· '+esc(g.division)+'</span>':'')+'</div>'+result+'</div>';
   }
 
