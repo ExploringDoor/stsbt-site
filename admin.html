@@ -2003,7 +2003,11 @@
   }
   async function openBracketModal(){
     var tf = TOURNEY_FORMS(), fid0 = schedFilt || tf[0].id;
-    var format='roundrobin', fields=['Field 1','Field 2'], days=[], slots=[], custom=[], ordered=null;
+    var format='roundrobin', slots=[], custom=[], ordered=null;
+    // Fields: reuse any already on this event's games (none on a fresh tournament — no Field 1/2 noise)
+    var fields=(function(){ var s={},o=[]; GAMES.forEach(function(g){ if(g.form_id===fid0 && g.field && !s[g.field]){ s[g.field]=1; o.push(g.field); } }); return o; })();
+    // Days: pre-fill from the tournament's set dates (you already entered when it runs)
+    var days=(function(){ var f=FORMS.find(function(x){return x.id===fid0;})||{}, o=[]; if(f.start_date){ function ymd(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); } var d=new Date(f.start_date+'T12:00:00'), e=new Date((f.end_date||f.start_date)+'T12:00:00'), n=0; while(d<=e && n++<40){ o.push(ymd(d)); d.setDate(d.getDate()+1); } } return o; })();
     for(var _m=8*60;_m<=18*60;_m+=120) slots.push(hhmm(_m));   // sensible default: 8a–6p, 2h games
     // Keith's saved venues (admin-managed) — pick fields from these, scoped by host city
     var venues = await STS.loadVenues();
