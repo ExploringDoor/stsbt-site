@@ -34,11 +34,30 @@ export function closeWho(){ var m = document.getElementById('whoModal'); if (m) 
 // Teams registered for this tournament (public teams tagged with the form title).
 export async function comingTeams(form){
   var title = (form && form.title) || form;   // accept a form object or a title string
+  var fid = form && form.id;
   var teams = [];
   try { teams = await STS.loadTeams(); } catch(e){ teams = []; }
-  return (teams || []).filter(function(t){
+  var out = (teams || []).filter(function(t){
     return t && t.live !== false && Array.isArray(t.tournaments) && t.tournaments.indexOf(title) >= 0;
   });
+  // Paid registrations create a public teams doc (above). FREE / not-yet-paid entries
+  // don't — and registrations themselves are PII-gated — so also surface any team that's
+  // on this tournament's PUBLIC schedule, so Who's Coming isn't stuck at 0.
+  if (fid) {
+    var seen = {}; out.forEach(function(t){ seen[String(t.name || '').toLowerCase()] = 1; });
+    try {
+      var games = await STS.loadGames();
+      (games || []).forEach(function(g){
+        if (g.form_id !== fid) return;
+        [g.away, g.home].forEach(function(nm){
+          if (!nm || /^(WG|LG)-\d+$/i.test(String(nm)) || /^Seed\s*\d+$/i.test(String(nm)) || /^(tbd|bye)$/i.test(String(nm))) return;
+          var k = String(nm).toLowerCase(); if (seen[k]) return; seen[k] = 1;
+          out.push({ name: nm, division: g.division || '', age_class: g.division || '', live: true });
+        });
+      });
+    } catch(e){}
+  }
+  return out;
 }
 export async function comingCount(form){ return (await comingTeams(form)).length; }
 

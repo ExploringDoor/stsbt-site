@@ -1072,10 +1072,13 @@ export async function saveBracket(formId, meta, gen, opts) {
 //   rank by Winning % → then break ties in order:
 //   Head-to-Head (2-team ties only) → Total Runs Against (fewer) →
 //   Avg Run Differential (higher) → Total Runs For (more) → Forfeits (fewer) → coin flip.
-export function computeStandings(games) {
+export function computeStandings(games, opts) {
   var t = {}, h2h = {};
   function row(name) { if (!t[name]) t[name] = { team: name, w: 0, l: 0, ties: 0, rs: 0, ra: 0, gp: 0, ff: 0, cdiff: 0 }; return t[name]; }
   function hh(a, b) { h2h[a] = h2h[a] || {}; if (!h2h[a][b]) h2h[a][b] = { w: 0, l: 0 }; return h2h[a][b]; }
+  // opts.includeAll: seed a 0-0-0 row for every team so they show before any game is played
+  // (display only — seeding callers omit this so "no finished games" still gates seeding).
+  if (opts && opts.includeAll) (games || []).forEach(function (g) { [g.away, g.home].forEach(function (nm) { if (nm && !/^(WG|LG)-\d+$/i.test(String(nm)) && !/^Seed\s*\d+$/i.test(String(nm)) && !/^(tbd|bye)$/i.test(String(nm))) row(nm); }); });
   (games || []).forEach(function (g) {
     if (!g.done || g.away_score == null || g.home_score == null) return;
     if (!g.away || !g.home) return;

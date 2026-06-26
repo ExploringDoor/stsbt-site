@@ -76,7 +76,7 @@
   function poolStandingsHTML(){
     var pool = GAMES.filter(function(g){ return g.form_id===cur && g.g==null && (g.division||'')===curDiv; });
     if(!pool.length) return '';
-    var st = STS.computeStandings(pool); if(!st.length) return '';
+    var st = STS.computeStandings(pool, {includeAll:true}); if(!st.length) return '';
     var rows = st.map(function(r,i){ return '<tr><td class="rank">'+(i+1)+'</td><td>'+esc(r.team)+'</td><td>'+r.w+'</td><td>'+r.l+'</td><td>'+r.ties+'</td><td class="num">'+r.pct.toFixed(3).replace(/^0/,'')+'</td><td>'+(r.diff>0?'+':'')+r.diff+'</td></tr>'; }).join('');
     return '<div style="margin-bottom:var(--space-5)">'+
       '<h3 style="color:var(--sts-navy);margin:0 0 8px;font-size:var(--text-lg)">Pool Standings <span class="muted" style="font-weight:400;font-size:var(--text-sm)">— seeds the bracket below</span></h3>'+

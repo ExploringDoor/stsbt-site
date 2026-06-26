@@ -72,7 +72,7 @@
       var byDiv={}; gs.forEach(function(g){ (byDiv[g.division||'']=byDiv[g.division||'']||[]).push(g); });
       var divs=Object.keys(byDiv);
       var inner = divs.map(function(dv){
-        var st=STS.computeStandings(byDiv[dv]);
+        var st=STS.computeStandings(byDiv[dv], {includeAll:true});
         if(!st.length) return '';
         return (divs.length>1||dv ? '<div class="div-sub">'+(esc(dv)||'Division')+'</div>' : '')+table(st, dv);
       }).join('');
