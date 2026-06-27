@@ -96,7 +96,7 @@
     return parts.join(' → ') || 'Round robin';
   }
   function teamCount(){
-    var s={}; evGames().forEach(function(g){ [g.away,g.home].forEach(function(x){ if(x!=null && !/^(WG|LG)-\d+$/.test(String(x)) && !/^(tbd|bye)$/i.test(String(x))) s[String(x).toLowerCase()]=x; }); });
+    var s={}; evGames().forEach(function(g){ [g.away,g.home].forEach(function(x){ if(x!=null && !/^(WG|LG)-\d+$/i.test(String(x)) && !/^Seed\s*\d+$/i.test(String(x)) && !/^(tbd|bye)$/i.test(String(x))) s[String(x).toLowerCase()]=x; }); });
     // for pure-bracket events the round-1 names cover everyone; for pool, pool names do
     return Object.keys(s).length;
   }
@@ -173,7 +173,7 @@
   }
 
   function renderTeams(){
-    var s={}; evGames().forEach(function(g){ [g.away,g.home].forEach(function(t){ if(t && !/^(WG|LG)-\d+$/.test(String(t)) && !/^(tbd|bye)$/i.test(String(t))) s[String(t)]=1; }); });
+    var s={}; evGames().forEach(function(g){ [g.away,g.home].forEach(function(t){ if(t && !/^(WG|LG)-\d+$/i.test(String(t)) && !/^Seed\s*\d+$/i.test(String(t)) && !/^(tbd|bye)$/i.test(String(t))) s[String(t)]=1; }); });
     var teams=Object.keys(s).sort(function(a,b){ return a.localeCompare(b); });
     if(!teams.length) return '<div class="empty" style="text-transform:none;letter-spacing:0">The team list appears here once the schedule or bracket is posted.</div>';
     var demo=/[?&]demo=1/.test(location.search)?'&demo=1':'';
