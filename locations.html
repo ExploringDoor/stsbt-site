@@ -91,10 +91,10 @@
 
     // map modal
     var ov = document.getElementById('mapOv'), frame = document.getElementById('mapFrame');
-    function openMap(place, city){
-      var query = q(place, city);
+    function openMap(place, city, rawQ){
+      var query = rawQ ? encodeURIComponent(String(rawQ) + ', ' + REGION) : q(place, city);
       document.getElementById('mapTitle').textContent = place;
-      document.getElementById('mapSub').textContent = city + ', ' + REGION;
+      document.getElementById('mapSub').textContent = (city ? city + ', ' : '') + REGION;
       frame.src = 'https://maps.google.com/maps?q=' + query + '&z=15&output=embed';
       document.getElementById('mapDir').href = 'https://www.google.com/maps/dir/?api=1&destination=' + query;
       document.getElementById('mapOpen').href = 'https://www.google.com/maps/search/?api=1&query=' + query;
@@ -128,6 +128,9 @@
           if (!match && (c.places||[]).length && toks.some(function(t){ return c.city.toLowerCase().indexOf(t) >= 0; })) match = { place: c.places[0], city: c.city };
         });
         if (match) openMap(match.place, match.city);
+        // no managed venue matches (e.g. a tournament whose venue isn't in the list yet) —
+        // still open a map for exactly the field + place the link asked for
+        else { var fp = find.split(',').map(function(s){ return s.trim(); }).filter(Boolean); openMap(fp[0]||find, fp.slice(1).join(', '), find); }
       }
     } catch (e) {}
   })();
