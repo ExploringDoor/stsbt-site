@@ -53,8 +53,11 @@
   function eventsForSeason(){ return ALLOPTS.filter(function(f){ return !SEASON || String(eventSeason(f.id))===String(SEASON); }); }
   function fillEvents(){
     var opts=eventsForSeason();
-    document.getElementById('eventSel').innerHTML = opts.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
-    if(!opts.find(function(f){ return f.id===cur; })){ var elimFirst=opts.find(function(f){ return !isPool(f.id); }); cur=((elimFirst||opts[0])||{}).id||''; curDiv=''; }
+    // With more than one tournament, don't pick for the user — add a "choose one" prompt
+    // and leave it unselected. With exactly one, open it automatically.
+    var ph = opts.length>1 ? '<option value="">Choose a tournament…</option>' : '';
+    document.getElementById('eventSel').innerHTML = ph + opts.map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.title)+'</option>'; }).join('');
+    if(!opts.find(function(f){ return f.id===cur; })){ cur = (opts.length===1 ? opts[0].id : ''); curDiv=''; }
     document.getElementById('eventSel').value=cur;
   }
   function buildSeasonBar(){
@@ -84,6 +87,8 @@
   }
   function render(){
     var out=document.getElementById('bracketOut'), tierBar=document.getElementById('tierBar');
+    // nothing chosen yet (several tournaments available) → prompt the user to pick one
+    if(!cur){ if(tierBar){ tierBar.style.display='none'; tierBar.innerHTML=''; } var hb=document.getElementById('hubLink'); if(hb) hb.style.display='none'; out.innerHTML='<div class="bk-empty" style="text-transform:none;letter-spacing:0">Choose a tournament above to view its bracket.</div>'; return; }
     // Pool-play tournaments live on their full tournament page (hero + tabs + standings +
     // bracket) — forward there so they get the real "tournament page" look instead of a
     // bare standings table. Pure-elimination events stay here as a bracket-only view.
