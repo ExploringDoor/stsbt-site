@@ -2015,7 +2015,7 @@
     var fields=(function(){ var s={},o=[]; GAMES.forEach(function(g){ if(g.form_id===fid0 && g.field && !s[g.field]){ s[g.field]=1; o.push(g.field); } }); return o; })();
     // Days: pre-fill from the tournament's set dates (you already entered when it runs)
     var days=(function(){ var f=FORMS.find(function(x){return x.id===fid0;})||{}, o=[]; if(f.start_date){ function ymd(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); } var d=new Date(f.start_date+'T12:00:00'), e=new Date((f.end_date||f.start_date)+'T12:00:00'), n=0; while(d<=e && n++<40){ o.push(ymd(d)); d.setDate(d.getDate()+1); } } return o; })();
-    for(var _m=8*60;_m<=18*60;_m+=120) slots.push(hhmm(_m));   // sensible default: 8a–6p, 2h games
+    // time slots start empty — you add exact starts (or use Build slots) yourself
     // Keith's saved venues (admin-managed) — pick fields from these, scoped by host city
     var venues = await STS.loadVenues();
     var cityOpts = venues.map(function(v){ return '<option>'+esc(v.city)+'</option>'; }).join('');
@@ -2123,9 +2123,9 @@
       if(!window.STSgen){ $('bkNote').textContent='Generator not loaded.'; return; }
       var sport=(f&&f.sport)||'baseball';
       var tiers=($('bk_tiers').value||'').split(',').map(function(s){return s.trim();}).filter(Boolean); if(!tiers.length) tiers=[''];
-      // warn before replacing whatever this event already has (avoids silent stacking)
-      var existing = GAMES.filter(function(g){ return g.form_id===fid; }).length;
-      if(existing && !confirm('“'+((f&&f.title)||fid)+'” already has '+existing+' game'+(existing===1?'':'s')+'. Generating will REPLACE the bracket/pool for this event. Continue?')) return;
+      // warn only about the division(s) being generated — other divisions are untouched
+      var existing = GAMES.filter(function(g){ return g.form_id===fid && tiers.indexOf(g.division||'')>=0; }).length;
+      if(existing && !confirm('The '+(tiers.length>1?'selected divisions':'“'+(tiers[0]||'(no label)')+'” division')+' already ha'+(existing===1?'s':'ve')+' '+existing+' game'+(existing===1?'':'s')+'. Generating will REPLACE just that — other divisions are kept. Continue?')) return;
       // tiered: warn if teams don't fill the tiers (some would be silently dropped)
       if(tiers.length>1 && format!=='roundrobin'){
         var per0=Math.ceil(teams.length/tiers.length), placed=0;
@@ -2147,13 +2147,13 @@
           tiers.forEach(function(label,ti){ var tt=teams.slice(ti*per,(ti+1)*per); if(tt.length<2) return; var g=window.STSgen.generateBracket({format:format,teams:tt,startGame:1}); g.forEach(function(x){ x._tier=label; }); all=all.concat(g); });
           if(all.length<1){ $('bkNote').textContent='Not enough teams to fill the tiers.'; return; }
           res=assignSlots(all, days, slots, fields, avail, restMin, GAMES, fid);   // all tiers placed together (no field clashes)
-          await STS.clearBracket(fid);   // wipe all existing brackets for this event
+          for(var ci=0; ci<tiers.length; ci++) await STS.clearBracket(fid, tiers[ci]);   // replace only these divisions
           var byTier={}; all.forEach(function(g){ (byTier[g._tier]=byTier[g._tier]||[]).push(g); });
           for(var ti=0; ti<tiers.length; ti++){ if(byTier[tiers[ti]]) await STS.saveBracket(fid, {sport:sport, division:tiers[ti]}, byTier[tiers[ti]], {replace:false}); }
         } else {
           var games=window.STSgen.generateBracket({format:format, teams:teams, startGame:1});
           res=assignSlots(games, days, slots, fields, avail, restMin, GAMES, fid);
-          await STS.clearBracket(fid);   // wipe ALL old brackets (incl. stale tiers) so none are orphaned
+          await STS.clearBracket(fid, tiers[0]);   // replace only THIS division's bracket (other divisions kept)
           await STS.saveBracket(fid, {sport:sport, division:tiers[0]}, games, {replace:false});
         }
         // persist this tournament's game length so schedules show a start–end time

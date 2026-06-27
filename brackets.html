@@ -87,9 +87,10 @@
     // Pool-play tournament → also offer its full hub (standings show inline below). Pure elim → bracket only.
     var hub=document.getElementById('hubLink');
     if(hub){ if(cur && isPool(cur)){ hub.style.display=''; hub.href='event.html?id='+encodeURIComponent(cur)+demoQS(); } else hub.style.display='none'; }
-    var all = GAMES.filter(function(g){ return g.g!=null && g.form_id===cur; });
-    // distinct tiers/divisions in this event (Diamond/Platinum/Gold, or 8U/10U…)
-    var divs=[], seen={}; all.forEach(function(g){ var d=g.division||''; if(!seen[d]){ seen[d]=1; divs.push(d); } });
+    var all = GAMES.filter(function(g){ return g.g!=null && g.form_id===cur; });   // bracket games
+    // distinct divisions from ALL of this event's games (pool + bracket) so pool-only
+    // tournaments still get a division tab + their pool standings
+    var divs=[], seen={}; GAMES.forEach(function(g){ if(g.form_id!==cur) return; var d=g.division||''; if(!seen[d]){ seen[d]=1; divs.push(d); } });
     if(divs.length>1 || (divs.length===1 && divs[0])){
       if(divs.indexOf(curDiv)<0) curDiv=divs[0];
       tierBar.style.display='';
@@ -128,8 +129,10 @@
     try {
       FORMS = await STS.loadForms(); GAMES = await STS.loadGames();
       TEAMS = await STS.loadTeams(); resolveTeam = STS.teamResolver(TEAMS);
-      var withB={}; GAMES.forEach(function(g){ if(g.g!=null) withB[g.form_id]=1; });
-      ALLOPTS = FORMS.filter(function(f){ return withB[f.id] && f.schedule_published !== false; });
+      // any published event with games (pool OR bracket) — so pool-only tournaments
+      // still appear here to show their pool standings before a bracket exists
+      var withG={}; GAMES.forEach(function(g){ if(g.g!=null||g.g==null) withG[g.form_id]=1; });
+      ALLOPTS = FORMS.filter(function(f){ return withG[f.id] && f.schedule_published !== false; });
       if(!ALLOPTS.length){ document.getElementById('bracketOut').innerHTML='<div class="bk-empty"><h2 style="color:var(--sts-navy);margin:0 0 8px">No brackets yet</h2><p class="muted" style="text-transform:none;letter-spacing:0">Brackets post here once tournament play begins. See <a href="bracket-preview.html">example brackets</a> for every team count.</p></div>'; document.getElementById('eventSel').style.display='none'; return; }
       buildSeasonBar();
       var deep = location.hash.replace('#','');
