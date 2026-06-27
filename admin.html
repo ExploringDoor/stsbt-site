@@ -2151,7 +2151,7 @@
     $('bk_addField').onclick=function(){ var v=$('bk_fieldPick').value.trim(); if(v && fields.indexOf(v)<0){ fields.push(v); $('bk_fieldPick').value=''; renderFields(); } };
     $('bk_fieldSel').addEventListener('change', function(){ var v=this.value; if(v && fields.indexOf(v)<0){ fields.push(v); renderFields(); } this.value=''; });
     $('bk_fieldPick').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); $('bk_addField').click(); } });
-    $('bk_autofill').onclick=function(){ var f=tKey($('bk_first').value), l=tKey($('bk_last').value), len=parseInt($('bk_glen').value,10)||120; if(l<f||len<15){ $('bkNote').textContent='Last start must be after first.'; return; } slots=[]; for(var m=f;m<=l;m+=len) slots.push(hhmm(m)); renderSlots(); };
+    $('bk_autofill').onclick=function(){ var f=tKey($('bk_first').value), l=tKey($('bk_last').value), len=parseInt($('bk_glen').value,10)||120; if(l<f||len<15){ $('bkNote').textContent='Last start must be after first.'; return; } slots.length=0; for(var m=f;m<=l;m+=len) slots.push(hhmm(m)); renderSlots(); };
     $('bk_addSlot').onclick=function(){ var v=$('bk_slotPick').value; if(!v){ return; } if(slots.indexOf(v)<0){ slots.push(v); renderSlots(); } $('bk_slotPick').value=''; $('bkNote').textContent=''; };
     $('bk_slotPick').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); $('bk_addSlot').click(); } });
     function wireRemove(id,arr,after){ $(id).addEventListener('click',function(e){ var b=e.target.closest('[data-rm]'); if(!b)return; arr.splice(+b.dataset.i,1); after(); }); }
