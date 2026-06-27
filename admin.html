@@ -1592,9 +1592,14 @@
     var stb = document.getElementById('seedTeamsBtn');
     var hasSeeds = schedFilt && GAMES.some(function(g){ return g.form_id===schedFilt && g.g!=null && (/^Seed\s*\d+$/i.test(String(g.away||'')) || /^Seed\s*\d+$/i.test(String(g.home||''))); });
     stb.classList.toggle('hidden', !hasSeeds);
-    // "Clear games" — show when the selected event has any games (reset/cleanup)
+    // "Clear games" — show when the selected event has any games (reset/cleanup).
+    // When a division filter is active, the button (and the clear) is scoped to it.
     var cgb = document.getElementById('clearGamesBtn');
-    if (cgb) cgb.classList.toggle('hidden', !(schedFilt && GAMES.some(function(g){ return g.form_id===schedFilt; })));
+    if (cgb){
+      cgb.classList.toggle('hidden', !(schedFilt && GAMES.some(function(g){ return g.form_id===schedFilt; })));
+      cgb.textContent = schedDivFilt ? ('🗑 Clear '+schedDivFilt+' games') : '🗑 Clear games';
+      cgb.title = schedDivFilt ? ('Delete only the '+schedDivFilt+' games for this event') : 'Delete every game for this event';
+    }
     // per-event publish status (gate the public schedule until Keith releases it)
     var pubBar = document.getElementById('schedPublish');
     if (schedFilt) {
@@ -1794,13 +1799,17 @@
   // keeping each game's date/time/field exactly as scheduled.
   document.getElementById('clearGamesBtn').addEventListener('click', async function(){
     if(!schedFilt){ alert('Pick an event first.'); return; }
-    var ev = GAMES.filter(function(g){ return g.form_id===schedFilt; });
-    if(!ev.length){ alert('This event has no games to clear.'); return; }
+    var div = schedDivFilt;   // when a division filter is active, clear ONLY that division
+    var ev = GAMES.filter(function(g){ return g.form_id===schedFilt && (!div || (g.division||'')===div); });
+    if(!ev.length){ alert('No '+(div?div+' ':'')+'games to clear.'); return; }
     var f = FORMS.find(function(x){ return x.id===schedFilt; }), name = f ? f.title : schedFilt;
-    if(!confirm('Delete ALL '+ev.length+' game'+(ev.length===1?'':'s')+' for “'+name+'”?\n\nThis wipes the whole schedule + bracket for this event and can’t be undone. (Teams and registrations are NOT affected.)')) return;
+    var warn = div
+      ? ('Delete the '+ev.length+' '+div+' game'+(ev.length===1?'':'s')+' for “'+name+'”?\n\nOnly the '+div+' division is affected — other divisions stay. Can’t be undone.')
+      : ('Delete ALL '+ev.length+' game'+(ev.length===1?'':'s')+' for “'+name+'”?\n\nThis wipes the whole schedule + bracket for this event and can’t be undone. (Teams and registrations are NOT affected.)');
+    if(!confirm(warn)) return;
     var btn=this, was=btn.textContent; btn.disabled=true; btn.textContent='Clearing…';
     try {
-      await STS.clearBracket(schedFilt); await STS.clearPool(schedFilt);   // bracket games + pool/regular games
+      await STS.clearBracket(schedFilt, div||undefined); await STS.clearPool(schedFilt, div||undefined);   // bracket + pool/regular games (division-scoped when filtered)
       GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule();
     } catch(ex){ alert('Couldn’t clear: '+((ex&&ex.message)||ex)); btn.disabled=false; btn.textContent=was; }
   });
