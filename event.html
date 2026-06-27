@@ -39,6 +39,25 @@
   .ev-stat .n { font-family:var(--font-display); font-weight:700; color:var(--sts-navy); font-size:var(--text-xl); }
   .ev-stat .l { font-size:var(--text-xs); color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
   @media (max-width:560px){ .game { grid-template-columns:60px 1fr auto; } .game .gcue { display:none; } }
+  /* schedule grid/list toggle */
+  .seg { display:inline-flex; background:#eef1f6; border-radius:999px; padding:4px; margin-bottom:var(--space-4); }
+  .seg button { border:0; background:none; font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-sm); font-weight:600; color:var(--muted); padding:7px 18px; border-radius:999px; cursor:pointer; }
+  .seg button.active { background:#fff; color:var(--sts-navy); box-shadow:0 1px 4px rgba(0,0,0,.12); }
+  .sch-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(258px,1fr)); gap:12px; margin-bottom:var(--space-4); }
+  .sch-card { background:#fff; border:1px solid var(--line); border-top:3px solid var(--sts-navy); border-radius:12px; overflow:hidden; cursor:pointer; transition:transform .12s, box-shadow .12s; display:flex; flex-direction:column; }
+  .sch-card:hover { transform:translateY(-3px); box-shadow:0 12px 26px rgba(0,45,114,.14); }
+  .sch-chead { padding:9px 14px; font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-xs); color:#fff; background:var(--sts-navy); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .sch-cbody { padding:4px 14px; }
+  .sch-team { display:flex; align-items:center; gap:10px; padding:8px 0; }
+  .sch-team + .sch-team { border-top:1px solid #f1f3f7; }
+  .sch-team .tn { flex:1; font-family:var(--font-display); font-weight:600; font-size:var(--text-lg); color:var(--sts-navy); }
+  .sch-team.win .tn { color:#16794a; font-weight:700; }
+  .sch-team.lose .tn { color:var(--muted); }
+  .sch-team .sc { font-family:var(--font-display); font-weight:700; font-size:var(--text-xl); color:var(--muted); }
+  .sch-team.win .sc { color:#16794a; }
+  .sch-cfoot { margin-top:auto; padding:9px 14px; border-top:1px solid var(--line); background:#fafbfc; font-family:var(--font-display); text-transform:uppercase; letter-spacing:.04em; font-size:var(--text-xs); color:var(--muted); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .sch-cfoot .cue { color:var(--sts-navy); font-weight:700; white-space:nowrap; }
+  .sch-card .sch-fieldlink { color:var(--sts-red); text-decoration:none; } .sch-card .sch-fieldlink:hover { text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -79,7 +98,7 @@
   function defLen(d,bk){ var b=ageBand(d); return b<0?0:(bk?[75,90,105][b]:[60,75,90][b]); }
   function fmtWhen(g){ var L=(FORM&&FORM.game_length_min)||defLen(g.division, g.g!=null); return (L&&g.time) ? fmtTime(g.time)+'–'+fmtTime(addMin(g.time,L)) : fmtTime(g.time); }
 
-  var FORM=null, GAMES=[], FORMS=[], TEAMS=[], resolveTeam=function(){ return null; }, curDiv='', tab='', fid='';
+  var FORM=null, GAMES=[], FORMS=[], TEAMS=[], resolveTeam=function(){ return null; }, curDiv='', tab='', fid='', schedView='list';
 
   function evGames(){ return GAMES.filter(function(g){ return g.form_id===fid && (g.division||'')===curDiv; }); }
   function poolGames(){ return evGames().filter(function(g){ return g.g==null; }); }
@@ -118,27 +137,47 @@
         '<div style="white-space:pre-wrap;text-transform:none;letter-spacing:0;line-height:1.55;color:var(--fg,#23303f)">'+esc(FORM.notes)+'</div></div>' : '')+
       '<p class="muted" style="text-transform:none;letter-spacing:0">Use the tabs above for the full <b>schedule</b> (with every game’s result), the <b>standings</b>, and the <b>bracket</b>.</p>';
   }
+  function gameCard(g){
+    var played = g.done && g.away_score!=null && g.home_score!=null;
+    var tie = played && g.away_score===g.home_score;
+    var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score;
+    var evCity = (FORM.location||'').split(',')[0].trim();
+    var fLabel = g.field ? (evCity?evCity+' · '+g.field:g.field) : '';
+    var fieldHTML = g.field ? '<a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent([g.field,evCity].filter(Boolean).join(', '))+'" onclick="event.stopPropagation()">📍 '+esc(fLabel)+'</a>' : '<span>Field TBD</span>';
+    var ffTag = g.forfeit ? ' <span class="ff-tag">'+(g.forfeit_by==='both'?'Double forfeit':'Forfeit')+'</span>' : '';
+    var gtag = g.g!=null ? '<span>Game '+g.g+'</span>' : '<span></span>';
+    function trow(name, score, win, lose){ return '<div class="sch-team'+(win?' win':(lose?' lose':''))+'"><span class="tn">'+esc(sideName(name))+'</span><span class="sc">'+(played?score:'')+'</span></div>'; }
+    return '<div class="sch-card" data-gid="'+esc(g.id)+'" role="button" tabindex="0">'+
+      '<div class="sch-chead"><span>'+(played?'Final':esc(fmtWhen(g)||'TBD'))+'</span>'+gtag+'</div>'+
+      '<div class="sch-cbody">'+trow(g.away,g.away_score,aWin,played&&!tie&&!aWin)+trow(g.home,g.home_score,hWin,played&&!tie&&!hWin)+'</div>'+
+      '<div class="sch-cfoot"><span>'+fieldHTML+ffTag+'</span><span class="cue">'+(played?'Recap':'Preview')+' ›</span></div>'+
+    '</div>';
+  }
+  function gameRow(g){
+    var played = g.done && g.away_score!=null && g.home_score!=null;
+    var tie = played && g.away_score===g.home_score;
+    var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score;
+    var evCity = (FORM.location||'').split(',')[0].trim();
+    var fLabel = g.field ? (evCity?evCity+' · '+g.field:g.field) : '';
+    var fieldHTML = g.field ? ' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent([g.field,evCity].filter(Boolean).join(', '))+'" onclick="event.stopPropagation()">📍 '+esc(fLabel)+'</a>' : '';
+    var ffTag = g.forfeit ? '<span class="ff-tag">'+(g.forfeit_by==='both'?'Double forfeit':'Forfeit')+'</span>' : '';
+    var result = played ? '<div class="result">'+g.away_score+'–'+g.home_score+'</div>'+ffTag : '<div class="result sched">'+esc(fmtWhen(g)||'TBD')+fieldHTML+'</div>';
+    var tag = g.g!=null ? ' <span class="muted" style="font-size:10px">· Game '+g.g+'</span>' : '';
+    return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtWhen(g)))+'</div>'+
+      '<div class="matchup"><span class="'+(aWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g.away))+'</span><span class="vs">vs</span><span class="'+(hWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g.home))+'</span>'+tag+'</div>'+
+      result+'<div class="gcue">'+(played?'Recap':'Preview')+' ›</div></div>';
+  }
   function renderSchedule(){
     var gs = evGames().slice().sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')) || String(a.time||'').localeCompare(String(b.time||'')) || (a.g||0)-(b.g||0); });
     if(!gs.length) return '<div class="empty">No games posted yet.</div>';
     var byDay={}; gs.forEach(function(g){ (byDay[g.date||'']=byDay[g.date||'']||[]).push(g); });
-    return Object.keys(byDay).sort().map(function(d){
-      var rows = byDay[d].map(function(g){
-        var played = g.done && g.away_score!=null && g.home_score!=null;
-        var tie = played && g.away_score===g.home_score;
-        var aWin=played&&g.away_score>g.home_score, hWin=played&&g.home_score>g.away_score;
-        var evCity = (FORM.location||'').split(',')[0].trim();
-        var fLabel = g.field ? (evCity?evCity+' · '+g.field:g.field) : '';
-        var fieldHTML = g.field ? ' · <a class="sch-fieldlink" href="locations.html?find='+encodeURIComponent([g.field,evCity].filter(Boolean).join(', '))+'" onclick="event.stopPropagation()">📍 '+esc(fLabel)+'</a>' : '';
-        var ffTag = g.forfeit ? '<span class="ff-tag">'+(g.forfeit_by==='both'?'Double forfeit':'Forfeit')+'</span>' : '';
-        var result = played ? '<div class="result">'+g.away_score+'–'+g.home_score+'</div>'+ffTag : '<div class="result sched">'+esc(fmtWhen(g)||'TBD')+fieldHTML+'</div>';
-        var tag = g.g!=null ? ' <span class="muted" style="font-size:10px">· Game '+g.g+'</span>' : '';
-        return '<div class="game" data-gid="'+esc(g.id)+'" role="button" tabindex="0"><div class="when">'+(played?'Final':esc(fmtWhen(g)))+'</div>'+
-          '<div class="matchup"><span class="'+(aWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g.away))+'</span><span class="vs">vs</span><span class="'+(hWin?'winner':(played&&!tie?'loser':''))+'">'+esc(sideName(g.home))+'</span>'+tag+'</div>'+
-          result+'<div class="gcue">'+(played?'Recap':'Preview')+' ›</div></div>';
-      }).join('');
-      return '<div class="day-head">'+esc(fmtDate(d))+'</div>'+rows;
+    var seg = '<div class="seg" id="viewSeg"><button data-view="grid" class="'+(schedView==='grid'?'active':'')+'">▦ Grid</button><button data-view="list" class="'+(schedView==='list'?'active':'')+'">☰ List</button></div>';
+    var body = Object.keys(byDay).sort().map(function(d){
+      var head = '<div class="day-head">'+esc(fmtDate(d))+'</div>';
+      if(schedView==='grid') return head+'<div class="sch-grid">'+byDay[d].map(gameCard).join('')+'</div>';
+      return head+byDay[d].map(gameRow).join('');
     }).join('');
+    return seg + body;
   }
   function renderStandings(){
     var pool = poolGames();
@@ -192,13 +231,16 @@
     // wire game clicks (schedule rows + bracket cards) → preview/recap modal
     if(window.STSgameModal){
       var all = evGames();
-      c.querySelectorAll('.game[data-gid]').forEach(function(el){
+      c.querySelectorAll('[data-gid]').forEach(function(el){
         el.addEventListener('click', function(){ var g=all.find(function(x){ return String(x.id)===el.dataset.gid; }); if(g) STSgameModal.open(FORM.title, all, g, FORM.location||''); });
       });
       c.querySelectorAll('.bk-match[data-g]').forEach(function(el){
         el.addEventListener('click', function(){ var g=bracketGames().find(function(x){ return String(x.g)===el.dataset.g; }); if(g) STSgameModal.open(FORM.title, bracketGames(), g, FORM.location||''); });
       });
     }
+    // schedule grid/list toggle (re-rendered with the tab, so wire each time)
+    var seg=document.getElementById('viewSeg');
+    if(seg) seg.addEventListener('click', function(e){ var b=e.target.closest('button[data-view]'); if(!b) return; schedView=b.dataset.view; renderTab(); });
     if(window.STSfx) STSfx.arm(document);
   }
   function selectTab(t){

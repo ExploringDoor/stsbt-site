@@ -84,9 +84,11 @@
   }
   function render(){
     var out=document.getElementById('bracketOut'), tierBar=document.getElementById('tierBar');
-    // Pool-play tournament → also offer its full hub (standings show inline below). Pure elim → bracket only.
-    var hub=document.getElementById('hubLink');
-    if(hub){ if(cur && isPool(cur)){ hub.style.display=''; hub.href='event.html?id='+encodeURIComponent(cur)+demoQS(); } else hub.style.display='none'; }
+    // Pool-play tournaments live on their full tournament page (hero + tabs + standings +
+    // bracket) — forward there so they get the real "tournament page" look instead of a
+    // bare standings table. Pure-elimination events stay here as a bracket-only view.
+    if(cur && isPool(cur)){ location.replace('event.html?id='+encodeURIComponent(cur)+demoQS()+'#bracket'); return; }
+    var hub=document.getElementById('hubLink'); if(hub) hub.style.display='none';
     var all = GAMES.filter(function(g){ return g.g!=null && g.form_id===cur; });   // bracket games
     // distinct divisions from ALL of this event's games (pool + bracket) so pool-only
     // tournaments still get a division tab + their pool standings
