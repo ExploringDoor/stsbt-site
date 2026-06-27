@@ -144,6 +144,9 @@
         .grid-card:active { cursor:grabbing; }
         .grid-card:last-child { margin-bottom:0; }
         .gc-teams { font-weight:600; line-height:1.25; }
+        .gc-team { cursor:grab; border-radius:4px; padding:0 3px; border:1px dashed transparent; }
+        .gc-team:hover { background:rgba(0,45,114,.08); border-color:rgba(0,45,114,.25); }
+        .gc-team-over { background:rgba(0,45,114,.16); border:1px dashed var(--sts-navy); outline:none; }
         .gc-score { font-family:var(--font-display); font-weight:700; color:var(--sts-navy); margin-top:2px; }
         .gc-st { font-size:11px; margin-top:2px; }
         .gc-warn { font-size:10px; color:var(--sts-red); font-weight:700; margin-top:3px; }
@@ -1648,7 +1651,9 @@
   //    time OR field = UNSCHEDULED (can't verify) → never a hard clash. Seed N /
   //    WG-/LG- / BYE placeholders never clash. Same time on a DIFFERENT day is fine.
   function gUnscheduled(g){ return !g.time || !g.field; }
-  function gIsPlaceholder(t){ return !t || /^seed\s*\d+$/i.test(t) || /^(wg|lg)-\d+$/i.test(t) || /^bye$/i.test(t); }
+  function gIsPlaceholder(t){ return !t || /^seed\s*\d+$/i.test(t) || /^(wg|lg)-\d+$/i.test(t) || /^bye$/i.test(t) || /^tbd$/i.test(t); }
+  // a real team name in the grid is draggable → drop it on another team to SWAP the two
+  function gcTeam(g, slot){ var nm=g[slot]||'TBD'; if(gIsPlaceholder(nm)) return '<span class="gc-ph">'+esc(nm)+'</span>'; return '<span class="gc-team" draggable="true" data-gid="'+esc(g.id)+'" data-slot="'+slot+'" title="Drag onto another team to swap them">'+esc(nm)+'</span>'; }
   function scanConflicts(games){
     var teamBook={}, fieldBook={};
     (games||[]).forEach(function(g){
@@ -1698,7 +1703,7 @@
             var ci=conf.byGid[g.id]||{}, cf=!!ci.team, fclash=!!ci.field, un=gUnscheduled(g);
             var sc=(g.done&&g.away_score!=null&&g.home_score!=null)?(g.away_score+'–'+g.home_score):'';
             return '<div class="grid-card" draggable="true" data-gid="'+esc(g.id)+'" title="Click to edit · drag to move" style="cursor:pointer'+((cf||fclash)?';border-color:var(--sts-red)':'')+'">'+
-              '<div class="gc-teams">'+esc(g.away||'TBD')+'<span class="muted"> v </span>'+esc(g.home||'TBD')+'</div>'+
+              '<div class="gc-teams">'+gcTeam(g,'away')+'<span class="muted"> v </span>'+gcTeam(g,'home')+'</div>'+
               (sc?'<div class="gc-score">'+sc+'</div>':'<div class="gc-st muted">scheduled</div>')+
               (cf?'<div class="gc-warn">⚠ team double-booked</div>':'')+
               (fclash?'<div class="gc-warn">⚠ field+time clash</div>':'')+
@@ -1718,16 +1723,38 @@
       '<button class="btn btn-navy btn-sm" id="gridSave"'+(n?'':' disabled')+'>💾 Save changes</button>'+
       '<button class="btn btn-outline btn-sm" id="gridUndo"'+(n?'':' disabled')+'>↶ Undo last move</button>'+
       '<span style="font-size:var(--text-sm)">'+(n?'<b style="color:var(--sts-red)">'+n+' unsaved change'+(n===1?'':'s')+'</b>':'<span class="muted">No unsaved changes</span>')+'</span>'+confBanner+'</div>';
-    var howto='<div class="notice notice-info" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm);margin-bottom:12px"><b>How this works:</b> columns are <b>fields</b>, rows are <b>start times</b>, and each card is a game. <b>Drag a card</b> to move it to a different field/time — <b>or onto another day’s grid</b> to change which day it plays (e.g. move a game from Saturday to Sunday). <b>Click a card</b> to edit its teams, time, field, date, or score. New games (and new times/fields) come from <b>“+ Add Game”</b> up top. A <b style="color:var(--sts-red)">red card</b> = a team is booked twice at once; an <b style="color:#b45309">orange cell</b> = two games share one field+time. <b>Drag changes don’t save until you click “Save changes.”</b></div>';
+    var howto='<div class="notice notice-info" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm);margin-bottom:12px"><b>How this works:</b> columns are <b>fields</b>, rows are <b>start times</b>, and each card is a game. <b>Drag a card</b> to move it to a different field/time — <b>or onto another day’s grid</b> to change which day it plays (e.g. move a game from Saturday to Sunday). <b>Drag a team name onto another team</b> to swap who plays who (the two teams trade games). <b>Click a card</b> to edit its teams, time, field, date, or score. New games (and new times/fields) come from <b>“+ Add Game”</b> up top. A <b style="color:var(--sts-red)">red card</b> = a team is booked twice at once; an <b style="color:#b45309">orange cell</b> = two games share one field+time. <b>Drag changes don’t save until you click “Save changes.”</b></div>';
     wrap.innerHTML=toolbar+howto+html;
   }
   // delegated drag-and-drop (listeners attached once; cells re-render under them)
   (function(){
-    var wrap=document.getElementById('scheduleWrap'), dragGid=null;
-    wrap.addEventListener('dragstart', function(e){ var c=e.target.closest('.grid-card'); if(c){ dragGid=c.getAttribute('data-gid'); try{e.dataTransfer.effectAllowed='move';}catch(_){} } });
-    wrap.addEventListener('dragover', function(e){ var cell=e.target.closest('.grid-cell'); if(cell && dragGid){ e.preventDefault(); cell.classList.add('grid-cell-over'); } });
-    wrap.addEventListener('dragleave', function(e){ var cell=e.target.closest('.grid-cell'); if(cell) cell.classList.remove('grid-cell-over'); });
-    wrap.addEventListener('drop', function(e){ var cell=e.target.closest('.grid-cell'); if(!cell||!dragGid) return; e.preventDefault(); cell.classList.remove('grid-cell-over');
+    var wrap=document.getElementById('scheduleWrap'), dragGid=null, dragTeam=null;
+    wrap.addEventListener('dragstart', function(e){
+      var tm=e.target.closest('.gc-team');
+      if(tm){ dragTeam={ gid:tm.getAttribute('data-gid'), slot:tm.getAttribute('data-slot') }; dragGid=null; try{e.dataTransfer.effectAllowed='move';}catch(_){} return; }
+      var c=e.target.closest('.grid-card'); if(c){ dragGid=c.getAttribute('data-gid'); dragTeam=null; try{e.dataTransfer.effectAllowed='move';}catch(_){} }
+    });
+    wrap.addEventListener('dragover', function(e){
+      if(dragTeam){ var t=e.target.closest('.gc-team'); if(t){ e.preventDefault(); t.classList.add('gc-team-over'); } return; }
+      var cell=e.target.closest('.grid-cell'); if(cell && dragGid){ e.preventDefault(); cell.classList.add('grid-cell-over'); }
+    });
+    wrap.addEventListener('dragleave', function(e){ var t=e.target.closest('.gc-team'); if(t) t.classList.remove('gc-team-over'); var cell=e.target.closest('.grid-cell'); if(cell) cell.classList.remove('grid-cell-over'); });
+    wrap.addEventListener('drop', function(e){
+      // TEAM SWAP: dragged a team name onto another team — trade their two spots
+      if(dragTeam){ e.preventDefault(); var tgt=e.target.closest('.gc-team'); var src=dragTeam; dragTeam=null;
+        wrap.querySelectorAll('.gc-team-over').forEach(function(x){x.classList.remove('gc-team-over');});
+        if(!tgt) return;
+        var dg=tgt.getAttribute('data-gid'), ds=tgt.getAttribute('data-slot');
+        if(dg===src.gid && ds===src.slot) return;
+        var gA=GAMES.find(function(x){return String(x.id)===String(src.gid);}), gB=GAMES.find(function(x){return String(x.id)===String(dg);});
+        if(!gA||!gB) return;
+        if(gA.id!==gB.id){ var oA=src.slot==='away'?gA.home:gA.away, oB=ds==='away'?gB.home:gB.away;
+          if(String(oA).toLowerCase()===String(gB[ds]).toLowerCase() || String(oB).toLowerCase()===String(gA[src.slot]).toLowerCase()){ alert('That would put a team against itself. Pick a different team to swap.'); return; } }
+        gridMoves.push({ swap:true, gidA:gA.id, slotA:src.slot, gidB:gB.id, slotB:ds });
+        var t=gA[src.slot]; gA[src.slot]=gB[ds]; gB[ds]=t;
+        renderSchedule(); return;
+      }
+      var cell=e.target.closest('.grid-cell'); if(!cell||!dragGid) return; e.preventDefault(); cell.classList.remove('grid-cell-over');
       var g=GAMES.find(function(x){return String(x.id)===String(dragGid);}); dragGid=null; if(!g) return;
       var nf=cell.getAttribute('data-field'), nt=cell.getAttribute('data-time'), nd=cell.getAttribute('data-date')||'';
       var ndv = (nd==='TBD')?'':nd;   // the day this cell belongs to (drag across days)
@@ -1749,15 +1776,17 @@
     // Undo / Save (delegated — the grid re-renders these buttons each time)
     wrap.addEventListener('click', async function(e){
       if(e.target.closest('#gridUndo')){
-        var mv=gridMoves.pop(); if(!mv) return; var g=GAMES.find(function(x){return String(x.id)===String(mv.gid);}); if(g){ g.field=mv.prevField; g.time=mv.prevTime; if(mv.prevDate!==undefined) g.date=mv.prevDate; } renderSchedule(); return;
+        var mv=gridMoves.pop(); if(!mv) return;
+        if(mv.swap){ var ga=GAMES.find(function(x){return String(x.id)===String(mv.gidA);}), gb=GAMES.find(function(x){return String(x.id)===String(mv.gidB);}); if(ga&&gb){ var t=ga[mv.slotA]; ga[mv.slotA]=gb[mv.slotB]; gb[mv.slotB]=t; } renderSchedule(); return; }
+        var g=GAMES.find(function(x){return String(x.id)===String(mv.gid);}); if(g){ g.field=mv.prevField; g.time=mv.prevTime; if(mv.prevDate!==undefined) g.date=mv.prevDate; } renderSchedule(); return;
       }
       if(e.target.closest('#gridSave')){
         if(!gridMoves.length) return;
-        var gfids={}; gridMoves.forEach(function(m){ var gg=GAMES.find(function(x){return String(x.id)===String(m.gid);}); if(gg) gfids[gg.form_id]=1; });
+        var gfids={}; gridMoves.forEach(function(m){ (m.swap?[m.gidA,m.gidB]:[m.gid]).forEach(function(id){ var gg=GAMES.find(function(x){return String(x.id)===String(id);}); if(gg) gfids[gg.form_id]=1; }); });
         if(!conflictGate(Object.keys(gfids))) return;   // unresolved conflicts → confirm before saving
         var btn=e.target.closest('#gridSave'); btn.disabled=true; btn.textContent='Saving…';
         try {
-          var gids={}; gridMoves.forEach(function(m){ gids[m.gid]=1; });
+          var gids={}; gridMoves.forEach(function(m){ if(m.swap){ gids[m.gidA]=1; gids[m.gidB]=1; } else gids[m.gid]=1; });
           for(var id in gids){ var g=GAMES.find(function(x){return String(x.id)===String(id);}); if(g) await STS.saveGame(g); }
           GAMES=await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule();
         } catch(ex){
