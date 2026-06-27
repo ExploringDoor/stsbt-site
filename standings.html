@@ -55,8 +55,8 @@
   function sportFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.sport:''; }
 
   function table(rows, ctx){
-    return '<div class="table-wrap"><table class="tbl"><thead><tr><th class="rank">#</th><th>Team</th><th>W</th><th>L</th><th>T</th><th>PCT</th><th>RS</th><th>RA</th><th>Diff</th><th title="Average Run Differential">ARDiff</th></tr></thead><tbody>'+
-      rows.map(function(r,i){ return '<tr><td class="rank">'+(i+1)+'</td><td class="team-cell">'+teamLink(r.team, ctx)+'</td><td>'+r.w+'</td><td>'+r.l+'</td><td>'+r.ties+'</td><td class="num">'+r.pct.toFixed(3).replace(/^0/,'')+'</td><td>'+r.rs+'</td><td>'+r.ra+'</td><td>'+(r.diff>0?'+':'')+r.diff+'</td><td class="num">'+(r.ardiff>0?'+':'')+r.ardiff.toFixed(1)+'</td></tr>'; }).join('')+
+    return '<div class="table-wrap"><table class="tbl"><thead><tr><th class="rank">#</th><th>Team</th><th>W</th><th>L</th><th>T</th><th>PCT</th><th>RA</th><th>Diff</th><th>RS</th><th title="Average Run Differential">ARDiff</th></tr></thead><tbody>'+
+      rows.map(function(r,i){ return '<tr><td class="rank">'+(i+1)+'</td><td class="team-cell">'+teamLink(r.team, ctx)+'</td><td>'+r.w+'</td><td>'+r.l+'</td><td>'+r.ties+'</td><td class="num">'+r.pct.toFixed(3).replace(/^0/,'')+'</td><td>'+r.ra+'</td><td>'+(r.diff>0?'+':'')+r.diff+'</td><td>'+r.rs+'</td><td class="num">'+(r.ardiff>0?'+':'')+r.ardiff.toFixed(1)+'</td></tr>'; }).join('')+
       '</tbody></table></div>';
   }
   function schedPublic(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return !f || f.schedule_published !== false; }
