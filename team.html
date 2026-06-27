@@ -57,19 +57,22 @@
     var id = qs('id');
     var root = document.getElementById('teamRoot');
     if (!id){ root.innerHTML = '<div class="container section"><div class="empty">No team specified.</div></div>'; return; }
-    var t = await STS.getTeam(id);
-    if (!t || (!t.live && t.status!=='active')){
-      var nm = decodeURIComponent(String(id)).replace(/[-_]+/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
-      root.innerHTML = '<div class="container section"><div class="empty"><h2>'+esc(nm)+' — page coming soon</h2><p class="muted">This team\'s page isn\'t published yet. It goes live once the team is set up for the season — check back soon.</p><a class="btn btn-navy" href="teams.html">Browse teams</a></div></div>';
-      document.title = 'Team · Small Town Select';
-      return;
-    }
-    document.title = t.name + ' · Small Town Select';
-
-    // ── load this team's full game history (every event), compute record ──
+    // ── load games/forms/teams first (needed to derive a team that has no doc) ──
     var ALL=[], FORMS=[], TEAMS=[];
     try { ALL = await STS.loadGames(); FORMS = await STS.loadForms(); } catch(e){}
     try { TEAMS = await STS.loadTeams(); } catch(e){}
+    var t = await STS.getTeam(id);
+    if (!t || (!t.live && t.status!=='active')){
+      // no published team doc (e.g. a free/unpaid entry) — derive a light team from the public schedule
+      var dName=''; ALL.forEach(function(g){ [g.away,g.home].forEach(function(nm){ if(nm && !dName && slugify(nm)===id) dName=nm; }); });
+      if(dName){ t = { name:dName, slug:id, live:true, status:'active', roster:[], _derived:true }; }
+      else {
+        var nm = decodeURIComponent(String(id)).replace(/[-_]+/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+        root.innerHTML = '<div class="container section"><div class="empty"><h2>'+esc(nm)+' — page coming soon</h2><p class="muted">This team\'s page isn\'t published yet. It goes live once the team is set up for the season — check back soon.</p><a class="btn btn-navy" href="teams.html">Browse teams</a></div></div>';
+        document.title = 'Team · Small Town Select'; return;
+      }
+    }
+    document.title = t.name + ' · Small Town Select';
     var teamSlugSet={}; TEAMS.forEach(function(x){ teamSlugSet[(x.slug||x.id)]=1; });
     var resolveTeam = STS.teamResolver(TEAMS);   // opponent NAME → real slug (name+age), null if none
     function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }

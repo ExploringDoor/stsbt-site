@@ -9,6 +9,7 @@ import * as STS from './sts-data.js';
 
 var CFG = (typeof window !== 'undefined' && window.LEAGUE_CONFIG) || {};
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]; }); }
+function wslug(s){ return String(s == null ? '' : s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
 
 var mounted = false;
 function mount(){
@@ -52,7 +53,7 @@ export async function comingTeams(form){
         [g.away, g.home].forEach(function(nm){
           if (!nm || /^(WG|LG)-\d+$/i.test(String(nm)) || /^Seed\s*\d+$/i.test(String(nm)) || /^(tbd|bye)$/i.test(String(nm))) return;
           var k = String(nm).toLowerCase(); if (seen[k]) return; seen[k] = 1;
-          out.push({ name: nm, division: g.division || '', age_class: g.division || '', live: true });
+          out.push({ name: nm, division: g.division || '', age_class: g.division || '', live: true, slug: wslug(nm) });
         });
       });
     } catch(e){}

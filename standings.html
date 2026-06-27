@@ -49,7 +49,7 @@
   function slugify(s){ return String(s==null?'':s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
   var DEMO = /[?&]demo=1/.test(location.search) ? '&demo=1' : '';
   // resolve a team NAME (+ division) to its real slug; plain text if no team page exists
-  function teamLink(name, ctx){ var slug = resolveTeam(name, ctx); return slug ? '<a class="team-link" href="team.html?id='+encodeURIComponent(slug)+DEMO+'">'+esc(name)+'</a>' : esc(name); }
+  function teamLink(name, ctx){ var slug = resolveTeam(name, ctx) || STS.slugify(name); return slug ? '<a class="team-link" href="team.html?id='+encodeURIComponent(slug)+DEMO+'">'+esc(name)+'</a>' : esc(name); }
   var GAMES=[], FORMS=[], TEAMS=[], resolveTeam=function(){ return null; }, filt={sport:'',event:'',season:''};
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
   function sportFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.sport:''; }
