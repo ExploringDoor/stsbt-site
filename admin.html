@@ -2091,8 +2091,8 @@
       '<div class="field"><label for="bk_dayPick">Tournament days <span class="muted" style="text-transform:none;letter-spacing:0">— pool games spread across <b>every</b> day you add (add Saturday <b>and</b> Sunday for a 2-day pool). The earliest day fills first.</span></label><div style="display:flex;gap:6px;align-items:center"><input class="input" id="bk_dayPick" type="date" style="max-width:185px"><button type="button" class="btn btn-outline btn-sm" id="bk_addDay">+ Add day</button></div><div id="bk_dayChips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div></div>'+
       '<div class="field"><label for="bk_city">Host city <span class="muted">(scopes the field list)</span></label><div style="display:flex;gap:6px;align-items:center"><select class="input" id="bk_city" style="flex:1"><option value="">All cities</option>'+cityOpts+'</select><button type="button" class="btn btn-outline btn-sm" id="bk_addAllCity">+ Add all its fields</button></div></div>'+
       '<div class="field"><label for="bk_fieldSel">Fields <span class="muted">(pick from your venues, or type a new one)</span></label><select class="input" id="bk_fieldSel" style="margin-bottom:6px"></select><div style="display:flex;gap:6px;align-items:center"><input class="input" id="bk_fieldPick" placeholder="…or type a custom field name" style="flex:1"><button type="button" class="btn btn-outline btn-sm" id="bk_addField">+ Add</button></div><div id="bk_fieldChips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div></div>'+
-      '<div class="field"><label>Game start times <span class="muted" style="text-transform:none;letter-spacing:0">— set <b>per day</b> (e.g. Saturday starts 8:00, Sunday starts 9:30). Each day has its own start times below.</span></label>'+
-        '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px"><span class="muted">Quick fill: first</span><input class="input" id="bk_first" type="time" value="08:00" style="max-width:118px"><span class="muted">to</span><input class="input" id="bk_last" type="time" value="18:00" style="max-width:118px"><span class="muted">every</span><input class="input" id="bk_glen" type="number" value="120" min="30" step="5" style="max-width:70px"><span class="muted">min, for</span><select class="input" id="bk_buildFor" style="max-width:150px"></select><button type="button" class="btn btn-navy btn-sm" id="bk_autofill">Build</button></div>'+
+      '<div class="field"><label>Games per day <span class="muted" style="text-transform:none;letter-spacing:0">— how many pool games each day, and when they start. <b>One start time = one game</b> (per field). So 4 games Saturday + 2 Sunday = 4 times on Sat, 2 on Sun.</span></label>'+
+        '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px"><span class="muted">Quick fill:</span><input class="input" id="bk_ngames" type="number" min="1" max="20" value="4" style="max-width:64px"><span class="muted">games starting</span><input class="input" id="bk_first" type="time" value="08:00" style="max-width:118px"><span class="muted">every</span><input class="input" id="bk_glen" type="number" value="105" min="30" step="5" style="max-width:70px"><span class="muted">min, for</span><select class="input" id="bk_buildFor" style="max-width:150px"></select><button type="button" class="btn btn-navy btn-sm" id="bk_autofill">Set</button></div>'+
         '<div id="bk_daySlots" style="margin-top:10px"></div>'+
         '<div id="bk_slotNote" style="margin-top:7px"></div></div>'+
       '<div class="field"><label for="bk_glenmin">Game length <span class="muted">(min — leave blank for age defaults: pool 60/75/90, bracket 75/90/105 by 6-8U / 9-10U / 11U+. Set a number to override for this tournament.)</span></label><input class="input" id="bk_glenmin" type="number" min="0" step="5" placeholder="age default" style="max-width:150px"></div>'+
@@ -2123,7 +2123,7 @@
         var ts=(slotsByDay[d]||[]).slice().sort(function(a,b){return tKey(a)-tKey(b);});
         var chips = ts.length ? ts.map(function(t){ return '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px 4px 3px 12px;font-size:var(--text-sm)">'+esc(fmtGTime(t))+'<button type="button" data-rmday="'+esc(d)+'" data-t="'+esc(t)+'" title="Remove" style="border:0;background:none;cursor:pointer;color:var(--sts-red);font-size:18px;line-height:1;padding:2px 7px">×</button></span>'; }).join('') : '<span class="muted" style="font-size:var(--text-sm)">No times yet — use Quick fill above, or add one →</span>';
         return '<div style="border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:8px">'+
-          '<div style="font-family:var(--font-display);font-weight:600;color:var(--sts-navy);font-size:var(--text-sm);margin-bottom:6px">'+esc(dlabel(d))+'</div>'+
+          '<div style="font-family:var(--font-display);font-weight:600;color:var(--sts-navy);font-size:var(--text-sm);margin-bottom:6px">'+esc(dlabel(d))+' <span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">— '+ts.length+' game'+(ts.length!==1?'s':'')+'</span></div>'+
           '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">'+chips+'</div>'+
           '<div style="display:flex;gap:6px;align-items:center;margin-top:8px"><input class="input bk-addtime" data-day="'+esc(d)+'" type="time" style="max-width:118px"><button type="button" class="btn btn-outline btn-sm" data-addday="'+esc(d)+'">+ Add time</button></div>'+
         '</div>';
@@ -2134,8 +2134,17 @@
       var el=$('bk_slotNote'); if(!el) return;
       var pairs=slotPairs(); if(!pairs.length){ el.innerHTML=''; return; }
       var nf=fields.length||1, total=pairs.length*nf;
-      var perDay=days.filter(function(d){return (slotsByDay[d]||[]).length;}).map(function(d){ return '<b>'+esc(dlabel(d))+'</b>: '+(slotsByDay[d]||[]).slice().sort(function(a,b){return tKey(a)-tKey(b);}).map(fmtGTime).join(', '); }).join(' &nbsp;·&nbsp; ');
-      el.innerHTML = '<div class="notice notice-info" style="text-transform:none;letter-spacing:0;font-size:var(--text-xs);margin:0">'+perDay+' &nbsp;—&nbsp; <b>'+total+' game slots</b>'+(nf>1?' ('+pairs.length+' starts × '+nf+' fields)':'')+'.</div>';
+      var perDay=days.filter(function(d){return (slotsByDay[d]||[]).length;}).map(function(d){ return '<b>'+esc(dlabel(d))+'</b>: '+(slotsByDay[d]||[]).length; }).join(' + ');
+      // compare the slots you laid out against how many pool games will actually be created
+      var msg='', cls='notice-info';
+      if(format==='roundrobin'){
+        var nteams=(emptyOn()?(parseInt($('bk_count').value,10)||0):selected().length);
+        var gpp=parseInt($('bk_gpp').value,10)||2;
+        var games=Math.round(nteams*gpp/2);
+        if(games>0 && total<games){ cls='notice-warn'; msg=' &nbsp;⚠ pool play makes <b>~'+games+' games</b> but you only have <b>'+total+' slot'+(total>1?'s':'')+'</b> — add '+(games-total)+' more (or fewer games/team).'; }
+        else if(games>0){ msg=' &nbsp;— pool play makes <b>~'+games+' games</b>, you have <b>'+total+' slots</b> ✓'; }
+      }
+      el.innerHTML = '<div class="notice '+cls+'" style="text-transform:none;letter-spacing:0;font-size:var(--text-xs);margin:0">'+perDay+' = <b>'+total+' game slot'+(total>1?'s':'')+'</b>'+(nf>1?' ('+pairs.length+'×'+nf+' fields)':'')+msg+'</div>';
     }
     function regTeamsFor(fid){ var out=[],seen={}; REGS.forEach(function(r){ if(r.form_id===fid && r.status!=='archived' && r.team_name && !seen[r.team_name.toLowerCase()]){ seen[r.team_name.toLowerCase()]=1; out.push(r.team_name); } }); return out; }
     function teamDivMap(fid){ var m={}; REGS.forEach(function(r){ if(r.form_id===fid && r.status!=='archived' && r.team_name && m[r.team_name.toLowerCase()]==null) m[r.team_name.toLowerCase()]=r.division||r.age_class||''; }); return m; }
@@ -2149,7 +2158,7 @@
       $('bk_teamList').innerHTML = list.length ? list.map(function(t){ var dv=dmap[t.toLowerCase()]||''; return '<label style="display:flex;align-items:center;gap:9px;padding:4px 2px;cursor:pointer"><input type="checkbox" class="bk-team" value="'+esc(t)+'" data-div="'+esc(dv)+'" checked style="width:16px;height:16px"><span>'+esc(t)+'</span>'+(dv?'<span class="muted" style="font-size:11px;margin-left:auto">'+esc(dv)+'</span>':'')+'</label>'; }).join('') : '<div class="muted" style="font-size:var(--text-sm);padding:6px">No registered teams yet — add teams below.</div>';
       renderTeamQuick(list,dmap); updateCount(); }
     function selected(){ return Array.prototype.map.call($('bk_teamList').querySelectorAll('.bk-team:checked'), function(c){ return c.value; }); }
-    function updateCount(){ $('bk_teamCount').textContent='('+selected().length+' selected)'; }
+    function updateCount(){ $('bk_teamCount').textContent='('+selected().length+' selected)'; renderSlotNote(); }
     // "Teams not set yet" mode: build the bracket from a COUNT with Seed 1…N
     // placeholders (only for elim formats — pool play needs real teams).
     function applyEmptyMode(){
@@ -2181,6 +2190,7 @@
     $('bk_tiers').addEventListener('input', function(){ var t=this.value.split(',').map(function(s){return s.trim();}).filter(Boolean), n=selected().length; $('bk_tierHint').textContent = (t.length>1 && format!=='roundrobin') ? (t.length+' tiers — the top '+Math.ceil(n/t.length)+' seeds go to “'+t[0]+'”, next to “'+t[1]+'”'+(t[2]?', …':'')+' (seed from standings first)') : ''; });
     $('bk_addAllCity').onclick=function(){ var c=$('bk_city').value; if(!c){ $('bkNote').textContent='Pick a host city first.'; return; } placesForCity(c).forEach(function(p){ if(fields.indexOf(p)<0) fields.push(p); }); renderFields(); };
     $('bk_teamList').addEventListener('change', updateCount);
+    $('bk_gpp').addEventListener('input', renderSlotNote);
     $('bk_teamQuick').addEventListener('click', function(e){ var b=e.target.closest('button'); if(!b) return; var cks=$('bk_teamList').querySelectorAll('.bk-team');
       if(b.dataset.qsel==='all'){ Array.prototype.forEach.call(cks,function(c){ c.checked=true; }); }
       else if(b.dataset.qsel==='none'){ Array.prototype.forEach.call(cks,function(c){ c.checked=false; }); }
@@ -2192,8 +2202,8 @@
     $('bk_addField').onclick=function(){ var v=$('bk_fieldPick').value.trim(); if(v && fields.indexOf(v)<0){ fields.push(v); $('bk_fieldPick').value=''; renderFields(); } };
     $('bk_fieldSel').addEventListener('change', function(){ var v=this.value; if(v && fields.indexOf(v)<0){ fields.push(v); renderFields(); } this.value=''; });
     $('bk_fieldPick').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); $('bk_addField').click(); } });
-    // Quick fill: build a run of start times and apply to "all days" OR one chosen day
-    $('bk_autofill').onclick=function(){ var f=tKey($('bk_first').value), l=tKey($('bk_last').value), len=parseInt($('bk_glen').value,10)||120; if(l<f||len<15){ $('bkNote').textContent='Last start must be after first.'; return; } if(!days.length){ $('bkNote').textContent='Add a tournament day first.'; return; } var times=[]; for(var m=f;m<=l;m+=len) times.push(hhmm(m)); var target=($('bk_buildFor')||{}).value||'__all'; (target==='__all'?days.slice():[target]).forEach(function(d){ slotsByDay[d]=times.slice(); }); $('bkNote').textContent=''; renderDaySlots(); };
+    // Quick fill: N games starting at a time, every M min — set for "all days" OR one day
+    $('bk_autofill').onclick=function(){ var f=tKey($('bk_first').value), len=parseInt($('bk_glen').value,10)||105, n=parseInt($('bk_ngames').value,10)||0; if(n<1){ $('bkNote').textContent='Enter how many games that day (1 or more).'; return; } if(len<15){ $('bkNote').textContent='Minutes between games must be at least 15.'; return; } if(!days.length){ $('bkNote').textContent='Add a tournament day first.'; return; } var times=[]; for(var i=0;i<n;i++) times.push(hhmm(f+i*len)); var target=($('bk_buildFor')||{}).value||'__all'; (target==='__all'?days.slice():[target]).forEach(function(d){ slotsByDay[d]=times.slice(); }); $('bkNote').textContent=''; renderDaySlots(); };
     // Per-day chips: add a single start time / remove one (delegated — blocks re-render under these)
     $('bk_daySlots').addEventListener('click', function(e){
       var rm=e.target.closest('[data-rmday]'); if(rm){ var d=rm.getAttribute('data-rmday'), t=rm.getAttribute('data-t'); slotsByDay[d]=(slotsByDay[d]||[]).filter(function(x){return x!==t;}); renderDaySlots(); return; }
