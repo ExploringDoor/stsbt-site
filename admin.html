@@ -151,9 +151,10 @@
       <div class="spread" style="margin-bottom:var(--space-4)">
         <div class="toolbar" style="margin:0;gap:8px">
           <select class="input" id="schedEvent" style="max-width:240px"><option value="">All events</option></select>
+          <select class="input hidden" id="schedDiv" style="max-width:150px" title="Filter by division"><option value="">All divisions</option></select>
           <div class="pill-tabs" id="schedViewToggle"><button class="pill active" data-view="list">☰ List</button><button class="pill" data-view="grid">▦ Grid</button></div>
         </div>
-        <div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" id="printSchedBtn">🖨 Print / Export</button><a class="btn btn-outline btn-sm hidden" id="viewBracketBtn" target="_blank" rel="noopener">👁 View Bracket ↗</a><button class="btn btn-navy btn-sm hidden" id="seedTeamsBtn">🌱 Seed Teams</button><button class="btn btn-outline btn-sm" id="bracketBtn">🏆 Bracket / Pool</button><button class="btn btn-red btn-sm" id="newGameBtn">+ Add Game</button><button class="btn btn-outline btn-sm hidden" id="clearGamesBtn" style="color:var(--sts-red)" title="Delete every game for this event">🗑 Clear games</button></div>
+        <div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" id="printSchedBtn">🖨 Print / Export</button><a class="btn btn-outline btn-sm hidden" id="viewEventBtn" target="_blank" rel="noopener">🔗 Tournament page ↗</a><a class="btn btn-outline btn-sm hidden" id="viewBracketBtn" target="_blank" rel="noopener">👁 View Bracket ↗</a><button class="btn btn-navy btn-sm hidden" id="seedTeamsBtn">🌱 Seed Teams</button><button class="btn btn-outline btn-sm" id="bracketBtn">🏆 Bracket / Pool</button><button class="btn btn-red btn-sm" id="newGameBtn">+ Add Game</button><button class="btn btn-outline btn-sm hidden" id="clearGamesBtn" style="color:var(--sts-red)" title="Delete every game for this event">🗑 Clear games</button></div>
       </div>
       <p class="muted" style="font-size:var(--text-sm)">Create games and post scores for your events. Standings on the public site update automatically from finished games.</p>
       <div id="schedPublish" style="margin-bottom:var(--space-3)"></div>
@@ -857,7 +858,7 @@
     var rec = INS.find(function(x){ return x.team_id===slug; });
     return rec ? rec.status : 'none';
   }
-  var schedFilt = '', schedView = 'list', gridMoves = [];
+  var schedFilt = '', schedDivFilt = '', schedView = 'list', gridMoves = [];
 
   async function boot(){
     FORMS = await STS.loadFormsScoped(ME, { includeInactive: true });
@@ -1574,6 +1575,19 @@
     var hasBk = schedFilt && GAMES.some(function(g){ return g.form_id===schedFilt && g.g!=null; });
     if (hasBk){ vb.href = 'brackets.html#'+encodeURIComponent(schedFilt); vb.classList.remove('hidden'); }
     else { vb.classList.add('hidden'); }
+    // "Tournament page" link — public event page (only for a real, selected event)
+    var ve = document.getElementById('viewEventBtn');
+    if (schedFilt && FORMS.some(function(x){ return x.id===schedFilt; })){ ve.href = 'event.html?id='+encodeURIComponent(schedFilt)+(/[?&]demo=1/.test(location.search)?'&demo=1':''); ve.classList.remove('hidden'); }
+    else { ve.classList.add('hidden'); }
+    // Division filter — list the divisions in this event; show only when there's more than one
+    var sd = document.getElementById('schedDiv');
+    if (sd){
+      var dset={}, dlist=[];
+      if (schedFilt) GAMES.forEach(function(g){ if(g.form_id===schedFilt){ var d=g.division||''; if(d && !dset[d]){ dset[d]=1; dlist.push(d); } } });
+      dlist.sort(function(a,b){ var na=parseInt(a,10), nb=parseInt(b,10); if(!isNaN(na)&&!isNaN(nb)&&na!==nb) return na-nb; return a.localeCompare(b); });
+      if (dlist.length>1){ if(dlist.indexOf(schedDivFilt)<0) schedDivFilt=''; sd.innerHTML='<option value="">All divisions</option>'+dlist.map(function(d){ return '<option value="'+esc(d)+'"'+(schedDivFilt===d?' selected':'')+'>'+esc(d)+'</option>'; }).join(''); sd.classList.remove('hidden'); }
+      else { schedDivFilt=''; sd.classList.add('hidden'); }
+    }
     // "Seed Teams" button — show when the bracket still has unseeded "Seed N" slots
     var stb = document.getElementById('seedTeamsBtn');
     var hasSeeds = schedFilt && GAMES.some(function(g){ return g.form_id===schedFilt && g.g!=null && (/^Seed\s*\d+$/i.test(String(g.away||'')) || /^Seed\s*\d+$/i.test(String(g.home||''))); });
@@ -1592,7 +1606,7 @@
         '<button class="btn btn-sm '+(pub?'btn-outline':'btn-navy')+'" id="schedPubToggle">'+(pub?'Hide from public':'Release to public')+'</button></div>';
     } else { pubBar.style.display='none'; pubBar.innerHTML=''; }
     var wrap = document.getElementById('scheduleWrap');
-    var rows = GAMES.filter(function(g){ return !schedFilt || g.form_id===schedFilt; });
+    var rows = GAMES.filter(function(g){ return (!schedFilt || g.form_id===schedFilt) && (!schedDivFilt || (g.division||'')===schedDivFilt); });
     if (!rows.length){ wrap.innerHTML = '<div class="empty">No games yet. Click <b>+ Add Game</b> to build your schedule.</div>'; return; }
     if (schedView==='grid'){ renderScheduleGrid(rows); return; }
     var byEvent = {}; rows.forEach(function(g){ (byEvent[g.form_id]=byEvent[g.form_id]||[]).push(g); });
@@ -1745,8 +1759,9 @@
   document.getElementById('schedViewToggle').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b) return; schedView=b.dataset.view; document.querySelectorAll('#schedViewToggle .pill').forEach(function(p){p.classList.toggle('active',p===b);}); renderSchedule(); });
   document.getElementById('schedEvent').addEventListener('change', async function(e){
     if(gridMoves.length){ if(!confirm('You have '+gridMoves.length+' unsaved schedule change(s). Discard them?')){ e.target.value=schedFilt; return; } GAMES=await STS.loadGamesScoped(ME,{}); gridMoves=[]; }
-    schedFilt=e.target.value; renderSchedule();
+    schedFilt=e.target.value; schedDivFilt=''; renderSchedule();
   });
+  document.getElementById('schedDiv').addEventListener('change', function(e){ schedDivFilt=e.target.value; renderSchedule(); });
   // ── PRINT / EXPORT (field day-sheets + per-team handouts) ───────────
   function buildPrintView(){
     var fid=schedFilt, title=fid?titleFor(fid):'All Events';
