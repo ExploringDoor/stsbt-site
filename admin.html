@@ -2070,7 +2070,9 @@
       '<div class="field" id="bk_autoBrWrap" style="background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px">'+
         '<label style="display:flex;align-items:center;gap:9px;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:600;color:var(--sts-navy)"><input type="checkbox" id="bk_autoBr" checked style="width:16px;height:16px"><span>Also build the playoff bracket now</span></label>'+
         '<div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span class="muted" style="text-transform:none;letter-spacing:0">Type:</span><select class="input" id="bk_brFmt" style="max-width:150px"><option value="single">Single elim</option><option value="double">Double elim</option></select></div>'+
-        '<div class="muted" style="font-size:var(--text-xs);margin-top:6px;text-transform:none;letter-spacing:0">Creates a seed-placeholder bracket on your last day. Seeds <b>auto-fill from the standings</b> the moment pool play finishes — no extra clicks.</div>'+
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px"><span class="muted" style="text-transform:none;letter-spacing:0">Bracket day:</span><input class="input" id="bk_brDay" type="date" style="max-width:170px"><span class="muted" style="text-transform:none;letter-spacing:0">games start</span><input class="input" id="bk_brStart" type="time" value="09:00" style="max-width:118px"><span class="muted" style="text-transform:none;letter-spacing:0">every</span><input class="input" id="bk_brEvery" type="number" min="30" step="5" value="90" style="max-width:72px"><span class="muted">min</span></div>'+
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px"><span class="muted" style="text-transform:none;letter-spacing:0">Bracket field(s):</span><input class="input" id="bk_brFields" placeholder="defaults to your pool fields — or type e.g. Field 1, Field 2" style="flex:1;min-width:220px"></div>'+
+        '<div class="muted" style="font-size:var(--text-xs);margin-top:6px;text-transform:none;letter-spacing:0">A seed-placeholder bracket is scheduled on the day/times/fields above, so people can plan ahead. Seeds <b>auto-fill from the standings</b> the moment pool play finishes — no extra clicks.</div>'+
       '</div>'+
       '<div class="field"><label for="bk_tiers">Bracket / division label <span class="muted">(optional)</span></label><input class="input" id="bk_tiers" placeholder="one label (8U Open) — or several tiers: Diamond, Platinum, Gold" list="bk_tierList"><datalist id="bk_tierList"><option>Diamond</option><option>Platinum</option><option>Gold</option></datalist><div class="muted" style="font-size:var(--text-xs);margin-top:4px" id="bk_tierHint"></div></div>'+
       '<div class="field check" id="bk_emptyWrap" style="display:none"><input type="checkbox" id="bk_empty"><label for="bk_empty" style="text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500">Teams aren’t set yet — build the bracket with seed placeholders (Seed 1…N). You’ll drop the real teams in once pool play wraps.</label></div>'+
@@ -2130,6 +2132,7 @@
     }
     renderDays(); renderFields(); renderSlots(); renderTeams();
     $('bk_glenmin').value = (FORMS.find(function(x){return x.id===fid0;})||{}).game_length_min || '';
+    $('bk_brDay').value = days.length ? days[days.length-1] : '';   // default bracket to the final day
     $('bk_count').value = Math.max(2, regTeamsFor(fid0).length || 8); applyEmptyMode();
     $('bk_empty').addEventListener('change', applyEmptyMode);
     $('bk_city').value = cityFor(fid0); renderFieldOptions();
@@ -2195,8 +2198,13 @@
             var brFmt=($('bk_brFmt').value==='double')?'double':'single';
             var brSeeds=seedLabels(teams.length);
             var brGames=window.STSgen.generateBracket({format:brFmt, teams:brSeeds, startGame:1});
-            var brDays=(days.length>1)?[days[days.length-1]]:days;   // playoffs on the final day
-            assignSlots(brGames, brDays, slots, fields, avail, restMin, GAMES.concat(pool), fid);
+            // bracket day / times / fields — the user's choices, falling back to the pool's
+            var brDayV=$('bk_brDay').value, brDays = brDayV ? [brDayV] : ((days.length>1)?[days[days.length-1]]:days);
+            var brStart=tKey($('bk_brStart').value||'09:00'), brEvery=parseInt($('bk_brEvery').value,10)||90, brSlots=[];
+            for(var bm=brStart; bm<=22*60 && brSlots.length<40; bm+=Math.max(15,brEvery)) brSlots.push(hhmm(bm));
+            var brFieldsV=($('bk_brFields').value||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
+            var brFields = brFieldsV.length ? brFieldsV : fields;
+            assignSlots(brGames, brDays, brSlots, brFields, avail, restMin, GAMES.concat(pool), fid);
             await STS.clearBracket(fid, tiers[0]);
             await STS.saveBracket(fid, {sport:sport, division:tiers[0]}, brGames, {replace:false});
           }
