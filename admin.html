@@ -1692,7 +1692,7 @@
               (fclash?'<div class="gc-warn">⚠ field+time clash</div>':'')+
               (un&&!g.done?'<div class="gc-st muted">⏳ unscheduled — set a time & field</div>':'')+'</div>';
           }).join('');
-          return '<td class="grid-cell'+(anyFieldClash?' grid-cell-dbl':'')+'" data-field="'+esc(f)+'" data-time="'+esc(tm)+'">'+cards+'</td>';
+          return '<td class="grid-cell'+(anyFieldClash?' grid-cell-dbl':'')+'" data-date="'+esc(date)+'" data-field="'+esc(f)+'" data-time="'+esc(tm)+'">'+cards+'</td>';
         }).join('')+'</tr>';
       }).join('');
       return '<h3 style="margin:var(--space-5) 0 var(--space-2)">'+esc(fmtDay(date))+'</h3>'+
@@ -1706,7 +1706,7 @@
       '<button class="btn btn-navy btn-sm" id="gridSave"'+(n?'':' disabled')+'>💾 Save changes</button>'+
       '<button class="btn btn-outline btn-sm" id="gridUndo"'+(n?'':' disabled')+'>↶ Undo last move</button>'+
       '<span style="font-size:var(--text-sm)">'+(n?'<b style="color:var(--sts-red)">'+n+' unsaved change'+(n===1?'':'s')+'</b>':'<span class="muted">No unsaved changes</span>')+'</span>'+confBanner+'</div>';
-    var howto='<div class="notice notice-info" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm);margin-bottom:12px"><b>How this works:</b> columns are <b>fields</b>, rows are <b>start times</b>, and each card is a game. <b>Drag a card</b> to move it to a different field/time, or <b>click a card</b> to edit its teams, time, field, or score. New games (and new times/fields) come from <b>“+ Add Game”</b> up top. A <b style="color:var(--sts-red)">red card</b> = a team is booked twice at once; an <b style="color:#b45309">orange cell</b> = two games share one field+time. <b>Drag changes don’t save until you click “Save changes.”</b></div>';
+    var howto='<div class="notice notice-info" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm);margin-bottom:12px"><b>How this works:</b> columns are <b>fields</b>, rows are <b>start times</b>, and each card is a game. <b>Drag a card</b> to move it to a different field/time — <b>or onto another day’s grid</b> to change which day it plays (e.g. move a game from Saturday to Sunday). <b>Click a card</b> to edit its teams, time, field, date, or score. New games (and new times/fields) come from <b>“+ Add Game”</b> up top. A <b style="color:var(--sts-red)">red card</b> = a team is booked twice at once; an <b style="color:#b45309">orange cell</b> = two games share one field+time. <b>Drag changes don’t save until you click “Save changes.”</b></div>';
     wrap.innerHTML=toolbar+howto+html;
   }
   // delegated drag-and-drop (listeners attached once; cells re-render under them)
@@ -1717,11 +1717,12 @@
     wrap.addEventListener('dragleave', function(e){ var cell=e.target.closest('.grid-cell'); if(cell) cell.classList.remove('grid-cell-over'); });
     wrap.addEventListener('drop', function(e){ var cell=e.target.closest('.grid-cell'); if(!cell||!dragGid) return; e.preventDefault(); cell.classList.remove('grid-cell-over');
       var g=GAMES.find(function(x){return String(x.id)===String(dragGid);}); dragGid=null; if(!g) return;
-      var nf=cell.getAttribute('data-field'), nt=cell.getAttribute('data-time');
-      if((g.field||'(no field)')===nf && (g.time||'(no time)')===nt) return;
+      var nf=cell.getAttribute('data-field'), nt=cell.getAttribute('data-time'), nd=cell.getAttribute('data-date')||'';
+      var ndv = (nd==='TBD')?'':nd;   // the day this cell belongs to (drag across days)
+      if((g.field||'(no field)')===nf && (g.time||'(no time)')===nt && (g.date||'TBD')===(nd||'TBD')) return;
       // warn if dropping here would double-book a team or a field (dry-run the scanner)
       if(nf!=='(no field)' && nt!=='(no time)'){
-        var probe=GAMES.filter(function(x){return x.form_id===g.form_id;}).map(function(x){ return String(x.id)===String(g.id) ? Object.assign({},x,{field:nf,time:nt}) : x; });
+        var probe=GAMES.filter(function(x){return x.form_id===g.form_id;}).map(function(x){ return String(x.id)===String(g.id) ? Object.assign({},x,{field:nf,time:nt,date:ndv}) : x; });
         var pc=scanConflicts(probe).byGid[g.id];
         if(pc && (pc.team||pc.field)){
           var what=pc.field ? 'another game is already on '+nf+' at '+(fmtGTime(nt)||nt) : 'a team here is already booked at '+(fmtGTime(nt)||nt);
@@ -1729,14 +1730,14 @@
         }
       }
       // DRAFT: record the move + update in memory only. Nothing saves until "Save changes".
-      gridMoves.push({ gid:g.id, prevField:g.field||'', prevTime:g.time||'' });
-      g.field = nf==='(no field)'?'':nf; g.time = nt==='(no time)'?'':nt;
+      gridMoves.push({ gid:g.id, prevField:g.field||'', prevTime:g.time||'', prevDate:g.date||'' });
+      g.field = nf==='(no field)'?'':nf; g.time = nt==='(no time)'?'':nt; g.date = ndv;
       renderSchedule();
     });
     // Undo / Save (delegated — the grid re-renders these buttons each time)
     wrap.addEventListener('click', async function(e){
       if(e.target.closest('#gridUndo')){
-        var mv=gridMoves.pop(); if(!mv) return; var g=GAMES.find(function(x){return String(x.id)===String(mv.gid);}); if(g){ g.field=mv.prevField; g.time=mv.prevTime; } renderSchedule(); return;
+        var mv=gridMoves.pop(); if(!mv) return; var g=GAMES.find(function(x){return String(x.id)===String(mv.gid);}); if(g){ g.field=mv.prevField; g.time=mv.prevTime; if(mv.prevDate!==undefined) g.date=mv.prevDate; } renderSchedule(); return;
       }
       if(e.target.closest('#gridSave')){
         if(!gridMoves.length) return;
@@ -1999,8 +2000,10 @@
         b.disabled=false; b.textContent=prev;
       }
     };
-    // reset the Save button each open — a prior successful save left it disabled/"Saving…"
+    // reset the Save + Delete buttons each open — a prior successful save/delete left
+    // them disabled (the modal just closed), so the next game's buttons were dead.
     var _sv=document.getElementById('gmSave'); _sv.disabled=false; _sv.textContent='Save Game';
+    var _dl=document.getElementById('gmDelete'); _dl.disabled=false;
     openModal('gameModal');
   }
 
