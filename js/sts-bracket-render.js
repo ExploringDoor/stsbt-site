@@ -15,6 +15,7 @@
   var TEAM_HREF = null;     // optional name→slug resolver (teams are name+age; bare slug misses)
   var VENUE = '';           // host city to prefix field names (e.g. "Gatesville · Arnold Field")
   var GLEN = 0;             // game length (min) → show a start–end time when set
+  var SEEDS = null;         // optional { teamNameLower: seedNumber } → show "#4 Team" in the bracket
   function addMin(t,m){ if(!t||!m) return ''; var p=String(t).split(':'),h=+p[0],mm=+(p[1]||0); if(isNaN(h)) return ''; var x=((h*60+mm+(+m))%1440+1440)%1440; return ('0'+Math.floor(x/60)).slice(-2)+':'+('0'+(x%60)).slice(-2); }
   function ageBand(d){ var n=parseInt(String(d||'').replace(/\D/g,''),10); return n?(n<=8?0:(n<=10?1:2)):-1; }
   function defLen(d,bk){ var b=ageBand(d); return b<0?0:(bk?[75,90,105][b]:[60,75,90][b]); }
@@ -46,8 +47,10 @@
         var hslug = TEAM_HREF ? TEAM_HREF(s.name) : slugify(s.name);   // resolver → null = no team page → plain text
         if (hslug) nm = '<a class="bk-tlink" href="team.html?id='+esc(hslug)+'" onclick="event.stopPropagation()">'+esc(s.name)+'</a>';
       }
+      var seed = (!s.tbd && !s.bye && SEEDS) ? SEEDS[String(s.name).toLowerCase()] : null;   // pool-seed number
+      var seedTag = seed ? '<span class="bk-seed" style="font-weight:700;font-size:.82em;color:var(--sts-red,#b00);margin-right:4px">#'+seed+'</span>' : '';
       return '<div class="bk-side'+(win?' win':'')+(s.tbd?' tbd':'')+(s.bye?' bye':'')+'"'+((!s.tbd)?' data-team="'+esc(s.name)+'"':'')+'>'+
-        '<span class="nm">'+nm+(s.via?'<span class="via">via '+esc(s.via)+'</span>':'')+'</span>'+
+        '<span class="nm">'+seedTag+nm+(s.via?'<span class="via">via '+esc(s.via)+'</span>':'')+'</span>'+
         '<span class="sc">'+(sc!=null?sc:'')+'</span></div>';
     }
     var tag = cls==='f'?'<span class="tag f">🏆 Final</span>':cls==='l'?'<span class="tag l">Losers</span>':'<span class="tag w">Winners</span>';
@@ -177,6 +180,7 @@
     LINK_TEAMS = !!meta.teamLinks;
     GLEN = (meta.gameLengthMin) || 0;
     TEAM_HREF = (typeof meta.teamHref === 'function') ? meta.teamHref : null;
+    SEEDS = (meta.seeds && typeof meta.seeds === 'object') ? meta.seeds : null;
     VENUE = meta.venue ? String(meta.venue).split(',')[0].trim() : '';
     if (!games || !games.length) return '<div class="bk-empty">No bracket games yet.</div>';
     var t = { games: games };

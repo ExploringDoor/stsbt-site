@@ -196,7 +196,9 @@
       // some slots can still be "Seed N" placeholders. Flag that for viewers.
       var unseeded = bg.some(function(g){ return /^Seed\s*\d+$/i.test(String(g.away||'')) || /^Seed\s*\d+$/i.test(String(g.home||'')); });
       var note = unseeded ? '<p class="muted bk-preview-note" style="text-transform:none;letter-spacing:0;margin-top:0"><b>Bracket scheduled</b> — game times are set; seeds fill in once pool play wraps.</p>' : '';
-      return note + '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:true, teamHref:function(n){ return resolveTeam(n, curDiv); }, venue: FORM.location||'', gameLengthMin:(FORM&&FORM.game_length_min)||0 })+'</div>';
+      // seed map from pool standings (rank = seed) → the bracket shows "#4 Los Chivos"
+      var seedMap={}; STS.computeStandings(poolGames()).forEach(function(r,i){ seedMap[String(r.team).toLowerCase()]=i+1; });
+      return note + '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:true, teamHref:function(n){ return resolveTeam(n, curDiv); }, venue: FORM.location||'', gameLengthMin:(FORM&&FORM.game_length_min)||0, seeds: seedMap })+'</div>';
     }
     // No bracket posted yet → show the empty bracket SHELL (TBD seed slots) sized to
     // the field, so people see the format up front. Seeds + teams fill in once pool
