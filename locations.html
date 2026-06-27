@@ -92,7 +92,10 @@
     // map modal
     var ov = document.getElementById('mapOv'), frame = document.getElementById('mapFrame');
     function openMap(place, city, rawQ){
-      var query = rawQ ? encodeURIComponent(String(rawQ) + ', ' + REGION) : q(place, city);
+      // exact GPS for this field (imported from QuickScores) → pinpoint the map; else
+      // fall back to the raw query (unknown venue) or a "field, city, TX" name search
+      var geo = (CFG.fieldGeo && place) ? CFG.fieldGeo[String(place).toLowerCase()] : null;
+      var query = geo ? encodeURIComponent(geo) : (rawQ ? encodeURIComponent(String(rawQ) + ', ' + REGION) : q(place, city));
       document.getElementById('mapTitle').textContent = place;
       document.getElementById('mapSub').textContent = (city ? city + ', ' : '') + REGION;
       frame.src = 'https://maps.google.com/maps?q=' + query + '&z=15&output=embed';
