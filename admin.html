@@ -2141,8 +2141,12 @@
         var nteams=(emptyOn()?(parseInt($('bk_count').value,10)||0):selected().length);
         var gpp=parseInt($('bk_gpp').value,10)||2;
         var games=Math.round(nteams*gpp/2);
-        if(games>0 && total<games){ cls='notice-warn'; msg=' &nbsp;⚠ pool play makes <b>~'+games+' games</b> but you only have <b>'+total+' slot'+(total>1?'s':'')+'</b> — add '+(games-total)+' more (or fewer games/team).'; }
-        else if(games>0){ msg=' &nbsp;— pool play makes <b>~'+games+' games</b>, you have <b>'+total+' slots</b> ✓'; }
+        var fullRR=Math.max(1, nteams-1);   // everyone-plays-everyone = N-1 games each
+        if(games>0){
+          if(total<games){ cls='notice-warn'; msg=' &nbsp;⚠ pool makes <b>~'+games+' games</b> but you set only <b>'+total+' slot'+(total>1?'s':'')+'</b> — add '+(games-total)+' more start time'+((games-total)>1?'s':'')+'.'; }
+          else if(total>games){ cls='notice-warn'; msg=' &nbsp;⚠ you set <b>'+total+' slots</b> but the pool only makes <b>~'+games+' games</b> — '+(total-games)+' slot'+((total-games)>1?'s':'')+' will sit empty. Raise <b>Pool games per team</b> to '+fullRR+' (full round-robin) to fill them, or remove some times.'; }
+          else { msg=' &nbsp;— pool makes <b>~'+games+' games</b> = your <b>'+total+' slots</b> ✓'; }
+        }
       }
       el.innerHTML = '<div class="notice '+cls+'" style="text-transform:none;letter-spacing:0;font-size:var(--text-xs);margin:0">'+perDay+' = <b>'+total+' game slot'+(total>1?'s':'')+'</b>'+(nf>1?' ('+pairs.length+'×'+nf+' fields)':'')+msg+'</div>';
     }
