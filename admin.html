@@ -1944,10 +1944,12 @@
       '<div class="field-row"><div class="field"><label for="g_date">Date</label><input class="input" id="g_date" type="date" value="'+esc(g.date||'')+'"></div>'+
       '<div class="field"><label for="g_time">Time</label><input class="input" id="g_time" type="time" value="'+esc(g.time||'')+'"></div></div>'+
       _teamListHTML+
-      '<div class="field-row"><div class="field"><label for="g_away">Away Team</label><input class="input" id="g_away" '+(awayLock?'readonly':'list="g_teamList"')+' value="'+esc(g.away||'')+'" placeholder="pick a team"></div>'+
-      '<div class="field"><label for="g_home">Home Team</label><input class="input" id="g_home" '+(homeLock?'readonly':'list="g_teamList"')+' value="'+esc(g.home||'')+'" placeholder="pick a team"></div></div>'+
-      '<div class="field-row"><div class="field"><label for="g_as">Away Score</label><input class="input" id="g_as" type="number" inputmode="numeric" value="'+(g.away_score!=null?g.away_score:'')+'"></div>'+
-      '<div class="field"><label for="g_hs">Home Score</label><input class="input" id="g_hs" type="number" inputmode="numeric" value="'+(g.home_score!=null?g.home_score:'')+'"></div></div>'+
+      // each team and its score share one row — stays side-by-side on mobile too (a custom
+      // flex row, NOT .field-row, which collapses to one column under 600px)
+      '<div style="display:flex;gap:var(--space-4);align-items:flex-end"><div class="field" style="flex:1;min-width:0"><label for="g_away">Away Team</label><input class="input" id="g_away" '+(awayLock?'readonly':'list="g_teamList"')+' value="'+esc(g.away||'')+'" placeholder="pick a team"></div>'+
+      '<div class="field" style="flex:0 0 84px;width:84px"><label for="g_as">Score</label><input class="input" id="g_as" type="number" inputmode="numeric" style="text-align:center" value="'+(g.away_score!=null?g.away_score:'')+'"></div></div>'+
+      '<div style="display:flex;gap:var(--space-4);align-items:flex-end"><div class="field" style="flex:1;min-width:0"><label for="g_home">Home Team</label><input class="input" id="g_home" '+(homeLock?'readonly':'list="g_teamList"')+' value="'+esc(g.home||'')+'" placeholder="pick a team"></div>'+
+      '<div class="field" style="flex:0 0 84px;width:84px"><label for="g_hs">Score</label><input class="input" id="g_hs" type="number" inputmode="numeric" style="text-align:center" value="'+(g.home_score!=null?g.home_score:'')+'"></div></div>'+
       '<div class="field"><label for="g_forfeit">Forfeit <span class="muted">(team couldn’t field 8 / no-show)</span></label>'+
         '<select class="input" id="g_forfeit">'+
           '<option value="">— No forfeit —</option>'+
