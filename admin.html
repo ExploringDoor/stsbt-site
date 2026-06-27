@@ -2070,7 +2070,7 @@
       '<div class="field" id="bk_autoBrWrap" style="background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px">'+
         '<label style="display:flex;align-items:center;gap:9px;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:600;color:var(--sts-navy)"><input type="checkbox" id="bk_autoBr" checked style="width:16px;height:16px"><span>Also build the playoff bracket now</span></label>'+
         '<div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span class="muted" style="text-transform:none;letter-spacing:0">Type:</span><select class="input" id="bk_brFmt" style="max-width:150px"><option value="single">Single elim</option><option value="double">Double elim</option></select></div>'+
-        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px"><span class="muted" style="text-transform:none;letter-spacing:0">Bracket day:</span><input class="input" id="bk_brDay" type="date" style="max-width:170px"><span class="muted" style="text-transform:none;letter-spacing:0">games start</span><input class="input" id="bk_brStart" type="time" value="09:00" style="max-width:118px"><span class="muted" style="text-transform:none;letter-spacing:0">every</span><input class="input" id="bk_brEvery" type="number" min="30" step="5" value="90" style="max-width:72px"><span class="muted">min</span></div>'+
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px"><span class="muted" style="text-transform:none;letter-spacing:0">Bracket day:</span><input class="input" id="bk_brDay" type="date" style="max-width:170px"><span class="muted" style="text-transform:none;letter-spacing:0">games start</span><input class="input" id="bk_brStart" type="time" value="09:00" style="max-width:118px"><span class="muted" style="text-transform:none;letter-spacing:0">·</span><input class="input" id="bk_brBreak" type="number" min="0" step="5" value="10" style="max-width:72px"><span class="muted" style="text-transform:none;letter-spacing:0">min break between games</span></div>'+
         '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px"><span class="muted" style="text-transform:none;letter-spacing:0">Bracket field(s):</span><input class="input" id="bk_brFields" placeholder="defaults to your pool fields — or type e.g. Field 1, Field 2" style="flex:1;min-width:220px"></div>'+
         '<div class="muted" style="font-size:var(--text-xs);margin-top:6px;text-transform:none;letter-spacing:0">A seed-placeholder bracket is scheduled on the day/times/fields above, so people can plan ahead. Seeds <b>auto-fill from the standings</b> the moment pool play finishes — no extra clicks.</div>'+
       '</div>'+
@@ -2200,8 +2200,10 @@
             var brGames=window.STSgen.generateBracket({format:brFmt, teams:brSeeds, startGame:1});
             // bracket day / times / fields — the user's choices, falling back to the pool's
             var brDayV=$('bk_brDay').value, brDays = brDayV ? [brDayV] : ((days.length>1)?[days[days.length-1]]:days);
-            var brStart=tKey($('bk_brStart').value||'09:00'), brEvery=parseInt($('bk_brEvery').value,10)||90, brSlots=[];
-            for(var bm=brStart; bm<=22*60 && brSlots.length<40; bm+=Math.max(15,brEvery)) brSlots.push(hhmm(bm));
+            var brStart=tKey($('bk_brStart').value||'09:00'), brBreak=parseInt($('bk_brBreak').value,10); if(isNaN(brBreak)) brBreak=10;
+            var brLen=(f&&f.game_length_min)||defLen(tiers[0],true)||90;       // game length + your break = slot spacing
+            var brSpace=Math.max(15, brLen+brBreak), brSlots=[];
+            for(var bm=brStart; bm<=22*60 && brSlots.length<40; bm+=brSpace) brSlots.push(hhmm(bm));
             var brFieldsV=($('bk_brFields').value||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
             var brFields = brFieldsV.length ? brFieldsV : fields;
             assignSlots(brGames, brDays, brSlots, brFields, avail, restMin, GAMES.concat(pool), fid);
