@@ -1789,6 +1789,29 @@
       GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule();
     } catch(ex){ alert('Couldn’t clear: '+((ex&&ex.message)||ex)); btn.disabled=false; btn.textContent=was; }
   });
+  // AUTO-SEED: once a division's pool is fully played, fill its bracket "Seed N" slots
+  // from the standings — no button. Re-runs on every pool-score save so editing a score
+  // re-seeds. Returns how many slots it filled.
+  async function autoSeed(fid){
+    var bgAll = GAMES.filter(function(g){ return g.form_id===fid && g.g!=null; });
+    if(!bgAll.length) return 0;
+    var divs={}; bgAll.forEach(function(g){ divs[g.division||'']=1; });
+    var updates=[];
+    Object.keys(divs).forEach(function(d){
+      var pool=GAMES.filter(function(g){ return g.form_id===fid && g.g==null && (g.division||'')===d; });
+      if(!pool.length || !pool.every(function(g){ return g.done && g.away_score!=null && g.home_score!=null; })) return;  // only when that pool is complete
+      var st=STS.computeStandings(pool); if(!st.length) return;
+      var map={}; st.forEach(function(r,i){ map[i+1]=r.team; });
+      bgAll.filter(function(g){ return (g.division||'')===d; }).forEach(function(g){
+        var na=g.away, nh=g.home, ch=false;
+        var ma=String(g.away||'').match(/^Seed\s*(\d+)$/i); if(ma && map[+ma[1]]){ na=map[+ma[1]]; ch=true; }
+        var mh=String(g.home||'').match(/^Seed\s*(\d+)$/i); if(mh && map[+mh[1]]){ nh=map[+mh[1]]; ch=true; }
+        if(ch) updates.push(Object.assign({}, g, { away:na, home:nh }));
+      });
+    });
+    for(var i=0;i<updates.length;i++){ await STS.saveGame(updates[i]); }
+    return updates.length;
+  }
   document.getElementById('seedTeamsBtn').addEventListener('click', async function(){
     var fid = schedFilt; if(!fid){ alert('Pick an event first.'); return; }
     var bgAll = GAMES.filter(function(g){ return g.form_id===fid && g.g!=null; });
@@ -1941,7 +1964,10 @@
         await withTimeout(STS.saveGame({ id:g.id, form_id:fid, g:(isBracket?g.g:undefined), sport:(f&&f.sport)||g.sport||'baseball', division:val('g_div'),
           away:(awayLock?g.away:val('g_away')), home:(homeLock?g.home:val('g_home')), field:val('g_field'), date:val('g_date'), time:val('g_time'),
           away_score:as, home_score:hs, done:doneChecked, forfeit:!!ffBy, forfeit_by:ffBy||'' }), 15000);
-        GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[]; renderSchedule(); closeModal('gameModal');
+        GAMES = await STS.loadGamesScoped(ME, {}); gridMoves=[];
+        // pool score saved → if that division's pool just finished, auto-seed its bracket
+        if(!isBracket){ try { if(await autoSeed(fid)){ GAMES = await STS.loadGamesScoped(ME, {}); } } catch(_){} }
+        renderSchedule(); closeModal('gameModal');
       } catch(ex){
         var em=(ex&&ex.message)||String(ex);
         if(/permission|insufficient/i.test(em)) em='the database refused the write (permission). If you just updated the site, hard-refresh the page (Cmd-Shift-R) and try again.';
@@ -1949,6 +1975,8 @@
         b.disabled=false; b.textContent=prev;
       }
     };
+    // reset the Save button each open — a prior successful save left it disabled/"Saving…"
+    var _sv=document.getElementById('gmSave'); _sv.disabled=false; _sv.textContent='Save Game';
     openModal('gameModal');
   }
 
@@ -2024,6 +2052,11 @@
       '<div class="field"><label for="bk_form">Tournament</label><select class="input" id="bk_form">'+tf.map(function(f){return '<option value="'+esc(f.id)+'"'+(f.id===fid0?' selected':'')+'>'+esc(f.title)+'</option>';}).join('')+'</select></div>'+
       '<div class="field"><label>Format</label><div class="pill-tabs" id="bk_fmt"><button type="button" class="pill active" data-fmt="roundrobin">Round robin (pool)</button><button type="button" class="pill" data-fmt="single">Single elim</button><button type="button" class="pill" data-fmt="double">Double elim</button></div></div>'+
       '<div class="field" id="bk_gppWrap"><label for="bk_gpp">Pool games per team</label><input class="input" id="bk_gpp" type="number" value="2" min="1" max="10" style="max-width:110px"></div>'+
+      '<div class="field" id="bk_autoBrWrap" style="background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px">'+
+        '<label style="display:flex;align-items:center;gap:9px;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:600;color:var(--sts-navy)"><input type="checkbox" id="bk_autoBr" checked style="width:16px;height:16px"><span>Also build the playoff bracket now</span></label>'+
+        '<div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span class="muted" style="text-transform:none;letter-spacing:0">Type:</span><select class="input" id="bk_brFmt" style="max-width:150px"><option value="single">Single elim</option><option value="double">Double elim</option></select></div>'+
+        '<div class="muted" style="font-size:var(--text-xs);margin-top:6px;text-transform:none;letter-spacing:0">Creates a seed-placeholder bracket on your last day. Seeds <b>auto-fill from the standings</b> the moment pool play finishes — no extra clicks.</div>'+
+      '</div>'+
       '<div class="field"><label for="bk_tiers">Bracket / division label <span class="muted">(optional)</span></label><input class="input" id="bk_tiers" placeholder="one label (8U Open) — or several tiers: Diamond, Platinum, Gold" list="bk_tierList"><datalist id="bk_tierList"><option>Diamond</option><option>Platinum</option><option>Gold</option></datalist><div class="muted" style="font-size:var(--text-xs);margin-top:4px" id="bk_tierHint"></div></div>'+
       '<div class="field check" id="bk_emptyWrap" style="display:none"><input type="checkbox" id="bk_empty"><label for="bk_empty" style="text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500">Teams aren’t set yet — build the bracket with seed placeholders (Seed 1…N). You’ll drop the real teams in once pool play wraps.</label></div>'+
       '<div class="field hidden" id="bk_countWrap"><label for="bk_count">How many teams will be in the bracket?</label><input class="input" id="bk_count" type="number" min="2" max="64" value="8" style="max-width:110px"></div>'+
@@ -2086,7 +2119,7 @@
     $('bk_empty').addEventListener('change', applyEmptyMode);
     $('bk_city').value = cityFor(fid0); renderFieldOptions();
 
-    $('bk_fmt').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b)return; format=b.dataset.fmt; $('bk_fmt').querySelectorAll('.pill').forEach(function(p){p.classList.toggle('active',p===b);}); $('bk_gppWrap').style.display=(format==='roundrobin')?'':'none'; applyEmptyMode(); });
+    $('bk_fmt').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b)return; format=b.dataset.fmt; $('bk_fmt').querySelectorAll('.pill').forEach(function(p){p.classList.toggle('active',p===b);}); var rr=(format==='roundrobin'); $('bk_gppWrap').style.display=rr?'':'none'; $('bk_autoBrWrap').style.display=rr?'':'none'; applyEmptyMode(); });
     $('bk_form').addEventListener('change', function(){ ordered=null; custom=[]; renderTeams(); $('bk_count').value=Math.max(2, regTeamsFor($('bk_form').value).length || 8); $('bk_city').value=cityFor($('bk_form').value); renderFieldOptions(); $('bk_glenmin').value=(FORMS.find(function(x){return x.id===$('bk_form').value;})||{}).game_length_min || ''; });
     $('bk_city').addEventListener('change', renderFieldOptions);
     $('bk_tiers').addEventListener('input', function(){ var t=this.value.split(',').map(function(s){return s.trim();}).filter(Boolean), n=selected().length; $('bk_tierHint').textContent = (t.length>1 && format!=='roundrobin') ? (t.length+' tiers — the top '+Math.ceil(n/t.length)+' seeds go to “'+t[0]+'”, next to “'+t[1]+'”'+(t[2]?', …':'')+' (seed from standings first)') : ''; });
@@ -2141,6 +2174,17 @@
           var pool=window.STSgen.generatePool(teams,{gamesPerTeam:gpp});
           res=assignSlots(pool, days, slots, fields, avail, restMin, GAMES, fid);
           await STS.savePool(fid, {sport:sport, division:tiers[0]}, pool);
+          // optionally build the playoff bracket now (seed placeholders) on the last day —
+          // it auto-fills from standings when pool play finishes (see autoSeed in gmSave)
+          if($('bk_autoBr') && $('bk_autoBr').checked && teams.length>=2){
+            var brFmt=($('bk_brFmt').value==='double')?'double':'single';
+            var brSeeds=seedLabels(teams.length);
+            var brGames=window.STSgen.generateBracket({format:brFmt, teams:brSeeds, startGame:1});
+            var brDays=(days.length>1)?[days[days.length-1]]:days;   // playoffs on the final day
+            assignSlots(brGames, brDays, slots, fields, avail, restMin, GAMES.concat(pool), fid);
+            await STS.clearBracket(fid, tiers[0]);
+            await STS.saveBracket(fid, {sport:sport, division:tiers[0]}, brGames, {replace:false});
+          }
         } else if(tiers.length>1){
           // TIERED: split the (seeded) team list top-down into N tiers, a bracket each
           var per=Math.ceil(teams.length/tiers.length), all=[];
