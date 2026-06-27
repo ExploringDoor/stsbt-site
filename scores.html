@@ -77,6 +77,7 @@
       <button class="pill" data-sport="baseball">Baseball</button>
       <button class="pill" data-sport="softball">Softball</button>
     </div>
+    <div class="pill-tabs" id="divPills" style="display:none"></div>
     <div class="pill-tabs" id="seasonPills" style="display:none"></div>
     <select class="input day-spacer" id="eventSel" style="max-width:260px"><option value="">All tournaments</option></select>
   </div>
@@ -108,7 +109,7 @@
   var MODE='scores';   // final results only (companion to schedule.html, which shows games NOT yet final)
   function isPlayed(g){ return g.done && g.away_score!=null && g.home_score!=null; }
   function ffTag(g){ return !g.forfeit ? '' : '<span class="ff-tag">'+(g.forfeit_by==='both'?'Double forfeit':'Forfeit')+'</span>'; }
-  var GAMES=[], FORMS=[], filt={sport:'',event:'',season:''}, bracketTables={}, view='grid', curWeek='', curDay='';
+  var GAMES=[], FORMS=[], filt={sport:'',event:'',season:'',division:''}, bracketTables={}, view='grid', curWeek='', curDay='';
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
   function cityFor(fid){ var l=(FORMS.find(function(x){return x.id===fid;})||{}).location||''; return l?l.split(',')[0].trim():''; }
   function sideName(g, raw){
@@ -117,7 +118,27 @@
     return STSbracket.sideDisplay(bt, raw).name;
   }
   function schedPublic(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return !f || f.schedule_published !== false; }
-  function filtered(){ return GAMES.filter(function(g){ if(!schedPublic(g.form_id)) return false; if(!g.date) return false; if(MODE==='scores' ? !isPlayed(g) : isPlayed(g)) return false; if(filt.sport&&g.sport!==filt.sport) return false; if(filt.event&&g.form_id!==filt.event) return false; if(filt.season && STS.seasonOf(g.date)!==Number(filt.season)) return false; return true; }); }
+  function filtered(){ return GAMES.filter(function(g){ if(!schedPublic(g.form_id)) return false; if(!g.date) return false; if(MODE==='scores' ? !isPlayed(g) : isPlayed(g)) return false; if(filt.sport&&g.sport!==filt.sport) return false; if(filt.event&&g.form_id!==filt.event) return false; if(filt.season && STS.seasonOf(g.date)!==Number(filt.season)) return false; if(filt.division && (g.division||'')!==filt.division) return false; return true; }); }
+  function divsAvailable(){
+    var seen={}, out=[];
+    GAMES.forEach(function(g){
+      if(!schedPublic(g.form_id)||!g.date) return;
+      if(MODE==='scores'?!isPlayed(g):isPlayed(g)) return;
+      if(filt.sport&&g.sport!==filt.sport) return;
+      if(filt.event&&g.form_id!==filt.event) return;
+      if(filt.season && STS.seasonOf(g.date)!==Number(filt.season)) return;
+      var d=g.division||''; if(d&&!seen[d]){ seen[d]=1; out.push(d); }
+    });
+    out.sort(function(a,b){ var na=parseInt(a,10),nb=parseInt(b,10); if(!isNaN(na)&&!isNaN(nb)&&na!==nb) return na-nb; return String(a).localeCompare(String(b)); });
+    return out;
+  }
+  function buildDivPills(){
+    var divs=divsAvailable(), bar=document.getElementById('divPills');
+    if(divs.length<2){ bar.style.display='none'; bar.innerHTML=''; filt.division=''; return; }
+    if(filt.division && divs.indexOf(filt.division)<0) filt.division='';
+    bar.style.display='';
+    bar.innerHTML='<button class="pill'+(filt.division===''?' active':'')+'" data-div="">All divisions</button>'+divs.map(function(d){ return '<button class="pill'+(filt.division===d?' active':'')+'" data-div="'+esc(d)+'">'+esc(d)+'</button>'; }).join('');
+  }
 
   function weeks(){
     var byW={}; filtered().forEach(function(g){ var w=weekStart(g.date); (byW[w]=byW[w]||[]).push(g.date); });
@@ -153,6 +174,7 @@
 
   function render(){
     var head=document.getElementById('schedHead'), out=document.getElementById('scheduleOut');
+    buildDivPills();
     var wk=weeks();
     if(!wk.length){ head.innerHTML=''; out.innerHTML='<div class="empty">No final scores yet — results show up here as games are completed.</div>'; return; }
     if(!wk.some(function(x){return x.w===curWeek;})) curWeek=wk[wk.length-1].w;
@@ -174,6 +196,7 @@
   document.getElementById('viewSeg').addEventListener('click', function(e){ var b=e.target.closest('button[data-view]'); if(!b)return; view=b.dataset.view; document.querySelectorAll('#viewSeg button').forEach(function(p){p.classList.toggle('active',p===b);}); render(); });
   document.getElementById('sportPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b)return; filt.sport=b.dataset.sport; document.querySelectorAll('#sportPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); render(); });
   document.getElementById('eventSel').addEventListener('change', function(e){ filt.event=e.target.value; render(); });
+  document.getElementById('divPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b)return; filt.division=b.dataset.div; render(); });
   document.getElementById('seasonPills').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b)return; filt.season=b.dataset.season; document.querySelectorAll('#seasonPills .pill').forEach(function(p){p.classList.toggle('active',p===b);}); curWeek=''; curDay=''; bootWeek(); render(); });
   function buildSeasonBar(){
     var seasons = STS.seasonsIn(GAMES); var bar=document.getElementById('seasonPills');
