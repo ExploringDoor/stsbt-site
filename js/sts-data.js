@@ -1113,11 +1113,14 @@ export function computeStandings(games, opts) {
   });
   function h2hResult(a, b) { var x = (h2h[a.team] && h2h[a.team][b.team]) || { w: 0, l: 0 }; return x.w > x.l ? 1 : (x.l > x.w ? -1 : 0); }
   // Seeding tiebreakers (Keith's order): 1) W-L (win%, handled by the outer sort)
-  // 2) Head-to-head (2-team only) 3) Runs Against (fewer) 4) Avg run differential
-  // capped at ±10/game (higher) 5) Runs Scored (more). Coin flip = stable order.
+  // 2) Head-to-head (2-team only) 3) MORE WINS — mid-pool teams have played uneven
+  // game counts, so a 2-0 and a 1-0 BOTH compute to 1.000 win% and tie; the 2-0 must
+  // rank higher (this only matters before a pool is complete; after, win% already
+  // orders them). 4) Runs Against (fewer) 5) Avg run diff capped ±10/game 6) Runs Scored.
   function tieSort(grp) {
     grp.sort(function (a, b) {
       if (grp.length === 2) { var hr = h2hResult(a, b); if (hr !== 0) return -hr; }   // H2H (two only)
+      if (b.w !== a.w) return b.w - a.w;                        // more wins (a 2-0 outranks a 1-0 at equal win%)
       if (a.ra !== b.ra) return a.ra - b.ra;                    // fewer runs against
       if (b.cardiff !== a.cardiff) return b.cardiff - a.cardiff; // higher capped avg run diff (max 10/game)
       if (b.rs !== a.rs) return b.rs - a.rs;                    // more runs scored
