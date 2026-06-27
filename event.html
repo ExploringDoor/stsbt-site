@@ -132,9 +132,9 @@
       '<div class="ev-stat"><div class="n">'+(total-played)+'</div><div class="l">Upcoming</div></div></div>'+
       '<p class="muted" style="text-transform:none;letter-spacing:0">'+
         '<b>Format:</b> '+esc(detectFormat())+(dates?' &nbsp;·&nbsp; <b>When:</b> '+esc(dates):'')+(loc?' &nbsp;·&nbsp; <b>Where:</b> '+esc(loc):'')+'</p>'+
-      (FORM.notes ? '<div style="margin:18px 0;background:var(--surface,#f4f6f8);border:1px solid var(--line,#dfe3e8);border-radius:12px;padding:16px 18px">'+
-        '<h3 style="margin:0 0 8px;color:var(--sts-navy,#15294e);font-family:\'Saira Condensed\',Oswald,sans-serif;letter-spacing:.5px;font-size:20px">Rules &amp; Format</h3>'+
-        '<div style="white-space:pre-wrap;text-transform:none;letter-spacing:0;line-height:1.55;color:var(--fg,#23303f)">'+esc(FORM.notes)+'</div></div>' : '')+
+      (function(){ var dr=(FORM.div_rules && FORM.div_rules[curDiv]); var rt=dr||FORM.notes; if(!rt) return ''; return '<div style="margin:18px 0;background:var(--surface,#f4f6f8);border:1px solid var(--line,#dfe3e8);border-radius:12px;padding:16px 18px">'+
+        '<h3 style="margin:0 0 8px;color:var(--sts-navy,#15294e);font-family:\'Saira Condensed\',Oswald,sans-serif;letter-spacing:.5px;font-size:20px">Rules &amp; Format'+(dr?' <span style="color:var(--sts-red,#b00)">— '+esc(curDiv)+'</span>':'')+'</h3>'+
+        '<div style="white-space:pre-wrap;text-transform:none;letter-spacing:0;line-height:1.55;color:var(--fg,#23303f)">'+esc(rt)+'</div></div>'; })()+
       '<p class="muted" style="text-transform:none;letter-spacing:0">Use the tabs above for the full <b>schedule</b> (with every game’s result), the <b>standings</b>, and the <b>bracket</b>.</p>';
   }
   function gameCard(g){
