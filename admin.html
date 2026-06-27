@@ -2294,7 +2294,9 @@
           var msgs=[]; if(res.fallback) msgs.push(res.fallback+' game'+(res.fallback===1?'':'s')+' couldn’t honor availability'); if(res.unplaced) msgs.push(res.unplaced+' game'+(res.unplaced===1?'':'s')+' had no open slot — add more fields/times/days');
           $('bkNote').textContent='⚠ '+msgs.join('; ')+'.';
         }
-        GAMES=await STS.loadGamesScoped(ME,{}); schedFilt=fid; renderSchedule();
+        // show the games we just made: jump to this tournament AND clear any division
+        // filter (a stale filter — e.g. "9U" — would hide a newly generated division).
+        GAMES=await STS.loadGamesScoped(ME,{}); schedFilt=fid; schedDivFilt=''; renderSchedule();
         if(!res || (!res.fallback && !res.unplaced)) closeModal('bracketModal');
       } catch(ex){
         var em=(ex&&ex.message)||String(ex);
