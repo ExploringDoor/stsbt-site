@@ -14,7 +14,7 @@ import { buildMessage, buildCoachMessage, buildInsuranceMessage, buildMerchMessa
 
 const SAMPLE = {
   team_name: 'Brownwood Bandits', form_id: 'season-baseball',
-  form_title: '2027 Fall/Spring Baseball Team Registration',
+  form_title: 'Fall 2026/Spring 2027 Baseball Team Registration',
   sport: 'baseball', division: 'Triple-A', age_class: '12U', town: 'Brownwood, TX',
   coach_name: 'Jake Henderson', coach_phone: '325-555-2841', coach_email: 'jake.henderson@example.com',
   entry_no: 621900, amount_cents: 22500, card_last4: '4242', cc_retref: '180050583234',

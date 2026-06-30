@@ -32,7 +32,7 @@
     // ── Season (Fall/Spring runs Aug 1 → Jul 31) ─────────────────────────
     season: {
       year: 2027,
-      label: '2027 Fall/Spring',
+      label: 'Fall 2026/Spring 2027',
       starts: '2026-08-01',
       ends: '2027-07-31',
       // "Age as of" date shown on registration forms (May 1 of the season year)
