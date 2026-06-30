@@ -85,7 +85,7 @@ export function playerAge(p) {
 
 // ── SAMPLE DATA (used until Firebase is configured) ──────────────────
 var AGE_PRICES = [
-  { label: '7U', cents: 12500 }, { label: '8U Coach Pitch', cents: 12500 }, { label: '8U Kid Pitch', cents: 12500 },
+  { label: '7U Coach Pitch', cents: 12500 }, { label: '8U Coach Pitch', cents: 12500 }, { label: '8U Kid Pitch', cents: 12500 },
   { label: '9U', cents: 12500 }, { label: '10U', cents: 12500 }, { label: '11U', cents: 12500 },
   { label: '12U', cents: 12500 }, { label: '13U', cents: 12500 }, { label: '14U', cents: 12500 }
 ];
@@ -277,7 +277,7 @@ var _activity = SAMPLE_ACTIVITY.map(function (x) { return Object.assign({}, x); 
   var LAST = ['Henderson', 'McCoy', 'Whitfield', 'Drummond', 'Sparks', 'Holloway', 'Reyes', 'Tucker', 'Boyd', 'Lambert'];
   // weighted roughly like Keith's QuickScores: mostly season-baseball entries
   var FORM_MIX = ['season-baseball', 'season-baseball', 'season-baseball', 'season-baseball', 'season-baseball', 'season-baseball', 'season-baseball', 'season-softball', 'team-insurance', 'team-insurance', 'brownwood-summer-slam', 'iowa-park-heat-wave', 'hill-county-bash', 'georgetown-fathers-day'];
-  var BB_AGES = ['7U', '8U Coach Pitch', '9U', '10U', '11U', '12U', '13U', '14U'];
+  var BB_AGES = ['7U Coach Pitch', '8U Coach Pitch', '9U', '10U', '11U', '12U', '13U', '14U'];
   var SB_AGES = ['10U', '12U', '14U', '16U'];
   var BB_DIVS = ['Minors', 'Triple-A', 'Majors'], SB_DIVS = ['Class C', 'Class B', 'Class A'];
   var PAY_MIX = ['paid', 'paid', 'paid', 'paid', 'unpaid', 'pending', 'free'];

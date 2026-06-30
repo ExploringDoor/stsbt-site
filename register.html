@@ -349,7 +349,7 @@
       // (classification only — it doesn't change the price).
       document.getElementById('ageField').classList.remove('hidden'); ageSel.required = true;
       document.getElementById('ageLabel').innerHTML = "Team Age Group (as of "+esc(STS.ageCutoffLabel())+") <span class=\"req\">*</span>";
-      var ages = (window.LEAGUE_CONFIG && LEAGUE_CONFIG.ageGroups) || ['7U','8U Coach Pitch','8U Kid Pitch','9U','10U','11U','12U','13U','14U'];
+      var ages = (window.LEAGUE_CONFIG && LEAGUE_CONFIG.ageGroups) || ['7U Coach Pitch','8U Coach Pitch','8U Kid Pitch','9U','10U','11U','12U','13U','14U'];
       ageSel.innerHTML = '<option value="">Select one…</option>' + ages.map(function(a){ return '<option data-cents="0">'+esc(a)+'</option>'; }).join('');
     } else if (opts.length <= 1){
       // product (baseballs/insurance) — no age field
