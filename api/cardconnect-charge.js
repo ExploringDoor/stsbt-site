@@ -15,7 +15,7 @@
 import { fsGet, fsPatch, fsCreate, fsQuery, fbConfigured, fbAdminConfigured } from './_firestore.js';
 import { publicRoster } from './_age.js';
 import { sendMail, emailConfigured, adminAddress } from './_email.js';
-import { buildMessage, buildMerchMessage, buildInsuranceMessage } from './notify-registration.js';
+import { buildMessage, buildMerchMessage, buildInsuranceMessage, buildCoachMessage } from './notify-registration.js';
 
 const SITE = process.env.CARDCONNECT_SITE || '';
 const MID = process.env.CARDCONNECT_MERCHID || '';
@@ -126,6 +126,7 @@ export default async function handler(req, res) {
     // season/tournament → ensure the public team page exists AND is tagged with this
     // event (so "Who's Coming" lists it). A team that did season reg and now enters a
     // tournament gets the tournament appended — no duplicate team created.
+    let createdSlug = '';
     if (formType === 'season' || formType === 'tournament') {
       const base = teamSlug(reg.team_name, reg.age_class) || `team-${reg.id}`;
       // prefer a team already linked to this reg; else match an existing team by name+sport
@@ -155,6 +156,7 @@ export default async function handler(req, res) {
         }
       }
       await fsPatch(`registrations/${reg.id}`, { team_id: slug });
+      createdSlug = slug;
     }
 
     // email Keith directly (the public site is behind the password gate, so a
@@ -170,7 +172,17 @@ export default async function handler(req, res) {
       }
     } catch (e) { /* non-fatal */ }
 
-    return res.status(200).json({ ok: true, retref, last4 });
+    // COACH receipt — payment confirmation + working roster link (team page now exists).
+    // Their pre-payment "you're registered" email had no proof of payment.
+    try {
+      if (emailConfigured() && reg.coach_email && (formType === 'season' || formType === 'tournament')) {
+        const cdata = { ...reg, team_id: createdSlug || teamSlug(reg.team_name, reg.age_class), card_last4: last4, amount_cents: cents, payment_status: 'paid', paid_at: new Date().toISOString() };
+        const cm = buildCoachMessage(cdata);
+        await sendMail({ to: reg.coach_email, subject: cm.subject, html: cm.html, text: cm.text });
+      }
+    } catch (e) { /* non-fatal */ }
+
+    return res.status(200).json({ ok: true, retref, last4, team_id: createdSlug || undefined });
   } catch (e) {
     console.error('cardconnect-charge exception', e);
     return res.status(500).json({ error: String(e.message || e) });

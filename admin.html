@@ -1108,7 +1108,25 @@
       var method = prompt('Mark "'+(r.team_name||'this entry')+'" as PAID.\n\nHow did they pay? (e.g. Venmo, Cash, Check)', 'Venmo');
       if (method===null) return;   // cancelled
       var patch = { payment_status:'paid', paid_method:String(method||'manual').slice(0,40), paid_at:new Date().toISOString() };
-      try { await STS.updateRegistration(id, patch); Object.assign(r, patch); renderEntries(); }
+      try {
+        await STS.updateRegistration(id, patch); Object.assign(r, patch);
+        // Offline payment → still create the public team page (mirrors the card path,
+        // which auto-creates the team on approval). Best-effort: if it fails (e.g. a
+        // director without team-write permission), the paid status is still recorded.
+        var pform = FORMS.find(function(x){ return x.id===r.form_id; });
+        var ptype = pform ? pform.type : '';
+        if (ptype!=='product' && r.team_name && !/insurance|gamepro|ball|merch/i.test(r.form_id||'')){
+          try {
+            var tslug = await STS.createTeamFromRegistration(r);
+            if (tslug){
+              r.team_id = tslug;
+              // email the coach their confirmation + working roster link (best-effort)
+              try { fetch('/api/notify-registration', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ event:'confirm', registration: Object.assign({}, r, { team_id: tslug }) }) }); } catch(_){}
+            }
+          } catch(_){ /* team write not permitted / already exists — paid still recorded */ }
+        }
+        renderEntries();
+      }
       catch(ex){ alert('Could not mark paid — '+(ex && ex.message ? ex.message : 'please try again')+'\n\n(If you\'re a director, make sure this entry belongs to one of your events.)'); }
       return;
     }

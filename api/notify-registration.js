@@ -73,6 +73,10 @@ async function writeActivity(event, r) {
 
 function money(c) { return c != null && c !== '' ? '$' + (Number(c) / 100).toFixed(2) : ''; }
 function slugify(s) { return String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+// A team's identity is NAME + AGE DIVISION, so its page slug must include the age
+// (matches teamSlug() in cardconnect-charge.js / sts-data.js). Using name only here
+// produced dead roster links (team doc is "pirates-12u", link said "pirates").
+function teamSlug(name, age) { return slugify(String(name || '') + (age ? ' ' + age : '')); }
 function fmtDob(v) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(v || ''))) return '';
   const d = new Date(String(v) + 'T12:00:00'); if (isNaN(d)) return '';
@@ -204,8 +208,15 @@ export function buildCoachMessage(r) {
   const site = process.env.SITE_URL || 'https://ststournaments.com';
   const team = r.team_name || 'your team';
   const code = r.team_code || '';
-  const slug = slugify(r.team_name);
+  // age-aware slug (and prefer the authoritative team_id stamped on the reg at pay time)
+  const slug = r.team_id || teamSlug(r.team_name, r.age_class);
   const manage = `${site}/roster-edit.html?id=${encodeURIComponent(slug)}${code ? `&code=${encodeURIComponent(code)}` : ''}`;
+  const paid = !!(r.paid_at || r.card_last4 || r.payment_status === 'paid');
+  const amt = Number(r.amount_cents);
+  const receipt = paid
+    ? `<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:12px 14px;margin:6px 0 14px;color:#065f46">
+         <b>✓ Payment received</b>${amt ? ` — ${money(r.amount_cents)}` : ''}${r.card_last4 ? ` on card •••• ${esc(r.card_last4)}` : (r.paid_method ? ` (${esc(r.paid_method)})` : '')}.
+       </div>` : '';
   const codeBox = code
     ? `<div style="background:#00224f;border-radius:10px;padding:16px 18px;margin:10px 0 14px;text-align:center">
          <div style="color:rgba(255,255,255,.7);font-size:11px;letter-spacing:.12em;text-transform:uppercase">Your Team Code</div>
@@ -213,13 +224,13 @@ export function buildCoachMessage(r) {
        </div>` : '';
   const body =
     `<div>Thanks for registering <b>${esc(team)}</b>${r.form_title ? ` for <b>${esc(r.form_title)}</b>` : ''}.</div>` +
-    codeBox +
+    receipt + codeBox +
     `<div>Your <b>team code</b> is how you sign in to add your roster, manage your team, and upload insurance — keep it somewhere safe.</div>` +
-    `<div style="margin-top:10px;color:#64748b;font-size:13px">Your team page and roster open as soon as your registration is confirmed.</div>`;
+    `<div style="margin-top:10px;color:#64748b;font-size:13px">${paid ? 'Your team page and roster are ready now — tap below to add your players.' : 'Your team page and roster open as soon as your registration is confirmed.'}</div>`;
   return {
-    subject: `You're registered — ${team} · Small Town Select`,
-    text: `Thanks for registering ${team}.\nYour team code: ${code}\nManage your team: ${manage}`,
-    html: shell('submitted', "You're Registered!", body, manage, 'Manage Your Team'),
+    subject: paid ? `Payment received — ${team} · Small Town Select` : `You're registered — ${team} · Small Town Select`,
+    text: `Thanks for registering ${team}.${paid ? `\nPayment received${amt ? ' — ' + money(r.amount_cents) : ''}.` : ''}\nYour team code: ${code}\nManage your team: ${manage}`,
+    html: shell('submitted', paid ? 'Payment Received' : "You're Registered!", body, manage, paid ? 'Add Your Roster' : 'Manage Your Team'),
   };
 }
 
