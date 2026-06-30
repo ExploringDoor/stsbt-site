@@ -183,6 +183,9 @@
           <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff">
             <iframe id="ccFrame" title="Secure card entry" style="width:100%;height:215px;border:0;display:block"></iframe>
           </div>
+          <div style="margin-top:12px">
+            <div class="field"><label>Billing street address <span class="req">*</span></label><input class="input" id="ccStreet" autocomplete="address-line1" placeholder="123 Main St"></div>
+          </div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
             <div class="field" style="flex:2;min-width:180px"><label>Name on card <span class="req">*</span></label><input class="input" id="ccName" autocomplete="cc-name"></div>
             <div class="field" style="flex:1;min-width:110px"><label>Billing ZIP <span class="req">*</span></label><input class="input" id="ccZip" inputmode="numeric" autocomplete="postal-code" maxlength="10"></div>
@@ -609,12 +612,12 @@
   });
   function payReady(){
     if (!STS.isConfigured) return true;   // preview/demo — no real card required
-    return !!PAY.token && !!(document.getElementById('ccName').value||'').trim() && !!(document.getElementById('ccZip').value||'').trim();
+    return !!PAY.token && !!(document.getElementById('ccName').value||'').trim() && !!(document.getElementById('ccStreet').value||'').trim() && !!(document.getElementById('ccZip').value||'').trim();
   }
   function updatePayBtn(){
     var b = document.getElementById('payBtn');
     if (payReady()){ b.disabled = false; b.textContent = 'Pay ' + STS.money(PAY.cents); }
-    else { b.disabled = true; b.textContent = PAY.token ? 'Add name & ZIP to pay' : 'Enter card to continue'; }
+    else { b.disabled = true; b.textContent = PAY.token ? 'Add billing details to pay' : 'Enter card to continue'; }
   }
   function openPayment(res, data, cents){
     PAY.regRes = res; PAY.data = data; PAY.cents = cents; PAY.token = ''; PAY.expiry = '';
@@ -643,7 +646,7 @@
     try {
       var r = await fetch('/api/cardconnect-charge', { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ regId: PAY.regRes.id, token: PAY.token, expiry: PAY.expiry,
-          name: document.getElementById('ccName').value.trim(), postal: document.getElementById('ccZip').value.trim() }) });
+          name: document.getElementById('ccName').value.trim(), address: document.getElementById('ccStreet').value.trim(), postal: document.getElementById('ccZip').value.trim() }) });
       var j = {}; try { j = await r.json(); } catch(_){}
       if (r.ok && j.ok) { location.href = thanksUrl(PAY.regRes, PAY.data, 'paid'); return; }
       er.textContent = j.error || (j.declined ? 'Your card was declined — please try a different card.' : 'Payment could not be completed. Please try again.');
@@ -660,6 +663,7 @@
       var sb = document.getElementById('submitBtn'); if (sb){ sb.disabled = false; recalcTotal(); }
     });
     document.getElementById('ccName').addEventListener('input', updatePayBtn);
+    document.getElementById('ccStreet').addEventListener('input', updatePayBtn);
     document.getElementById('ccZip').addEventListener('input', updatePayBtn);
   })();
 
