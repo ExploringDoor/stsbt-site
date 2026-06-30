@@ -148,27 +148,41 @@
     var el = document.getElementById('homeTourneys');
     try {
       var forms = await STS.loadForms();
+      var games = await STS.loadGames();
+      var today = new Date().toISOString().slice(0, 10);
+      // A tournament is "finished" once its last scheduled game is in the past — show it
+      // as a result (View Results) instead of an open Register CTA.
+      function isFinished(fid){
+        var gs = games.filter(function(g){ return g.form_id === fid; });
+        var ds = gs.map(function(g){ return g.date; }).filter(Boolean).sort();
+        return ds.length > 0 && ds[ds.length - 1] < today;
+      }
       var tourneys = forms.filter(function(f){ return f.type === 'tournament'; });
       HOME_TOURNEYS = tourneys;
       if (!tourneys.length) { el.innerHTML = '<div class="empty">Tournaments will be posted here soon.</div>'; }
       else {
         el.innerHTML = tourneys.map(function(f){
+          var done = isFinished(f.id);
           var sportBadge = '<span class="badge badge-sport">' + esc(f.sport) + '</span>';
           var divs = (f.divisions || []).map(function(d){ return '<span class="badge badge-archived">' + esc(d) + '</span>'; }).join(' ');
           var extLink = f.info_url ? '<span class="tc-ext" role="link" tabindex="0" onclick="event.preventDefault();event.stopPropagation();window.open(this.dataset.u,\'_blank\',\'noopener\')" data-u="' + esc(f.info_url) + '">Tournament site ↗</span>' : '';
           var infoHref = 'event.html?id=' + encodeURIComponent(f.id);
           var regHref = 'register.html?form=' + encodeURIComponent(f.id);
+          var foot = done
+            ? '<div class="tc-foot"><span class="badge" style="background:#065f46;color:#fff">✓ Final</span>' +
+                '<div class="tc-actions"><a class="btn btn-outline btn-sm" href="' + infoHref + '#bracket">View Results →</a></div></div>'
+            : '<div class="tc-foot"><span class="muted" style="font-size:var(--text-sm)">' + (extLink || 'First pay, first play') + '</span>' +
+                '<div class="tc-actions">' +
+                  '<button type="button" class="btn btn-outline btn-sm whoCard" data-form="' + esc(f.id) + '">👥 Who\'s Coming</button>' +
+                  '<a class="btn btn-red btn-sm" href="' + regHref + '">Register</a>' +
+                '</div></div>';
           return '<div class="tcard">' +
             '<a class="tc-link" href="' + infoHref + '">' +
               '<div class="tc-top"><span class="tc-date">' + esc(f.event_dates || 'Dates TBA') + '</span>' + sportBadge + '</div>' +
               '<div class="tc-body"><h3>' + esc(f.title) + '</h3><div class="tc-loc">' + esc(f.location || 'Location TBA') + '</div>' +
                 '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">' + divs + '</div></div>' +
             '</a>' +
-            '<div class="tc-foot"><span class="muted" style="font-size:var(--text-sm)">' + (extLink || 'First pay, first play') + '</span>' +
-              '<div class="tc-actions">' +
-                '<button type="button" class="btn btn-outline btn-sm whoCard" data-form="' + esc(f.id) + '">👥 Who\'s Coming</button>' +
-                '<a class="btn btn-red btn-sm" href="' + regHref + '">Register</a>' +
-              '</div></div>' +
+            foot +
           '</div>';
         }).join('');
       }
