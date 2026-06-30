@@ -126,7 +126,7 @@
           <thead><tr id="entriesHead">
             <th class="srt" data-sort="entry_no">#</th><th class="srt" data-sort="created_at">Submitted</th><th class="srt" data-sort="payment_status">Pay</th><th class="srt" data-sort="ins">Insurance</th><th class="srt" data-sort="sport">Sport</th><th class="srt" data-sort="age_class">Age / Class</th><th class="srt" data-sort="division">Division</th>
             <th class="srt" data-sort="team_name">Team</th><th class="srt" data-sort="coach_name">Coach</th><th class="srt" data-sort="coach_email">Email</th><th class="srt" data-sort="coach_phone">Phone</th><th>Waiver</th>
-            <th class="srt" data-sort="amount_cents">Amount</th><th>Last 4</th><th>CC Txn / Order</th><th>Actions</th>
+            <th class="srt" data-sort="amount_cents">Amount</th><th>Last 4</th><th>CC Ref</th><th>Actions</th>
           </tr></thead>
           <tbody id="entriesBody"></tbody>
         </table>
@@ -1067,7 +1067,7 @@
         '<td>'+(r.waiver_agreed?'✓':'—')+'</td>'+
         '<td>'+STS.money(r.amount_cents)+'</td>'+
         '<td>'+(r.card_last4?('•••• '+esc(r.card_last4)):'—')+'</td>'+
-        '<td>'+esc(r.clover_order_id||'—')+'</td>'+
+        '<td>'+esc(r.cc_retref||r.clover_order_id||'—')+'</td>'+
         '<td><div class="actions">'+
           ((!archived && r.payment_status!=='paid' && Number(r.amount_cents)>0) ? '<button class="icon-btn" data-paid="'+esc(r.id)+'" title="Mark paid (Venmo / cash / check)">💵</button>' : '')+
           '<button class="icon-btn" data-edit="'+esc(r.id)+'" title="View / edit">✎</button>'+
@@ -1132,7 +1132,7 @@
     }
     if (b.dataset.archive){ await STS.updateRegistration(id, { status:'archived' }); r.status='archived'; renderEntries(); return; }
     if (b.dataset.restore){ await STS.updateRegistration(id, { status:'completed' }); r.status='completed'; renderEntries(); return; }
-    if (b.dataset.copy){ var copy = Object.assign({}, r); ['id','paid_at','team_id','team_code','entry_no','created_at','clover_session_id','clover_payment_id','card_last4','clover_order_id'].forEach(function(k){ delete copy[k]; }); copy.team_name = r.team_name+' (copy)'; copy.payment_status = (Number(copy.amount_cents)>0?'unpaid':'free'); await STS.createRegistration(copy); REGS = await STS.loadRegistrationsScoped(ME, {}); renderEntries(); return; }
+    if (b.dataset.copy){ var copy = Object.assign({}, r); ['id','paid_at','team_id','team_code','entry_no','created_at','clover_session_id','clover_payment_id','card_last4','clover_order_id','cc_retref','cc_authcode','paid_method'].forEach(function(k){ delete copy[k]; }); copy.team_name = r.team_name+' (copy)'; copy.payment_status = (Number(copy.amount_cents)>0?'unpaid':'free'); await STS.createRegistration(copy); REGS = await STS.loadRegistrationsScoped(ME, {}); renderEntries(); return; }
     if (b.dataset.edit){ openEntryModal(r); }
   });
 
@@ -1146,12 +1146,13 @@
   }
   function openEntryModal(r){
     document.getElementById('emTitle').textContent = 'Entry #' + (r.entry_no||'') + ' — ' + (r.team_name||'');
+    var refRef = r.cc_retref || r.clover_order_id || '';
     var refund = (r.payment_status==='paid') ? (
-      '<div class="refund-help"><b>Refund helper</b><div class="muted" style="font-size:var(--text-xs);margin:4px 0 8px">Match these in Clover to issue a refund.</div>'+
+      '<div class="refund-help"><b>Refund helper</b><div class="muted" style="font-size:var(--text-xs);margin:4px 0 8px">Match these in CardPointe to issue a refund.</div>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
         '<span class="copy-chip" data-cp="'+esc(r.card_last4||'')+'">•••• '+esc(r.card_last4||'—')+'</span>'+
-        '<span class="copy-chip" data-cp="'+esc(r.clover_order_id||'')+'">Order '+esc(r.clover_order_id||'—')+'</span>'+
-        '<a class="btn btn-outline btn-sm" href="https://www.clover.com/" target="_blank" rel="noopener">Open Clover ↗</a>'+
+        '<span class="copy-chip" data-cp="'+esc(refRef)+'">Ref '+esc(refRef||'—')+'</span>'+
+        '<a class="btn btn-outline btn-sm" href="https://cardpointe.cardconnect.com/account" target="_blank" rel="noopener">Open CardPointe ↗</a>'+
       '</div></div>') : '';
     document.getElementById('emBody').innerHTML =
       '<div class="field-row"><div class="field"><label>Team Name</label><input class="input" id="e_team" value="'+esc(r.team_name||'')+'"></div>'+
@@ -1163,7 +1164,7 @@
       '<div class="field"><label>Coach Email</label><input class="input" id="e_cemail" value="'+esc(r.coach_email||'')+'"></div>'+
       '<div class="field-row"><div class="field"><label>Amount (USD)</label><input class="input" id="e_amt" value="'+((r.amount_cents||0)/100).toFixed(2)+'"></div>'+
       '<div class="field"><label>Card Last 4</label><input class="input" id="e_last4" value="'+esc(r.card_last4||'')+'"></div></div>'+
-      '<div class="field"><label>CC Txn / Clover Order ID</label><input class="input" id="e_order" value="'+esc(r.clover_order_id||'')+'"></div>'+
+      '<div class="field"><label>CardConnect Ref (retref)</label><input class="input" id="e_order" value="'+esc(r.cc_retref||r.clover_order_id||'')+'"></div>'+
       '<dl class="kv mt-5"><dt>Team Code</dt><dd>'+esc(r.team_code||'—')+'</dd>'+
         (r.registrant_email?'<dt>Registrant Email</dt><dd>'+esc(r.registrant_email)+'</dd>':'')+
         '<dt>Form</dt><dd>'+esc((FORMS.find(function(f){return f.id===r.form_id;})||{}).title||r.form_title||r.form_id||'—')+'</dd></dl>'+
@@ -1174,7 +1175,7 @@
       var fields = {
         team_name: val('e_team'), division: val('e_div'), age_class: val('e_age'), payment_status: val('e_pay'),
         coach_name: val('e_cname'), coach_phone: val('e_cphone'), coach_email: val('e_cemail'),
-        amount_cents: Math.round(parseFloat(val('e_amt')||'0')*100), card_last4: val('e_last4'), clover_order_id: val('e_order')
+        amount_cents: Math.round(parseFloat(val('e_amt')||'0')*100), card_last4: val('e_last4'), cc_retref: val('e_order')
       };
       if (fields.payment_status === 'free') fields.amount_cents = 0;   // free ⇒ $0 (keep the invariant)
       await STS.updateRegistration(r.id, fields); Object.assign(r, fields); renderEntries(); closeModal('entryModal');

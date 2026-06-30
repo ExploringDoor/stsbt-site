@@ -17,7 +17,7 @@ const SAMPLE = {
   form_title: '2027 Fall/Spring Baseball Team Registration',
   sport: 'baseball', division: 'Triple-A', age_class: '12U', town: 'Brownwood, TX',
   coach_name: 'Jake Henderson', coach_phone: '325-555-2841', coach_email: 'jake.henderson@example.com',
-  entry_no: 621900, amount_cents: 22500, card_last4: '4242', clover_order_id: 'ORD-77123',
+  entry_no: 621900, amount_cents: 22500, card_last4: '4242', cc_retref: '180050583234',
   team_code: 'BAND7', created_at: '2026-06-12T11:11:00', player_count: 12,
 };
 const INSURANCE_SAMPLE = Object.assign({}, SAMPLE, {
@@ -25,7 +25,7 @@ const INSURANCE_SAMPLE = Object.assign({}, SAMPLE, {
 });
 const MERCH_SAMPLE = Object.assign({}, SAMPLE, {
   form_id: 'gamepro-baseballs', form_title: 'STS GamePro Baseballs', amount_cents: 6000,
-  clover_order_id: 'ORD-77555', paid_at: '2026-06-12T12:30:00', age_class: '', division: '',
+  cc_retref: '180051583240', paid_at: '2026-06-12T12:30:00', age_class: '', division: '',
   ship_address: 'Jake Henderson\n1420 Ranch Road\nBrownwood, TX 76801',
 });
 const ROSTER_SAMPLE = {

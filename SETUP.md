@@ -3,8 +3,9 @@
 This site runs on **sample data** out of the box, so every page works for preview
 before any accounts exist. To make it live, complete the steps below.
 
-Stack: static HTML + Firebase/Firestore (client SDK) + Vercel serverless `api/*`
-functions. Same proven pattern as the D27 / DVSL sites — **separate** project.
+Stack: static HTML + Firebase/Firestore (client SDK + REST) + Vercel serverless `api/*`.
+Payments via **CardConnect / CardPointe** (Fiserv). Email via **SendGrid**. Same proven
+hosting pattern as the D27 / DVSL sites — **separate** project.
 
 ---
 
@@ -14,132 +15,156 @@ cd ~/Desktop/stsbt-site
 npx serve -l 8011 .      # then open http://localhost:8011
 ```
 Pages render from built-in sample data (`js/sts-data.js`). Admin opens in
-**demo mode** (no login) until Firebase is configured.
+**demo mode** (no login) until Firebase is live AND demo mode is turned off.
 
 ---
 
-## 1. Firebase (database + admin login) — NEW project, separate from D27/DVSL
-1. console.firebase.google.com → **Add project** → e.g. `stsbt-tournaments`.
-2. Build → **Firestore Database** → Create (production mode).
-3. Build → **Authentication** → enable **Email/Password** → add a user for Keith
-   (this is the admin login).
-4. Project settings → **Your apps → Web app** → copy the `firebaseConfig`.
-5. Paste it into **`js/firebase-init.js`** (replace the `PASTE_…` values). Once the
-   `apiKey` no longer starts with `PASTE`, the whole site switches from sample data
-   to live Firestore automatically.
-6. Publish the rules in **`firestore.rules`** (Firestore → Rules → paste → Publish).
+## 1. Firebase (database + admin login)
+The Firebase Web config is **already pasted** into `js/firebase-init.js` (project
+`small-town-select`). The site flips from sample data to live Firestore automatically
+once **demo mode is off** (see §6) — the api key is already real.
 
-### Bootstrap the Super Admin — DO THIS BEFORE PUBLISHING RULES (or it locks everyone out)
-The rules make every admin write require an `admins/{uid}` doc with `active:true`; the
-first super can't be made through the app. **In order:**
-1. Firebase **Authentication** → add Keith's user → copy his **User UID**.
-2. Firestore console → create doc **`admins/{thatUID}`** =
-   `{ role:'super', active:true, events:[], name:'Keith Philips', email:'…' }`.
-3. Sign in to `admin.html`, confirm the **Directors** panel loads.
-4. **Only then** publish `firestore.rules`.
-Break-glass: the project owner can always edit `admins/*` directly in the console.
+You need **two** super-admin identities, and missing the second is the classic
+launch-day failure:
+
+1. **Keith's login** — Authentication → add his Email/Password user → copy the **UID**
+   → Firestore: create `admins/{UID}` = `{ role:'super', active:true, events:[],
+   name:'Keith Philips', email:'…' }`. This is what lets him into `admin.html`.
+2. **The server robot** — the serverless charge/roster functions sign in as a dedicated
+   Firebase Auth user (`FB_ADMIN_EMAIL` / `FB_ADMIN_PASSWORD`) to write paid/team/roster
+   docs. That user **also needs its own** `admins/{UID}` = `{ role:'super', active:true }`.
+   ⚠️ If it isn't super, a card **charges at the gateway but the registration never marks
+   paid and no team page is created** (writes are denied). Verify with `/api/admin-health`
+   (§5).
+
+Bootstrap order (or the rules lock everyone out): create the user(s) → create their
+`admins/{uid}` docs → confirm the **Directors** panel loads in `admin.html` → **only then**
+publish `firestore.rules`. Break-glass: the project owner can always edit `admins/*` in the
+console.
 
 ### Adding directors (Season Admins) — built into the admin
-In `admin.html` → **Directors** (super only): **+ Add Director** → enter name/email, paste
-their **Firebase Auth User UID** (create their login in Authentication first), and check the
-**events** they run. They sign in and see only those events' entries (and, once built, that
-event's schedule/scores). Disable = instant revoke (`active:false`), never deleted. Each
-director's `events[]` is a list of **form ids** (the tournament form *is* the event); cap 10.
-Preview a director's scoped view locally with `admin.html?as=uid-carl`.
+`admin.html` → **Directors** (super only): **+ Add Director** → name/email + their Firebase
+Auth **UID** + the **events** they run. They sign in and see only those events. Disable =
+instant revoke (`active:false`), never deleted. Each director's `events[]` is a list of
+**form ids**; cap 10. Preview a director's scoped view with `admin.html?as=uid-carl`.
 
 ---
 
 ## 2. Vercel (hosting + serverless functions)
-1. Push this folder to a new GitHub repo, import into Vercel (no build step —
-   `vercel.json` is already set).
+1. Push to a GitHub repo, import into Vercel (no build step — `vercel.json` is set).
 2. Add Environment Variables (Project → Settings → Environment Variables):
 
 | Variable | What | Needed for |
 |---|---|---|
-| `FIREBASE_PROJECT_ID` | STS Firebase project id | server writes |
+| `FIREBASE_PROJECT_ID` | `small-town-select` | server writes |
 | `FIREBASE_API_KEY` | Firebase Web API key | server writes |
-| `RESEND_API_KEY` | resend.com API key (free) | email to Keith |
-| `ADMIN_EMAIL` | `keithphilips34@gmail.com` | email to Keith |
-| `SITE_URL` | e.g. `https://ststournaments.com` | redirects / links |
-| `CLOVER_ENV` | `sandbox` then `production` | payments |
-| `CLOVER_MERCHANT_ID` | Keith's Clover Merchant ID | payments |
-| `CLOVER_PRIVATE_TOKEN` | Clover Ecommerce private token | payments |
-| `CLOVER_WEBHOOK_SECRET` | Clover Hosted-Checkout signing secret | payments |
+| `FB_ADMIN_EMAIL` | the server robot's Firebase Auth email | server writes (paid / team / roster) |
+| `FB_ADMIN_PASSWORD` | that robot user's password | server writes |
+| `SENDGRID_API_KEY` | SendGrid API key | email |
+| `MAIL_FROM` | verified sender, e.g. `noreply@ststournaments.com` | email from-address |
+| `ADMIN_EMAIL` | `keithphilips34@gmail.com` | who gets alerts |
+| `SITE_URL` | the real domain, e.g. `https://ststournaments.com` | email links / redirects |
+| `CARDCONNECT_SITE` | sandbox `quickscores-uat` → **prod `<site>`** | payments (server) |
+| `CARDCONNECT_MERCHID` | sandbox `810000003251` → **prod MID** | payments |
+| `CARDCONNECT_API_USER` | REST API username | payments |
+| `CARDCONNECT_API_PASS` | REST API password | payments |
+| `CARDCONNECT_CURRENCY` | `USD` | payments |
+| `SITE_GATE` | a password to keep the site private pre-launch — **DELETE at launch** | preview wall |
+| `FIREBASE_STORAGE_BUCKET` | bucket id | champion-photo uploads |
+| `ROSTER_PID_SALT` | any random string | player-id hashing |
+| `SEASON_YEAR` | `2027` | season tagging |
 
 ---
 
-## 3. Email (Resend) — alerts to Keith on each registration
-1. resend.com → free account → **API Keys** → create → set `RESEND_API_KEY`.
-2. Set `ADMIN_EMAIL` to Keith's address. Until a domain is verified, mail sends
-   from `onboarding@resend.dev` (fine for internal alerts).
+## 3. Email — SendGrid (alerts to Keith + coach confirmations/receipts)
+1. SendGrid → create an **API key** → set `SENDGRID_API_KEY`.
+2. **Verify the sender**: single-sender verify `noreply@ststournaments.com`, or (better)
+   domain-authenticate `ststournaments.com` with the SPF/DKIM DNS records SendGrid gives you.
+   Set `MAIL_FROM` to that verified address.
+3. Set `ADMIN_EMAIL` = Keith's inbox and `SITE_URL` = the real domain (every email link uses it).
+4. Test: `GET /api/email-test?to=you@example.com` → confirm it arrives (check spam).
+If email isn't configured the code **no-ops safely** (nothing else breaks), so you can launch
+the rest first — but coaches won't get confirmations until this is set.
 
 ---
 
-## 4. Payments — Clover (CONFIRMED)
-Processor is **Clover** (clover.com **Hosted Checkout API**) — already implemented in
-`api/create-checkout.js` + `api/clover-webhook.js`. Steps:
-1. Enable 2FA on Keith's Clover account.
-2. Settings → Ecommerce → **Ecommerce API Tokens** → create the **private** token
-   (one per merchant — confirm it isn't already used) → `CLOVER_PRIVATE_TOKEN`.
-3. Grab the **Merchant ID** → `CLOVER_MERCHANT_ID`.
-4. Settings → Ecommerce → **Hosted Checkout** → set webhook URL to
-   `https://<domain>/api/clover-webhook` → **Generate** signing secret →
-   `CLOVER_WEBHOOK_SECRET`. **Leave the dashboard redirect URLs blank** (they
-   override the per-request ones).
-5. Make a **sandbox test merchant** for QA; test end-to-end in `sandbox`, then flip
-   `CLOVER_ENV` to `production` and swap to the production token/merchant.
+## 4. Payments — CardConnect / CardPointe (Fiserv)
+**Already built and sandbox-tested.** The card is entered in CardConnect's **hosted iframe
+tokenizer** (the PAN never touches us); the token is posted to `api/cardconnect-charge.js`,
+which authorizes + captures via the Gateway API, marks the registration paid, auto-creates
+the team page, and emails Keith + the coach.
 
-Refunds are done by Keith **inside Clover** — the admin Entries table surfaces the
-**card last-4 + Clover order id** for matching (read-only helper, no programmatic
-refunds).
+- The iframe host is `config.js` → `cardconnect.site` (currently sandbox `quickscores-uat`).
+- The server creds are the `CARDCONNECT_*` Vercel env vars (currently sandbox).
 
-**Fallback:** if Clover onboarding stalls the July launch, Stripe Checkout is a
-drop-in (same flow, last-4 arrives in the webhook). Only `create-checkout.js` +
-`clover-webhook.js` change.
+**To go live, complete Fiserv's "validation":** their integration email includes a
+**validation form** (JotForm) and a rep contact — they ask you to reach out first. Once
+validated, they issue your **production** `site` + `MID` + REST `user`/`pass`. Then swap, in
+**two places that must match**:
+1. `config.js` → `cardconnect.site` = the production `<site>` (the iframe host), and
+2. Vercel env → `CARDCONNECT_SITE` / `CARDCONNECT_MERCHID` / `CARDCONNECT_API_USER` /
+   `CARDCONNECT_API_PASS` = the production values.
+If only one side changes, the token and the charge target different gateways and every
+payment fails.
 
----
+Best practices already met (verified against the sandbox gateway): `ecomind:E`, cardholder
+name, AVS street + zip, and CVV (the iframe binds CVV to the token — `cvvresp:M`).
 
-## 5. Server writes & security — a HARD payment-launch gate
-**ALL THREE** serverless functions that write via the Firestore REST API + API key are
-**unauthenticated** and will be **denied** by the hardened rules (which limit
-`request.auth==null` to registration *create* only):
-- `api/create-checkout.js` — patches the registration → `pending`
-- `api/clover-webhook.js` — marks **paid** + auto-creates the **team page**
-- `api/roster-save.js` — saves the **team roster**
-
-**Required before payments go live:** migrate all three (+ `api/_firestore.js`) to the
-**Firebase Admin SDK** with a service account (`FIREBASE_SERVICE_ACCOUNT` env), which writes
-as a trusted identity and bypasses rules. A *partial* migration silently bricks checkout —
-grep `api/` for `fsPatch`/`fsCreate` and confirm none remain on the REST path. Also **backfill
-a `form_id`** on any existing `games`/`tournaments` docs (a scoped doc with no `form_id` fails
-closed). The Clover webhook already fails closed in production if the signing secret is unset.
-
-Until this is done, the **client flows** (browse, register, view teams, the whole Season-Admin
-UI) all work; only the paid-confirmation / auto-team-create / roster-save server steps are gated.
-Validate the whole gate in a **staging** Firebase project with the abuse matrix: forged `paid`
-create → denied · unauthenticated reg update → denied (then works via Admin SDK) · director
-`getDocs(registrations)` → denied · director writing `admins/*` → denied.
+Refunds: Keith does them in the **CardPointe** portal. The admin Entries table surfaces the
+**`cc_retref` (CardConnect retrieval ref) + card last-4** for matching (read-only helper, no
+programmatic refunds).
 
 ---
 
-## 6. Branding to drop in later
-- **Logo:** add Keith's real STS crest at `assets/sts-crest.png`, then set
-  `USE_CREST_IMG = true` at the top of `js/sts-chrome.js`. (A clean "STS" monogram
-  shows until then.)
-- **Hero image:** the homepage hero is a navy gradient; drop a photo in and set it
-  as the `.hero` background if desired.
+## 5. Server writes & security
+The serverless writers (`api/cardconnect-charge.js`, `api/roster-save.js`, etc.) sign in as
+the **FB_ADMIN robot user** and write as a trusted identity, so the hardened rules can keep
+anonymous access to **registration *create* only**.
+
+Verify on the **deployed** site (after the gate is removed, §6):
+```
+GET /api/admin-health   →   { payments_configured:true, admin_sign_in:"ok", is_super:true }
+```
+All three must be true before taking real money. `firestore.rules`: anon can only *create* a
+shape-pinned registration; forms/teams/games writes require super/director. Publish the rules
+and confirm the live project matches the repo. Validate the abuse matrix in a staging project:
+forged `paid` create → denied · unauthenticated reg update → denied · director reading another
+event's entries → denied · director writing `admins/*` → denied.
+
+---
+
+## 6. GO-LIVE switches (launch day — do these last)
+1. **Turn off demo mode** — `config.js`: `demoDefault:false` **and** `previewMode:false`.
+   This is the master switch; while it's on, the public site runs on **fake sample data and
+   fake payment success** (charges nothing, writes nothing). Commit + redeploy.
+2. **Remove the password wall** — delete the `SITE_GATE` env var in Vercel **and** delete
+   `middleware.js`. It gates the **entire** site including `/api/*`, so real teams (and your
+   own API checks) can't get through while it's up.
+3. **Seed the live forms** — the **2027 Fall/Spring** season Team Registration forms must
+   exist in Firestore. Build them in `admin.html` → **Forms** (they currently exist only as
+   demo samples). Set the real fee + `active:true`.
+4. **Delete test data** — remove any sandbox leftovers (e.g. a "ZZ Payment Test" entry) so
+   they don't show in the directory / Who's Coming.
+5. **One real end-to-end test charge** on the production deploy before you announce.
+
+---
+
+## 7. Branding to drop in later
+- **Logo:** add Keith's STS crest at `assets/sts-crest.png`, set `USE_CREST_IMG = true` at
+  the top of `js/sts-chrome.js`. (A clean "STS" monogram shows until then.)
+- **Hero image:** the homepage hero is a navy gradient; drop a photo in if desired.
 - **Team logos:** `logos/<team-slug>.png` (falls back to an initials circle).
 
 ---
 
-## What's built (Phase 1)
-Homepage · forms-driven **Register** (per-tournament/season/product) · **Thanks**
-(team code) · **Admin** (Entries table w/ payment + CC-txn refund helper, Forms
-manager, Teams, Homepage editor, Prices) · auto **Team pages** · **Teams** directory
-· code-gated **Roster** self-edit · serverless: Clover checkout + webhook, Resend
-email, roster-save.
+## What's built
+Homepage · forms-driven **Register** (per-tournament/season/product) · **Thanks** (team code)
+· **Admin** (Entries table w/ payment + `cc_retref` refund helper, Forms manager, Teams,
+Homepage editor, Prices, Directors) · auto **Team pages** · **Teams** directory · code-gated
+**Roster** self-edit · schedule / scores / standings / brackets · auto **Champions** page ·
+serverless: CardConnect charge, SendGrid email, roster-save.
 
-## Still to do (Phase 2/3)
-Wire Clover live (creds + sandbox test) · server-write security (above) · schedule
-builder (honoring team time-availability) · standings · brackets (port the D27
-generator) · director permission-matrix UI.
+## Still to do
+Complete Fiserv production validation (creds + swap) · provision SendGrid (key + verified
+sender) · flip the §6 go-live switches · seed the live 2027 season forms · director
+permission-matrix UI (Phase 2).

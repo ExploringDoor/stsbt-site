@@ -110,7 +110,7 @@ export function buildMessage(event, r) {
     ['Entry #', r.entry_no || ''],
     ['Amount', isFree ? 'Free' : money(r.amount_cents)],
     !isFree ? ['Card', r.card_last4 ? '•••• ' + r.card_last4 : ''] : null,
-    !isFree ? ['Clover order', r.clover_order_id || ''] : null,
+    !isFree ? ['CC Ref', r.cc_retref || r.clover_order_id || ''] : null,
   ].filter(Boolean).filter((x) => x[1] !== '' && x[1] != null);
 
   return {
@@ -159,7 +159,7 @@ export function buildMerchMessage(r) {
     ['Contact', [r.coach_name, r.coach_phone, r.coach_email].filter(Boolean).join('  ·  ')],
     ['Amount', money(r.amount_cents)],
     ['Card', r.card_last4 ? '•••• ' + r.card_last4 : ''],
-    ['Order #', r.clover_order_id || ''],
+    ['CC Ref', r.cc_retref || r.clover_order_id || ''],
     ['Date', fmtWhen(r.paid_at || r.created_at)],
   ].filter((x) => x[1] !== '' && x[1] != null);
   // Shipping address gets its own block (multi-line, preserved).

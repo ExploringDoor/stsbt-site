@@ -94,9 +94,9 @@
     if (window.STSfx) setTimeout(function(){ STSfx.confetti(); }, 400);
   }
 
-  // The team page is created by the Clover webhook once payment clears. Poll the
-  // PUBLIC team doc (an unauthenticated coach can't read registrations) and reveal
-  // the roster CTA when it appears. Free/season entries create no team — note stays.
+  // The team page is created by api/cardconnect-charge.js when the charge is approved.
+  // Poll the PUBLIC team doc (an unauthenticated coach can't read registrations) and
+  // reveal the roster CTA when it appears. Free entries create the team client-side.
   (async function(){
     if (!teamSlug) return;
     var tries = STS.isConfigured ? 20 : 1;

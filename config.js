@@ -65,10 +65,11 @@
     },
 
     // ── Payment ──────────────────────────────────────────────────────────
-    // CONFIRMED: Clover (clover.com Hosted Checkout API). See api/create-checkout.js
-    // + api/clover-webhook.js. Secrets live in Vercel env, never here.
+    // CardConnect / CardPointe (Fiserv) — hosted iFrame tokenizer + api/cardconnect-charge.js.
+    // The iframe host is `cardconnect.site` above; server creds (CARDCONNECT_*) live in Vercel
+    // env, never here. Flip site + env from sandbox to production together after Fiserv validation.
     payment: {
-      processor: 'clover',
+      processor: 'cardconnect',
       env: 'sandbox'         // 'sandbox' | 'production'
     },
 
