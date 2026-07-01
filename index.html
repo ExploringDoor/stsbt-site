@@ -169,11 +169,10 @@
           var infoHref = 'event.html?id=' + encodeURIComponent(f.id);
           var regHref = 'register.html?form=' + encodeURIComponent(f.id);
           var regClosed = f.reg_close && today > f.reg_close;
-          // split "Town \"Event Name\"" into a bold town on top + the event name below
-          var tm = /^\s*(.+?)\s+["“](.+?)["”]\s*$/.exec(f.title || '');
-          var evTown = tm ? tm[1] : '';
-          var evName = tm ? tm[2] : (f.title || '');
-          if (!evTown){ var lp = String(f.location||'').split(',').map(function(s){return s.trim();}).filter(Boolean); evTown = lp.length>=2 ? lp[lp.length-2] : ''; }
+          // BOLD "City, State" on top (from the location); full tournament name below it.
+          var lp = String(f.location||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
+          var cityState = lp.length>=2 ? lp.slice(-2).join(', ') : (lp[0]||'');
+          var venue = lp.length>=3 ? lp.slice(0, lp.length-2).join(', ') : '';   // e.g. "Hanner Sports Complex"
           var foot = done
             ? '<div class="tc-foot"><span class="badge" style="background:#065f46;color:#fff">✓ Final</span>' +
                 '<div class="tc-actions"><a class="btn btn-outline btn-sm" href="' + infoHref + '#bracket">View Results →</a></div></div>'
@@ -188,7 +187,7 @@
           return '<div class="tcard">' +
             '<a class="tc-link" href="' + infoHref + '">' +
               '<div class="tc-top"><span class="tc-date">' + esc(f.event_dates || 'Dates TBA') + '</span>' + sportBadge + '</div>' +
-              '<div class="tc-body">' + (evTown ? '<div class="tc-town">' + esc(evTown) + '</div>' : '') + '<h3 class="tc-name">' + esc(evName) + '</h3><div class="tc-loc">' + esc(f.location || 'Location TBA') + '</div>' +
+              '<div class="tc-body">' + (cityState ? '<div class="tc-town">' + esc(cityState) + '</div>' : '') + '<h3 class="tc-name">' + esc(f.title) + '</h3>' + (venue ? '<div class="tc-loc">' + esc(venue) + '</div>' : '') +
                 '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">' + divs + '</div></div>' +
             '</a>' +
             foot +
