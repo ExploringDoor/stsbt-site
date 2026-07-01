@@ -159,7 +159,7 @@ var _entrySeq = 567100;
 
 // ── Admins / directors (Season Admins) — doc id === Firebase Auth UID ─
 var SAMPLE_ADMINS = [
-  { id: 'uid-keith', email: 'keithphilips34@gmail.com', name: 'Keith Philips', role: 'super',    events: [], active: true },
+  { id: 'uid-keith', email: 'smalltownselect@gmail.com', name: 'Keith Philips', role: 'super',    events: [], active: true },
   { id: 'uid-carl',  email: 'carl@example.com',  name: 'Carl Moore',  role: 'director', events: ['brownwood-summer-slam'], active: true },
   { id: 'uid-sonny', email: 'sonny@example.com', name: 'Sonny Wilson', role: 'director', events: ['iowa-park-heat-wave', 'hill-county-bash'], active: true }
 ];

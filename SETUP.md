@@ -62,7 +62,7 @@ instant revoke (`active:false`), never deleted. Each director's `events[]` is a 
 | `FB_ADMIN_PASSWORD` | that robot user's password | server writes |
 | `SENDGRID_API_KEY` | SendGrid API key | email |
 | `MAIL_FROM` | verified sender, e.g. `noreply@ststournaments.com` | email from-address |
-| `ADMIN_EMAIL` | `keithphilips34@gmail.com` | who gets alerts |
+| `ADMIN_EMAIL` | `smalltownselect@gmail.com` | who gets alerts |
 | `SITE_URL` | the real domain, e.g. `https://ststournaments.com` | email links / redirects |
 | `CARDCONNECT_SITE` | sandbox `quickscores-uat` → **prod `<site>`** | payments (server) |
 | `CARDCONNECT_MERCHID` | sandbox `810000003251` → **prod MID** | payments |
@@ -81,7 +81,7 @@ instant revoke (`active:false`), never deleted. Each director's `events[]` is a 
 2. **Verify the sender**: single-sender verify `noreply@ststournaments.com`, or (better)
    domain-authenticate `ststournaments.com` with the SPF/DKIM DNS records SendGrid gives you.
    Set `MAIL_FROM` to that verified address.
-3. Set `ADMIN_EMAIL` = Keith's inbox and `SITE_URL` = the real domain (every email link uses it).
+3. Set `ADMIN_EMAIL` = `smalltownselect@gmail.com` (all alerts route there — not a personal inbox) and `SITE_URL` = the real domain (every email link uses it).
 4. Test: `GET /api/email-test?to=you@example.com` → confirm it arrives (check spam).
 If email isn't configured the code **no-ops safely** (nothing else breaks), so you can launch
 the rest first — but coaches won't get confirmations until this is set.

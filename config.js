@@ -76,14 +76,14 @@
     // ── Contact / leadership ─────────────────────────────────────────────
     contact: {
       generalEmail: 'smalltownselect@gmail.com',
-      director: { name: 'Keith Philips', role: 'Owner / Director', email: 'keithphilips34@gmail.com', phone: '254-592-8727' }
+      director: { name: 'Keith Philips', role: 'Owner / Director', email: 'smalltownselect@gmail.com', phone: '254-592-8727' }
     },
 
     // ── Tournament directors — DISPLAY ONLY (homepage/Directors page) ────
     // ⚠️ NEVER an auth source. Real admin authority lives in the `admins/{uid}`
     //    Firestore collection (role + events[]), enforced by firestore.rules.
     directors: [
-      { name: 'Keith Philips',  role: 'Owner / Director', area: '',       phone: '254-592-8727', email: 'keithphilips34@gmail.com' },
+      { name: 'Keith Philips',  role: 'Owner / Director', area: '',       phone: '254-592-8727', email: 'smalltownselect@gmail.com' },
       { name: 'Carl Moore',     role: 'Director',         area: 'Cisco',  phone: '254-433-1083', email: 'Carlmoe9@gmail.com' },
       { name: 'Sonny Wilson',   role: 'Director',         area: 'Burnet', phone: '',             email: '' },
       { name: 'Adam Anderle',   role: 'Director',         area: 'Graham', phone: '',             email: 'adam@kramerconstructiontx.com' }

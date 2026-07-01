@@ -312,7 +312,7 @@
         <p class="muted" style="margin:0;max-width:60ch">Add a tournament director as a <b>Season Administrator</b>. Each one sees and manages only the events you assign — and nothing else.</p>
         <button class="btn btn-red btn-sm" id="newAdminBtn">+ Add Director</button>
       </div>
-      <div class="notice notice-info">First create the director's login in Firebase Authentication, then add them here by their <b>User UID</b> and check which events they run.</div>
+      <div class="notice notice-info">Your site admin sets up each director's login and gives you their <b>Login ID</b> — add them here by that ID and check which events they run.</div>
       <div class="table-wrap">
         <table class="tbl"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Events</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody id="adminsBody"></tbody></table>
@@ -1558,7 +1558,7 @@
       '<div class="field-row"><div class="field"><label>Name</label><input class="input" id="a_name" value="'+esc(a.name||'')+'"></div>'+
       '<div class="field"><label>Role</label><select class="input" id="a_role">'+['director','super'].map(function(r){return '<option'+(a.role===r?' selected':'')+'>'+r+'</option>';}).join('')+'</select></div></div>'+
       '<div class="field"><label>Email</label><input class="input" id="a_email" value="'+esc(a.email||'')+'"></div>'+
-      '<div class="field"><label>Firebase Auth User UID <span class="req">*</span></label><input class="input" id="a_uid" value="'+esc(a.id||'')+'"'+(isNew?'':' readonly')+' placeholder="paste from Firebase → Authentication"><div class="hint">Create the director\'s login in Firebase Authentication first, then paste their User UID here.</div></div>'+
+      '<div class="field"><label>Login ID <span class="req">*</span></label><input class="input" id="a_uid" value="'+esc(a.id||'')+'"'+(isNew?'':' readonly')+' placeholder="paste the ID from your site admin"><div class="hint">Your site admin creates the director\'s login and gives you this ID to paste here.</div></div>'+
       '<div class="field" id="a_eventsWrap"><label>Events this director manages</label><div id="a_events" style="max-height:200px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:12px">'+evChecks+'</div></div>';
     var disableBtn = document.getElementById('amDisable');
     disableBtn.textContent = (a.active===false) ? 'Enable' : 'Disable';
@@ -1570,7 +1570,7 @@
     roleSel.addEventListener('change', syncRole); syncRole();
     document.getElementById('amSave').onclick = async function(){
       var uid = (document.getElementById('a_uid').value||'').trim();
-      if (!uid){ alert('A Firebase Auth User UID is required (create the login in Firebase Authentication, then paste the UID).'); return; }
+      if (!uid){ alert('A Login ID is required — ask your site admin to set up the director\'s login first, then paste the ID they give you.'); return; }
       var role = document.getElementById('a_role').value;
       var events = [].slice.call(document.querySelectorAll('#a_events input:checked')).map(function(c){ return c.value; });
       await STS.saveAdmin({ id: uid, name: document.getElementById('a_name').value, email: document.getElementById('a_email').value, role: role, events: role==='super'?[]:events, active: a.active!==false });
