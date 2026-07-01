@@ -19,7 +19,7 @@
     // CardConnect (CardPointe) — the iFrame Tokenizer host. NOT a secret (it's in the
     // iframe URL the customer loads). The API username/password/MID live in Vercel env.
     // Flip `site` to the production <site> at go-live.
-    cardconnect: { site: 'quickscores' },
+    cardconnect: { site: 'quickscores' },   // production (Fiserv/CardPointe)
     // ── Identity ─────────────────────────────────────────────────────────
     id: 'sts',
     name: 'Small Town Select',
