@@ -256,15 +256,16 @@
         var priceTxt = f.type==='tournament' ? 'From '+STS.money(price)+'/team' : (price? STS.money(price) : 'No fee');
         var href = 'register.html?form='+encodeURIComponent(f.id);
         var isTourney = f.type === 'tournament';
+        var closed = f.reg_close && new Date().toISOString().slice(0,10) > f.reg_close;
         return '<div class="tcard">'+
           '<a class="tc-link" href="'+href+'">'+
             '<div class="tc-top"><span class="tc-date">'+esc(f.event_dates||'')+'</span>'+(f.sport==='both'?'':'<span class="badge badge-sport">'+esc(f.sport)+'</span>')+'</div>'+
             '<div class="tc-body"><h3>'+esc(f.title)+'</h3><div class="tc-loc">'+esc(f.location||'')+'</div></div>'+
           '</a>'+
-          '<div class="tc-foot"><span class="price-readout">'+priceTxt+'</span>'+
+          '<div class="tc-foot"><span class="price-readout">'+(closed?'Registration closed':priceTxt)+'</span>'+
             '<div class="tc-actions">'+
-              (isTourney ? '<button type="button" class="btn btn-outline btn-sm whoCard" data-form="'+esc(f.id)+'">👥 Who\'s Coming</button>' : '')+
-              '<a class="btn btn-navy btn-sm" href="'+href+'">Select</a>'+
+              (isTourney && !closed ? '<button type="button" class="btn btn-outline btn-sm whoCard" data-form="'+esc(f.id)+'">👥 Who\'s Coming</button>' : '')+
+              (closed ? '<a class="btn btn-outline btn-sm" href="'+href+'">Details</a>' : '<a class="btn btn-navy btn-sm" href="'+href+'">Select</a>')+
             '</div>'+
           '</div>'+
         '</div>';
@@ -331,6 +332,13 @@
       '<div class="spread"><div><h3 style="margin:0">'+esc(FORM.title)+'</h3>'+
       '<div class="muted" style="font-size:var(--text-sm)">'+esc([FORM.event_dates, FORM.location].filter(Boolean).join(' · '))+'</div></div>'+
       (FORM.sport==='both'?'':'<span class="badge badge-navy">'+esc(FORM.sport)+'</span>')+'</div>';
+
+    // Registration deadline — once past, show a closed notice instead of the form.
+    if (FORM.reg_close && new Date().toISOString().slice(0,10) > FORM.reg_close){
+      document.getElementById('regForm').classList.add('hidden');
+      document.getElementById('formMeta').innerHTML += '<div class="notice notice-warn mt-4" style="text-transform:none;letter-spacing:0"><b>Registration is closed</b> for this event.</div>';
+      return;
+    }
 
     // Scheduling availability only matters for TOURNAMENT entries (the scheduler honors it).
     document.getElementById('availField').classList.toggle('hidden', FORM.type !== 'tournament');

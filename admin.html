@@ -1333,6 +1333,7 @@
       '<div class="field"><label>Sport</label><select class="input" id="f_sport">'+['baseball','softball','both'].map(function(s){return '<option'+(f.sport===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div></div>'+
       '<div class="field-row"><div class="field"><label>Start Date</label><input class="input" type="date" id="f_start" value="'+esc(f.start_date||'')+'"></div>'+
       '<div class="field"><label>End Date <span class="muted">(optional)</span></label><input class="input" type="date" id="f_end" value="'+esc(f.end_date||'')+'"></div></div>'+
+      '<div class="field"><label>Registration closes <span class="muted">(optional — after this date the Register button disappears)</span></label><input class="input" type="date" id="f_reg_close" value="'+esc(f.reg_close||'')+'" style="max-width:220px"></div>'+
       '<div class="field"><label>Location</label><input class="input" id="f_loc" value="'+esc(f.location||'')+'"></div>'+
       '<div class="field"><label>Game length <span class="muted">(minutes — leave blank for age defaults: pool 60/75/90, bracket 75/90/105 by 6-8U / 9-10U / 11U+. A number here overrides for the whole tournament.)</span></label><input class="input" id="f_glen_min" type="number" min="0" step="5" placeholder="age default" value="'+(f.game_length_min||'')+'" style="max-width:150px"></div>'+
       '<div class="field"><label>Tournament Website <span class="muted">(optional — links the public tournament card to an outside site)</span></label><input class="input" id="f_url" type="url" placeholder="https://…" value="'+esc(f.info_url||'')+'"></div>'+
@@ -1384,7 +1385,7 @@
       f.notes = val('f_notes');
       f.div_rules = {}; document.querySelectorAll('.f-divrule').forEach(function(t){ var d=t.getAttribute('data-div'), v=(t.value||'').trim(); if(d && v) f.div_rules[d]=v; });
       f.game_length_min = parseInt(val('f_glen_min'),10)||0;
-      f.start_date = val('f_start'); f.end_date = val('f_end');
+      f.start_date = val('f_start'); f.end_date = val('f_end'); f.reg_close = val('f_reg_close');
       f.event_dates = fmtEventDates(f.start_date, f.end_date) || f.event_dates || '';
       f.location = val('f_loc');
       f.divisions = selectedDivs();
