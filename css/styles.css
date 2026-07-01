@@ -263,7 +263,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-v
 .tcard h3 { margin: 0 0 6px; color: var(--sts-navy); font-size: var(--text-lg); }
 .tcard .tc-town { font-family: var(--font-display); font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--sts-navy); font-size: var(--text-lg); line-height: 1.15; }
 .tcard .tc-venue { font-weight: 700; color: var(--sts-navy); font-size: var(--text-sm); margin: 1px 0 0; }
-.tcard .tc-name { font-family: 'Manrope', system-ui, sans-serif; margin: 3px 0 6px; color: var(--sts-navy); font-size: var(--text-base); font-weight: 500; letter-spacing: 0; line-height: 1.2; }
+.tcard .tc-name { font-family: 'Manrope', system-ui, sans-serif; margin: 14px 0 6px; color: var(--sts-navy); font-size: var(--text-base); font-weight: 500; letter-spacing: 0; line-height: 1.2; }
 .tcard .tc-loc { color: var(--muted); font-size: var(--text-sm); }
 .tcard .tc-foot { padding: var(--space-3) var(--space-5); border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .tcard .tc-ext { color: var(--sts-navy); font-weight: 600; font-size: var(--text-sm); text-decoration: underline; cursor: pointer; }
