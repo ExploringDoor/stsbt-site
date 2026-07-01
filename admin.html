@@ -2143,7 +2143,7 @@
       '<div class="field"><label for="bk_form">Tournament</label><select class="input" id="bk_form">'+tf.map(function(f){return '<option value="'+esc(f.id)+'"'+(f.id===fid0?' selected':'')+'>'+esc(f.title)+'</option>';}).join('')+'</select></div>'+
       '<div class="field"><label>Format</label><div class="pill-tabs" id="bk_fmt"><button type="button" class="pill active" data-fmt="roundrobin">Round robin (pool)</button><button type="button" class="pill" data-fmt="single">Single elim</button><button type="button" class="pill" data-fmt="double">Double elim</button></div></div>'+
       '<div class="field" id="bk_gppWrap"><label for="bk_gpp">Pool games per team</label><input class="input" id="bk_gpp" type="number" value="2" min="1" max="10" style="max-width:110px"></div>'+
-      '<div class="field"><label for="bk_tiers">Bracket / division label <span class="muted">(optional)</span></label><input class="input" id="bk_tiers" placeholder="one label (8U Open) — or several tiers: Diamond, Platinum, Gold" list="bk_tierList"><datalist id="bk_tierList"><option>Diamond</option><option>Platinum</option><option>Gold</option></datalist><div class="muted" style="font-size:var(--text-xs);margin-top:4px" id="bk_tierHint"></div></div>'+
+      '<div class="field"><label for="bk_tiers">Bracket / division label <span class="muted">(optional)</span></label><input class="input" id="bk_tiers" placeholder="one label (8U Open), even tiers (Gold, Silver, Platinum), or sizes (Championship:8, Gold:4)" list="bk_tierList"><datalist id="bk_tierList"><option>Championship</option><option>Gold</option><option>Silver</option><option>Platinum</option><option>Championship:8, Gold:4, Silver:4</option></datalist><div class="muted" style="font-size:var(--text-xs);margin-top:4px" id="bk_tierHint"></div></div>'+
       '<div class="field check" id="bk_emptyWrap" style="display:none"><input type="checkbox" id="bk_empty"><label for="bk_empty" style="text-transform:none;letter-spacing:0;color:var(--fg);font-weight:500">Teams aren’t set yet — build the bracket with seed placeholders (Seed 1…N). You’ll drop the real teams in once pool play wraps.</label></div>'+
       '<div class="field hidden" id="bk_countWrap"><label for="bk_count">How many teams will be in the bracket?</label><input class="input" id="bk_count" type="number" min="2" max="64" value="8" style="max-width:110px"></div>'+
       '<div class="field" id="bk_teamsField"><div class="spread"><label style="margin:0">Teams <span class="muted" id="bk_teamCount"></span></label><button type="button" class="btn btn-outline btn-sm" id="bk_seed">↻ Seed from standings</button></div>'+
@@ -2253,7 +2253,16 @@
     $('bk_fmt').addEventListener('click', function(e){ var b=e.target.closest('.pill'); if(!b)return; format=b.dataset.fmt; $('bk_fmt').querySelectorAll('.pill').forEach(function(p){p.classList.toggle('active',p===b);}); var rr=(format==='roundrobin'); $('bk_gppWrap').style.display=rr?'':'none'; $('bk_autoBrWrap').style.display=rr?'':'none'; applyEmptyMode(); });
     $('bk_form').addEventListener('change', function(){ ordered=null; custom=[]; renderTeams(); $('bk_count').value=Math.max(2, regTeamsFor($('bk_form').value).length || 8); $('bk_city').value=cityFor($('bk_form').value); renderFieldOptions(); $('bk_glenmin').value=(FORMS.find(function(x){return x.id===$('bk_form').value;})||{}).game_length_min || ''; });
     $('bk_city').addEventListener('change', renderFieldOptions);
-    $('bk_tiers').addEventListener('input', function(){ var t=this.value.split(',').map(function(s){return s.trim();}).filter(Boolean), n=selected().length; $('bk_tierHint').textContent = (t.length>1 && format!=='roundrobin') ? (t.length+' tiers — the top '+Math.ceil(n/t.length)+' seeds go to “'+t[0]+'”, next to “'+t[1]+'”'+(t[2]?', …':'')+' (seed from standings first)') : ''; });
+    $('bk_tiers').addEventListener('input', function(){
+      var specs=this.value.split(',').map(function(s){ var m=/^(.*?):\s*(\d+)\s*$/.exec(s.trim()); return m?{label:m[1].trim(),size:+m[2]}:{label:s.trim(),size:null}; }).filter(function(x){return x.label;});
+      var n=selected().length || parseInt($('bk_count').value,10) || 0;
+      if(specs.length>1 && format!=='roundrobin'){
+        var expl=0,auto=0; specs.forEach(function(x){ if(x.size)expl+=x.size; else auto++; });
+        var per=auto?Math.ceil(Math.max(0,n-expl)/auto):0, cur=0;
+        var parts=specs.map(function(x){ var sz=(x.size!=null)?x.size:per, lo=cur+1, hi=cur+sz; cur+=sz; return '“'+x.label+'” = seed'+(sz>1?'s '+lo+'–'+hi:' '+lo); });
+        $('bk_tierHint').textContent = specs.length+' brackets — '+parts.join(', ')+' (seed from standings first)';
+      } else $('bk_tierHint').textContent='';
+    });
     $('bk_addAllCity').onclick=function(){ var c=$('bk_city').value; if(!c){ $('bkNote').textContent='Pick a host city first.'; return; } placesForCity(c).forEach(function(p){ if(fields.indexOf(p)<0) fields.push(p); }); renderFields(); };
     $('bk_teamList').addEventListener('change', updateCount);
     $('bk_gpp').addEventListener('input', renderSlotNote);
@@ -2292,15 +2301,20 @@
       if(!slotPairs().length){ $('bkNote').textContent='Set at least one start time (use Quick fill, or add one under a day).'; return; }
       if(!window.STSgen){ $('bkNote').textContent='Generator not loaded.'; return; }
       var sport=(f&&f.sport)||'baseball';
-      var tiers=($('bk_tiers').value||'').split(',').map(function(s){return s.trim();}).filter(Boolean); if(!tiers.length) tiers=[''];
+      // Tiers accept an optional per-bracket size: "Championship:8, Gold:4, Silver:4".
+      // A bracket with no :N shares the remaining teams evenly (plain "Gold, Silver" = even split).
+      var tierSpecs=($('bk_tiers').value||'').split(',').map(function(s){ var m=/^(.*?):\s*(\d+)\s*$/.exec(s.trim()); return m?{label:m[1].trim(),size:+m[2]}:{label:s.trim(),size:null}; }).filter(function(t){return t.label;});
+      if(!tierSpecs.length) tierSpecs=[{label:'',size:null}];
+      var tiers=tierSpecs.map(function(t){return t.label;});
+      (function(){ var expl=0,auto=0; tierSpecs.forEach(function(t){ if(t.size) expl+=t.size; else auto++; }); var per=auto?Math.ceil(Math.max(0,teams.length-expl)/auto):0; tierSpecs.forEach(function(t){ t.n=(t.size!=null)?t.size:per; }); })();
       // warn only about the division(s) being generated — other divisions are untouched
       var existing = GAMES.filter(function(g){ return g.form_id===fid && tiers.indexOf(g.division||'')>=0; }).length;
       if(existing && !confirm('The '+(tiers.length>1?'selected divisions':'“'+(tiers[0]||'(no label)')+'” division')+' already ha'+(existing===1?'s':'ve')+' '+existing+' game'+(existing===1?'':'s')+'. Generating will REPLACE just that — other divisions are kept. Continue?')) return;
       // tiered: warn if teams don't fill the tiers (some would be silently dropped)
       if(tiers.length>1 && format!=='roundrobin'){
-        var per0=Math.ceil(teams.length/tiers.length), placed=0;
-        tiers.forEach(function(_,ti){ var n=teams.slice(ti*per0,(ti+1)*per0).length; if(n>=2) placed+=n; });
-        if(placed<teams.length && !confirm((teams.length-placed)+' team(s) don’t fit evenly into '+tiers.length+' tiers and will be LEFT OUT of every bracket. Continue anyway?')) return;
+        var placed=0, cur0=0;
+        tierSpecs.forEach(function(t){ var n=teams.slice(cur0,cur0+t.n).length; cur0+=t.n; if(n>=2) placed+=n; });
+        if(placed<teams.length && !confirm((teams.length-placed)+' team(s) don’t fit the bracket sizes and will be LEFT OUT. Continue anyway?')) return;
       }
       var avail=getAvail(fid), restMin=parseInt($('bk_rest').value,10)||0, res;
       var btn=this, prevTxt=btn.textContent; btn.disabled=true; btn.textContent='Generating…';
@@ -2339,10 +2353,10 @@
             await STS.saveBracket(fid, {sport:sport, division:tiers[0]}, brGames, {replace:false});
           }
         } else if(tiers.length>1){
-          // TIERED: split the (seeded) team list top-down into N tiers, a bracket each
-          var per=Math.ceil(teams.length/tiers.length), all=[];
-          tiers.forEach(function(label,ti){ var tt=teams.slice(ti*per,(ti+1)*per); if(tt.length<2) return; var g=window.STSgen.generateBracket({format:format,teams:tt,startGame:1}); g.forEach(function(x){ x._tier=label; }); all=all.concat(g); });
-          if(all.length<1){ $('bkNote').textContent='Not enough teams to fill the tiers.'; return; }
+          // TIERED: slice the seeded team list top-down by each bracket's size, a bracket each
+          var all=[], cursor=0;
+          tierSpecs.forEach(function(t){ var tt=teams.slice(cursor,cursor+t.n); cursor+=t.n; if(tt.length<2) return; var g=window.STSgen.generateBracket({format:format,teams:tt,startGame:1}); g.forEach(function(x){ x._tier=t.label; }); all=all.concat(g); });
+          if(all.length<1){ $('bkNote').textContent='Not enough teams to fill the brackets.'; return; }
           res=assignSlots(all, days, slotsByDay, fields, avail, restMin, GAMES, fid);   // all tiers placed together (no field clashes)
           for(var ci=0; ci<tiers.length; ci++) await STS.clearBracket(fid, tiers[ci]);   // replace only these divisions
           var byTier={}; all.forEach(function(g){ (byTier[g._tier]=byTier[g._tier]||[]).push(g); });
