@@ -29,7 +29,7 @@
     ['admin.html', 'Admin Sign In'],
   ];
   var DIRECTOR = (window.LEAGUE_CONFIG && LEAGUE_CONFIG.contact && LEAGUE_CONFIG.contact.director) || {};
-  var CONTACT = DIRECTOR.email || 'keithphilips34@gmail.com';
+  var CONTACT = DIRECTOR.email || 'smalltownselect@gmail.com';
   var CFG = window.LEAGUE_CONFIG || {};
   var FB = CFG.facebook || '';
   var GEN_EMAIL = (CFG.contact && CFG.contact.generalEmail) || CONTACT;
