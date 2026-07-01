@@ -173,6 +173,8 @@
           var lp = String(f.location||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
           var cityState = lp.length>=2 ? lp.slice(-2).join(', ') : (lp[0]||'');
           var venue = lp.length>=3 ? lp.slice(0, lp.length-2).join(', ') : '';   // e.g. "Hanner Sports Complex"
+          var qm = /["“](.+?)["”]/.exec(f.title || '');
+          var evName = qm ? qm[1] : (f.title || '');   // just the event name, e.g. "Summer Sizzle"
           var foot = done
             ? '<div class="tc-foot"><span class="badge" style="background:#065f46;color:#fff">✓ Final</span>' +
                 '<div class="tc-actions"><a class="btn btn-outline btn-sm" href="' + infoHref + '#bracket">View Results →</a></div></div>'
@@ -187,7 +189,7 @@
           return '<div class="tcard">' +
             '<a class="tc-link" href="' + infoHref + '">' +
               '<div class="tc-top"><span class="tc-date">' + esc(f.event_dates || 'Dates TBA') + '</span>' + sportBadge + '</div>' +
-              '<div class="tc-body">' + (cityState ? '<div class="tc-town">' + esc(cityState) + '</div>' : '') + '<h3 class="tc-name">' + esc(f.title) + '</h3>' + (venue ? '<div class="tc-loc">' + esc(venue) + '</div>' : '') +
+              '<div class="tc-body">' + (cityState ? '<div class="tc-town">' + esc(cityState) + '</div>' : '') + (venue ? '<div class="tc-venue">' + esc(venue) + '</div>' : '') + '<h3 class="tc-name">' + esc(evName) + '</h3>' +
                 '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">' + divs + '</div></div>' +
             '</a>' +
             foot +
