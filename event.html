@@ -103,13 +103,13 @@
   function evGames(){ return GAMES.filter(function(g){ return g.form_id===fid && (g.division||'')===curDiv; }); }
   function poolGames(){ return evGames().filter(function(g){ return g.g==null; }); }
   function bracketGames(){ return evGames().filter(function(g){ return g.g!=null; }); }
-  // Pool-play schedule shown UNDER the bracket (bracket games live in the tree above).
-  function poolSchedUnder(){
-    var pool = poolGames().slice().sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')) || String(a.time||'').localeCompare(String(b.time||'')); });
-    if(!pool.length) return '';
-    var byDay={}; pool.forEach(function(g){ (byDay[g.date||'']=byDay[g.date||'']||[]).push(g); });
+  // Bracket-game list shown UNDER the bracket tree — the times/fields in scan-friendly rows.
+  function bracketListUnder(){
+    var bg = bracketGames().slice().sort(function(a,b){ return (a.g||0)-(b.g||0) || String(a.date||'').localeCompare(String(b.date||'')); });
+    if(!bg.length) return '';
+    var byDay={}; bg.forEach(function(g){ (byDay[g.date||'']=byDay[g.date||'']||[]).push(g); });
     var rows = Object.keys(byDay).sort().map(function(d){ return '<div class="day-head">'+esc(fmtDate(d))+'</div>'+byDay[d].map(gameRow).join(''); }).join('');
-    return '<div style="margin-top:28px;border-top:1px solid var(--line);padding-top:18px"><h3 style="margin:0 0 10px">Pool Play Schedule</h3>'+rows+'</div>';
+    return '<div style="margin-top:28px;border-top:1px solid var(--line);padding-top:18px"><h3 style="margin:0 0 10px">Bracket Schedule</h3>'+rows+'</div>';
   }
   function bt(){ return { name: FORM ? FORM.title : '', games: bracketGames() }; }
   function sideName(raw){ if(!window.STSbracket) return raw||'TBD'; return STSbracket.sideDisplay(bt(), raw).name; }
@@ -210,7 +210,7 @@
       var note = unseeded ? '<p class="muted bk-preview-note" style="text-transform:none;letter-spacing:0;margin-top:0"><b>Bracket scheduled</b> — game times are set; seeds fill in once pool play wraps.</p>' : '';
       // seed map from pool standings (rank = seed) → the bracket shows "#4 Los Chivos"
       var seedMap={}; STS.computeStandings(poolGames()).forEach(function(r,i){ seedMap[String(r.team).toLowerCase()]=i+1; });
-      return note + '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:true, teamHref:function(n){ return resolveTeam(n, curDiv); }, venue: FORM.location||'', gameLengthMin:(FORM&&FORM.game_length_min)||0, seeds: seedMap })+'</div>' + poolSchedUnder();
+      return note + '<div class="bk-zoomable">'+STSbracketRender.render(bg, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:true, teamHref:function(n){ return resolveTeam(n, curDiv); }, venue: FORM.location||'', gameLengthMin:(FORM&&FORM.game_length_min)||0, seeds: seedMap })+'</div>' + bracketListUnder();
     }
     // No bracket posted yet → show the empty bracket SHELL (TBD seed slots) sized to
     // the field, so people see the format up front. Seeds + teams fill in once pool
@@ -222,7 +222,7 @@
     if(!shell.length) return '<div class="empty" style="text-transform:none;letter-spacing:0">The bracket appears here once the teams are set.</div>';
     return '<p class="muted bk-preview-note" style="text-transform:none;letter-spacing:0;margin-top:0">'+
         '<b>Bracket preview</b> — the shape is set; seeds and teams fill in once pool play wraps.</p>'+
-      '<div class="bk-zoomable bk-preview">'+STSbracketRender.render(shell, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:false, venue: FORM.location||'' })+'</div>' + poolSchedUnder();
+      '<div class="bk-zoomable bk-preview">'+STSbracketRender.render(shell, { name: FORM.title+(curDiv?' — '+curDiv:''), teamLinks:false, venue: FORM.location||'' })+'</div>' + bracketListUnder();
   }
 
   function renderTeams(){
