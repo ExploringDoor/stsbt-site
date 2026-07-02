@@ -1346,7 +1346,7 @@
         if(!dl.length) return '';
         var dr=f.div_rules||{};
         return '<div class="field"><label>Per-division rules <span class="muted">(optional — a division\'s own rules <b>override</b> the box above for that division; e.g. 12U plays 7 innings, 8U plays 5. Leave blank to use the default.)</span></label>'+
-          dl.map(function(d){ return '<div style="margin-bottom:10px;border:1px solid var(--line);border-radius:8px;padding:8px 11px"><div style="font-family:var(--font-display);font-weight:600;color:var(--sts-navy);font-size:var(--text-sm);margin-bottom:5px">'+esc(d)+' rules</div><textarea class="input f-divrule" data-div="'+esc(d)+'" style="min-height:120px;white-space:pre-wrap" placeholder="Rules specific to '+esc(d)+' — leave blank to use the default rules above.">'+esc(dr[d]||'')+'</textarea></div>'; }).join('')+
+          dl.map(function(d){ return '<div style="margin-bottom:10px;border:1px solid var(--line);border-radius:8px;padding:8px 11px"><div style="font-family:var(--font-display);font-weight:600;color:var(--sts-navy);font-size:var(--text-sm);margin-bottom:5px">'+esc(d)+' rules <button type="button" class="btn btn-outline btn-sm f-fillrule" data-div="'+esc(d)+'" style="padding:2px 8px;font-size:10px;margin-left:6px">↻ Fill standard</button></div><textarea class="input f-divrule" data-div="'+esc(d)+'" style="min-height:120px;white-space:pre-wrap" placeholder="Rules specific to '+esc(d)+' — leave blank to use the default rules above.">'+esc(dr[d]||'')+'</textarea></div>'; }).join('')+
         '</div>';
       })()+
       '<div class="field"><label>Divisions <span class="muted">(check the classifications this event offers)</span></label><div class="dv-grid" id="f_divs">'+divChipsHTML(f.sport||'baseball', f.divisions||[])+'</div></div>'+
@@ -1365,6 +1365,8 @@
     document.getElementById('f_divs').addEventListener('change', function(e){ if(e.target.classList.contains('dv-ck')) e.target.closest('.dv-chip').classList.toggle('on', e.target.checked); });
     document.getElementById('f_sport').addEventListener('change', function(e){ document.getElementById('f_divs').innerHTML = divChipsHTML(e.target.value, selectedDivs()); });
     document.getElementById('f_ships').addEventListener('change', function(e){ document.getElementById('f_convLabel').textContent = (e.target.checked ? 'Shipping Fee' : 'Convenience Fee') + ' (USD)'; });
+    // "Fill standard" → drop the age-appropriate rules template into that division's box
+    document.querySelectorAll('.f-fillrule').forEach(function(btn){ btn.addEventListener('click', function(){ var ta=btn.parentElement.parentElement.querySelector('.f-divrule'); if(ta){ ta.value = ruleTemplateFor(btn.getAttribute('data-div')); ta.focus(); } }); });
     document.getElementById('fmArchive').textContent = f.archived ? 'Restore' : 'Archive';
     document.getElementById('fmArchive').onclick = async function(){ f.archived=!f.archived; await STS.saveForm(f); FORMS = await STS.loadFormsScoped(ME, {includeInactive:true}); renderForms(); closeModal('formModal'); };
     document.getElementById('fmDelete').style.display = isNew ? 'none' : '';
@@ -1589,6 +1591,15 @@
   // default game length by age band: pool 60/75/90, bracket 75/90/105 (6-8U / 9-10U / 11U+)
   function ageBand(d){ var n=parseInt(String(d||'').replace(/\D/g,''),10); return n?(n<=8?0:(n<=10?1:2)):-1; }
   function defLen(d,bk){ var b=ageBand(d); return b<0?0:(bk?[75,90,105][b]:[60,75,90][b]); }
+  // Standard rules template for a division, with the age-appropriate game lengths filled in.
+  // Keith clicks "Fill standard" on a division and edits from here.
+  function ruleTemplateFor(d){
+    var pool=defLen(d,false)||75, brk=defLen(d,true)||90;
+    return 'Time Limits: Pool play '+pool+' min · Bracket '+brk+' min — finish the inning; no new inning starts after the limit.\n'+
+      'Run Rules: 15 after 3, 12 after 4, 8 after 5.\n'+
+      'Roster: players must be age-eligible as of May 1; birth certificate available on request.\n'+
+      'Game Balls: each team provides its own genuine-leather game balls.';
+  }
   function gLen(g){ var f=FORMS.find(function(x){return x.id===g.form_id;}); return (f&&f.game_length_min)||defLen(g.division, g.g!=null); }
   function gWhen(g){ var L=gLen(g); return (L&&g.time) ? fmtGTime(g.time)+'–'+fmtGTime(addMin(g.time,L)) : fmtGTime(g.time); }
   function titleFor(fid){ var f=FORMS.find(function(x){return x.id===fid;}); return f?f.title:fid; }
