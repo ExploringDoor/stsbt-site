@@ -40,7 +40,7 @@ export async function comingTeams(form){
   try { teams = await STS.loadTeams(); } catch(e){ teams = []; }
   var out = (teams || []).filter(function(t){
     return t && t.live !== false && Array.isArray(t.tournaments) && t.tournaments.indexOf(title) >= 0;
-  });
+  }).map(function(t){ return Object.assign({}, t, { confirmed: true }); });   // paid = has a team doc = confirmed
   // Paid registrations create a public teams doc (above). FREE / not-yet-paid entries
   // don't — and registrations themselves are PII-gated — so also surface any team that's
   // on this tournament's PUBLIC schedule, so Who's Coming isn't stuck at 0.
@@ -53,7 +53,7 @@ export async function comingTeams(form){
         [g.away, g.home].forEach(function(nm){
           if (!nm || /^(WG|LG)-\d+$/i.test(String(nm)) || /^Seed\s*\d+$/i.test(String(nm)) || /^(tbd|bye)$/i.test(String(nm))) return;
           var k = String(nm).toLowerCase(); if (seen[k]) return; seen[k] = 1;
-          out.push({ name: nm, division: g.division || '', age_class: g.division || '', live: true, slug: wslug(nm) });
+          out.push({ name: nm, division: g.division || '', age_class: g.division || '', live: true, slug: wslug(nm), confirmed: false });
         });
       });
     } catch(e){}
@@ -94,7 +94,10 @@ export async function openWho(form){
     var rows = g.teams.map(function(t){
       var tag = (!sep && t.division) ? ' · '+esc(t.division) : '';
       var slug = t.slug || t.id || '';
-      var inner = '<span class="twn">'+esc(t.name||'Team')+'</span>'+(t.town?'<span class="tloc">· '+esc(t.town)+'</span>':'')+(tag?'<span class="tloc">'+tag+'</span>':'')+(slug?'<span class="who-go" aria-hidden="true">›</span>':'');
+      var conf = t.confirmed
+        ? '<span style="margin-left:auto;color:#0a7d33;font-weight:700;font-size:12px;white-space:nowrap" title="Paid / confirmed">✓ Confirmed</span>'
+        : '<span style="margin-left:auto;color:#9aa3af;font-size:12px;white-space:nowrap" title="Not yet confirmed">Pending</span>';
+      var inner = '<span class="twn">'+esc(t.name||'Team')+'</span>'+(t.town?'<span class="tloc">· '+esc(t.town)+'</span>':'')+(tag?'<span class="tloc">'+tag+'</span>':'')+conf+(slug?'<span class="who-go" aria-hidden="true">›</span>':'');
       return slug
         ? '<a class="who-team" href="team.html?id='+encodeURIComponent(slug)+'">'+inner+'</a>'
         : '<div class="who-team">'+inner+'</div>';
