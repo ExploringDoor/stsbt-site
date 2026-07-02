@@ -36,6 +36,24 @@ export function closeWho(){ var m = document.getElementById('whoModal'); if (m) 
 export async function comingTeams(form){
   var title = (form && form.title) || form;   // accept a form object or a title string
   var fid = form && form.id;
+  // Preferred: the PII-free server list — every registered team + confirmed status, so a
+  // team shows as Pending the moment it registers and flips to Confirmed once it's paid.
+  if (fid) {
+    try {
+      var resp = await fetch('/api/coming?form=' + encodeURIComponent(fid));
+      if (resp.ok) {
+        var data = await resp.json();
+        if (data && Array.isArray(data.teams) && data.teams.length) {
+          return data.teams.map(function(t){
+            return { name: t.name, age_class: t.age_class || '', division: t.division || '', town: t.town || '',
+                     confirmed: t.confirmed !== false,
+                     slug: t.confirmed !== false ? wslug(t.name + (t.age_class ? ' ' + t.age_class : '')) : '' };
+          });
+        }
+      }
+    } catch (e) {}
+  }
+  // Fallback (demo / gated preview / no server): public teams + any team on the schedule.
   var teams = [];
   try { teams = await STS.loadTeams(); } catch(e){ teams = []; }
   var out = (teams || []).filter(function(t){
