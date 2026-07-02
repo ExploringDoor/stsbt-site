@@ -32,7 +32,7 @@
       '<div class="muted" style="margin-bottom:var(--space-4)">'+esc(d.role||'Owner / Director')+'</div>'+
       (d.email?'<p style="margin:6px 0"><a class="btn btn-outline" href="mailto:'+esc(d.email)+'">✉ '+esc(d.email)+'</a></p>':'')+
       (d.phone?'<p style="margin:10px 0"><a class="btn btn-outline" href="tel:'+esc(d.phone.replace(/[^0-9]/g,''))+'">📞 '+esc(d.phone)+'</a></p>':'')+
-      (gen?'<p style="margin:10px 0"><a class="btn btn-outline" href="mailto:'+esc(gen)+'">✉ '+esc(gen)+'</a></p>':'')+
+      (gen && gen!==d.email?'<p style="margin:10px 0"><a class="btn btn-outline" href="mailto:'+esc(gen)+'">✉ '+esc(gen)+'</a></p>':'')+
       (cfg.facebook?'<p style="margin:10px 0"><a class="btn btn-navy" href="'+esc(cfg.facebook)+'" target="_blank" rel="noopener">Follow on Facebook</a></p>':'')+
       '<p class="muted mt-5" style="font-size:var(--text-sm)">Each tournament has its own local director — see them all on the <a href="directors.html">Directors</a> page.</p>';
   })();
