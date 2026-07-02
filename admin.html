@@ -1180,7 +1180,7 @@
       '<div class="field-row"><div class="field"><label>Amount (USD)</label><input class="input" id="e_amt" value="'+((r.amount_cents||0)/100).toFixed(2)+'"></div>'+
       '<div class="field"><label>Card Last 4</label><input class="input" id="e_last4" value="'+esc(r.card_last4||'')+'"></div></div>'+
       '<div class="field"><label>CardConnect Ref (retref)</label><input class="input" id="e_order" value="'+esc(r.cc_retref||r.clover_order_id||'')+'"></div>'+
-      '<dl class="kv mt-5"><dt>Team Code</dt><dd>'+esc(r.team_code||'—')+'</dd>'+
+      '<dl class="kv mt-5"><dt>Team Code</dt><dd>'+(r.team_code?'<span class="copy-chip" data-cp="'+esc(r.team_code)+'" title="Click to copy">'+esc(r.team_code)+' ⧉</span>':'—')+'</dd>'+
         (r.registrant_email?'<dt>Registrant Email</dt><dd>'+esc(r.registrant_email)+'</dd>':'')+
         '<dt>Form</dt><dd>'+esc((FORMS.find(function(f){return f.id===r.form_id;})||{}).title||r.form_title||r.form_id||'—')+'</dd></dl>'+
       refund + qsDetails(r);
@@ -1429,7 +1429,7 @@
     document.getElementById('teamsBody').innerHTML = TEAMS.map(function(t){
       return '<tr'+(t.status==='archived'?' style="opacity:.55"':'')+'>'+
         '<td><b>'+esc(t.name)+'</b></td><td>'+esc(t.sport||'')+'</td><td>'+esc(t.division||'')+'</td><td>'+esc(t.age_class||'')+'</td>'+
-        '<td>'+esc(t.town||'')+'</td><td>'+esc(t.team_code||'')+'</td><td>'+(t.live?'🟢':'⚪')+'</td>'+
+        '<td>'+esc(t.town||'')+'</td><td>'+(t.team_code?'<span class="copy-chip" data-cp="'+esc(t.team_code)+'" title="Click to copy">'+esc(t.team_code)+' ⧉</span>':'')+'</td><td>'+(t.live?'🟢':'⚪')+'</td>'+
         '<td><div class="actions"><button class="icon-btn" data-roster="'+esc(t.slug||t.id)+'">✎ Roster</button><a class="icon-btn" href="team.html?id='+esc(t.slug||t.id)+'" target="_blank">View ↗</a>'+
           (canDel ? '<button class="icon-btn" data-tdel="'+esc(t.slug||t.id)+'" data-tname="'+esc(t.name||'')+'" style="color:var(--sts-red)">🗑 Delete</button>' : '')+
         '</div></td></tr>';
@@ -1489,6 +1489,8 @@
     btn.disabled=false; btn.textContent='Save changes';
   });
   document.getElementById('teamsBody').addEventListener('click', async function(e){
+    var cc=e.target.closest('.copy-chip');
+    if(cc){ navigator.clipboard && navigator.clipboard.writeText(cc.dataset.cp); var og=cc.style.background; cc.style.background='#DCFCE7'; setTimeout(function(){ cc.style.background=og||'#fff'; }, 900); return; }
     var b=e.target.closest('button[data-roster]');
     if(b){ var t=TEAMS.find(function(x){ return (x.slug||x.id)===b.dataset.roster; }); if(t) openRosterView(t); return; }
     var d=e.target.closest('button[data-tdel]');
