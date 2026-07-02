@@ -1264,7 +1264,7 @@
   document.getElementById('newFormBtn').addEventListener('click', function(){ openFormModal(null); });
   // Standard STSBT age divisions (the "Age as of 05/01" menu). Each form picks which
   // apply + sets a per-age entry fee. Custom labels (Open, Rec All-Star…) add as rows.
-  var AGE_DIVS = ['6U Modified CP','7U','8U Coach Pitch','8U Kid Pitch','9U','10U','11U','12U','13U','14U','15U','16U','17U','18U'];
+  var AGE_DIVS = ['6U Modified CP','7U Coach Pitch','8U Coach Pitch','8U Kid Pitch','9U','10U','11U','12U','13U','14U','15U','16U','17U','18U'];
   function apCustomRow(label, amt){
     return '<div class="ap-row ap-cust on"><input class="input ap-clbl" value="'+esc(label||'')+'" placeholder="Division name">'+
       '<span class="ap-amt-wrap">$<input class="input ap-amt" inputmode="decimal" value="'+esc(amt||'')+'" placeholder="0.00"></span>'+

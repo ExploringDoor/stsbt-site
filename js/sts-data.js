@@ -490,6 +490,9 @@ export async function createRegistration(data) {
     team_code: genTeamCode(), created_at: (isConfigured ? null : new Date().toISOString())
   }, data);
   rec.team_code = data.team_code || rec.team_code;
+  // Store coach_email canonicalized (lowercase) so the "lost your code" lookup, which
+  // queries lowercased, always matches regardless of how the coach typed it.
+  if (rec.coach_email) rec.coach_email = String(rec.coach_email).trim().toLowerCase();
   if (isConfigured) {
     rec.created_at = serverTimestamp();
     // sequential-ish entry number via a counter doc (best-effort)
@@ -604,7 +607,15 @@ export async function approvePlayer(slug, token) {
 }
 export function genApprovalToken() {
   var s = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', o = '';
-  for (var i = 0; i < 18; i++) o += s.charAt(Math.floor(Math.random() * s.length));
+  // Crypto-strong: this token is the sole secret that authorizes a guardian approval,
+  // so it must be unguessable (not Math.random). Fall back only if crypto is unavailable.
+  var C = (typeof crypto !== 'undefined' && crypto.getRandomValues) ? crypto : null;
+  if (C) {
+    var buf = new Uint32Array(18); C.getRandomValues(buf);
+    for (var i = 0; i < 18; i++) o += s.charAt(buf[i] % s.length);
+  } else {
+    for (var j = 0; j < 18; j++) o += s.charAt(Math.floor(Math.random() * s.length));
+  }
   return o;
 }
 export async function getRegistrationBySession(sessionId) {

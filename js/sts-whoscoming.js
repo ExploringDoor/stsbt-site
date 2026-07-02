@@ -71,7 +71,7 @@ export async function comingTeams(form){
         [g.away, g.home].forEach(function(nm){
           if (!nm || /^(WG|LG)-\d+$/i.test(String(nm)) || /^Seed\s*\d+$/i.test(String(nm)) || /^(tbd|bye)$/i.test(String(nm))) return;
           var k = String(nm).toLowerCase(); if (seen[k]) return; seen[k] = 1;
-          out.push({ name: nm, division: g.division || '', age_class: g.division || '', live: true, slug: wslug(nm), confirmed: false });
+          out.push({ name: nm, division: g.division || '', age_class: '', live: true, slug: wslug(nm), confirmed: false });
         });
       });
     } catch(e){}

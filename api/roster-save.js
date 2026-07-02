@@ -103,9 +103,10 @@ export default async function handler(req, res) {
     // Public roster (NO dob — birthdates are minors' PII and the teams collection is
     // world-readable). age51 = derived age at the May 1 cutoff (Keith shows this
     // publicly for eligibility); pid lets the player page match a kid across teams.
+    // approval_token is deliberately NOT included — it authorizes guardian approval and
+    // must stay in the gated team_rosters doc only (public copy = forgeable consent + name leak).
     const pub = full.map(p => ({ num: p.num, name: p.name, grade: p.grade, guest: p.guest, pid: p.pid, age51: ageAsOfMay1(p.dob),
       ...(p.guest_events ? { guest_events: p.guest_events } : {}),
-      ...(p.approval_token ? { approval_token: p.approval_token } : {}),
       ...(p.approved ? { approved: true } : {}) }));
 
     // ── Eligibility (Keith's rules) ──────────────────────────────────────────

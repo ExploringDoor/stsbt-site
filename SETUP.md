@@ -140,7 +140,7 @@ event's entries → denied · director writing `admins/*` → denied.
 2. **Remove the password wall** — delete the `SITE_GATE` env var in Vercel **and** delete
    `middleware.js`. It gates the **entire** site including `/api/*`, so real teams (and your
    own API checks) can't get through while it's up.
-3. **Seed the live forms** — the **2027 Fall/Spring** season Team Registration forms must
+3. **Seed the live forms** — the **Fall 2026/Spring 2027** season Team Registration forms must
    exist in Firestore. Build them in `admin.html` → **Forms** (they currently exist only as
    demo samples). Set the real fee + `active:true`.
 4. **Delete test data** — remove any sandbox leftovers (e.g. a "ZZ Payment Test" entry) so

@@ -40,6 +40,10 @@ const APPROVAL_SAMPLE = {
 };
 
 export default async function handler(req, res) {
+  // Debug tool: only reachable while the site is still password-gated in preview.
+  // When SITE_GATE is removed at launch this self-disables, so it can never become
+  // a public open email relay (send-to-anyone). Delete this file entirely if unused.
+  if (!process.env.SITE_GATE) return res.status(404).json({ error: 'not_found' });
   const url = new URL(req.url, 'https://x');
   const to = url.searchParams.get('to') || adminAddress();
   const type = (url.searchParams.get('type') || 'all').toLowerCase();

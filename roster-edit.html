@@ -210,7 +210,7 @@
     if(c){ var i=+c.dataset.copy, p=roster[i]; if(!(p.guardian_email||'').trim()) return; if(!p.approval_token) p.approval_token=STS.genApprovalToken();
       var link=location.origin+'/approve.html?team='+encodeURIComponent(TEAM.slug||TEAM.id)+'&t='+p.approval_token;
       try{ navigator.clipboard.writeText(link); }catch(_){}
-      c.textContent='✓ Copied — now Save'; setTimeout(function(){ c.textContent='🔗 Copy approval link'; }, 2200); return; }
+      c.textContent='✓ Copied — now Save'; setTimeout(function(){ c.textContent='🔗 Copy link'; }, 2200); return; }
     var b=e.target.closest('[data-del]'); if(!b) return; roster.splice(+b.dataset.del,1); if(!roster.length) roster.push({num:'',name:'',dob:'',grade:''}); renderRows();
   });
   document.getElementById('addRow').addEventListener('click', function(){ roster.push({num:'',name:'',dob:'',grade:''}); renderRows(); });

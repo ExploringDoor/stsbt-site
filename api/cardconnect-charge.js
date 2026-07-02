@@ -64,7 +64,10 @@ export default async function handler(req, res) {
     if (reg.payment_status === 'paid') return res.status(200).json({ ok: true, idempotent: true });
 
     const form = reg.form_id ? await fsGet(`forms/${reg.form_id}`) : null;
-    const cents = expectedCents(form, reg) || reg.amount_cents || 0;
+    // Pay-the-director events never take an online card charge — reject a direct POST.
+    if (form && form.online_pay === false) return res.status(400).json({ error: 'This event is paid directly to the tournament director, not online.' });
+    // Authoritative price ONLY — never fall back to the client-supplied amount (undercharge guard).
+    const cents = expectedCents(form, reg);
     if (cents <= 0) return res.status(400).json({ error: 'Nothing to charge for this entry.' });
     const amount = (cents / 100).toFixed(2);
 

@@ -33,10 +33,10 @@ export function publicRoster(roster) {
     guest: !!p.guest,
     age51: ageAsOfMay1(String(p.dob || '')),
     ...(p.pid ? { pid: p.pid } : {}),
-    // approval status + opaque token are NOT PII (the parent already holds the token in
-    // their link); keep them on the public doc so the approve page can match the player.
-    // Guardian email stays OUT (PII) — it only lives in the gated team_rosters doc.
-    ...(p.approval_token ? { approval_token: p.approval_token } : {}),
+    // The approval_token must NEVER go on the public teams doc: it is the sole secret that
+    // authorizes a guardian approval, and /api/approve matches it against the GATED
+    // team_rosters doc — so a public copy would let anyone forge consent + read the minor's
+    // name. Only the approved FLAG (safe) is mirrored publicly. Guardian email stays gated too.
     ...(p.approved ? { approved: true } : {}),
   }));
 }
