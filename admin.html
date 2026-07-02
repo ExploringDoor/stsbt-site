@@ -1358,6 +1358,7 @@
         '<div class="ap-bulk"><span class="muted" style="font-size:var(--text-sm)">Same fee for all?</span> $<input class="input ap-amt" id="f_bulk" inputmode="decimal" placeholder="125.00"> <button type="button" class="btn btn-outline" id="f_bulkApply" style="padding:6px 12px;font-size:var(--text-sm)">Apply to checked</button></div>'+
         apGridHTML(f.price_options)+
         '<button type="button" class="btn btn-outline" id="f_addCustom" style="padding:6px 12px;font-size:var(--text-sm);margin-top:10px">+ Add custom division</button></div>'+
+      '<div class="field"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500"><input type="checkbox" id="f_online_pay" style="margin-top:3px"'+(f.online_pay!==false?' checked':'')+'><span>Collect payment <strong>online</strong> at registration <span class="muted">(uncheck for pay-the-director events — teams register without paying online, and a director marks them paid in Entries)</span></span></label></div>'+
       '<div class="field"><label>Waiver Text <span class="muted">(coaches agree to this at registration)</span></label><textarea class="input" id="f_waiver" style="min-height:130px">'+esc(waiverVal)+'</textarea></div>';
     apWireGrid();
     // divisions: toggle chip styling + re-render the list when the sport changes
@@ -1394,7 +1395,7 @@
       var ag = document.getElementById('f_askage'); f.ask_team_age = !!(ag && ag.checked);
       f.convenience_fee_cents = Math.round(parseFloat(val('f_conv')||'0')*100);
       f.price_options = apCollect();
-      f.waiver_text = val('f_waiver');
+      f.waiver_text = val('f_waiver'); f.online_pay = document.getElementById('f_online_pay').checked;
       if (isNew) f.active = true;
       await STS.saveForm(f);
       FORMS = await STS.loadFormsScoped(ME, { includeInactive: true });

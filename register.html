@@ -562,9 +562,16 @@
         if (FORM.type !== 'product') {
           try { fetch('/api/notify-registration', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ event:'confirm', registration: payload }) }); } catch(_){}
         }
-        if (amount > 0) {
+        if (amount > 0 && FORM.online_pay !== false) {
           // Embedded CardConnect payment — reveal the secure card panel; charge on Pay.
           openPayment(res, data, amount);
+          return;
+        }
+        if (amount > 0) {
+          // Pay-the-director event (online payment turned off): entry is recorded UNPAID;
+          // a director marks it paid in Admin (which creates the team). Notify admin now.
+          try { fetch('/api/notify-registration', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ event:'submitted', registration: payload }) }); } catch(_){}
+          location.href = thanksUrl(res, data, 'pending');
           return;
         }
         // FREE ($0) entry — final right now (no payment step). Create the team page

@@ -60,7 +60,7 @@ export default async function handler(req, res) {
 async function writeActivity(event, r) {
   if (!fbConfigured()) return;
   const isInsurance = event === 'insurance' || /insurance/i.test(r.form_title || r.form_id || '');
-  const type = event === 'roster' ? 'roster' : event === 'order' ? 'order' : isInsurance ? 'insurance' : (Number(r.amount_cents) ? 'payment' : 'registration');
+  const type = event === 'roster' ? 'roster' : event === 'order' ? 'order' : isInsurance ? 'insurance' : (r.payment_status === 'paid' ? 'payment' : 'registration');
   const team = r.team_name || '';
   let title, detail;
   if (type === 'roster') { const a = (r.added || []).length, d = (r.removed || []).length; title = `${team} roster updated`; detail = [a ? a + ' added' : '', d ? d + ' removed' : ''].filter(Boolean).join(', ') || 'saved'; }
@@ -96,10 +96,12 @@ export function buildMessage(event, r) {
   const site = process.env.SITE_URL || 'https://ststournaments.com';
   const team = r.team_name || 'Team';
   const submitted = fmtWhen(r.created_at || r.submitted_at || r.paid_at);
+  const paid = r.payment_status === 'paid';
   const isFree = (r.payment_status === 'free') || !Number(r.amount_cents);   // $0 season reg
+  const due = !paid && !isFree;   // pay-the-director: registered, fee owed offline
 
-  const kind = isFree ? 'submitted' : 'paid';
-  const title = isFree ? 'New Team Registered' : 'Paid Registration';
+  const kind = paid ? 'paid' : 'submitted';
+  const title = paid ? 'Paid Registration' : (due ? 'New Registration — Payment Due' : 'New Team Registered');
   const rows = [
     ['Team', team],
     ['Date submitted', submitted],
@@ -108,13 +110,13 @@ export function buildMessage(event, r) {
     ['Coach', [r.coach_name, r.coach_phone, r.coach_email].filter(Boolean).join('  ·  ')],
     ['Town', r.town || ''],
     ['Entry #', r.entry_no || ''],
-    ['Amount', isFree ? 'Free' : money(r.amount_cents)],
-    !isFree ? ['Card', r.card_last4 ? '•••• ' + r.card_last4 : ''] : null,
-    !isFree ? ['CC Ref', r.cc_retref || r.clover_order_id || ''] : null,
+    ['Amount', isFree ? 'Free' : money(r.amount_cents) + (due ? ' — DUE (pay the director)' : '')],
+    paid ? ['Card', r.card_last4 ? '•••• ' + r.card_last4 : ''] : null,
+    paid ? ['CC Ref', r.cc_retref || r.clover_order_id || ''] : null,
   ].filter(Boolean).filter((x) => x[1] !== '' && x[1] != null);
 
   return {
-    subject: `STS: ${isFree ? 'Registered' : 'PAID'} — ${team}${r.age_class ? ' (' + r.age_class + ')' : ''}`,
+    subject: `STS: ${paid ? 'PAID' : (due ? 'DUE' : 'Registered')} — ${team}${r.age_class ? ' (' + r.age_class + ')' : ''}`,
     text: rows.map((x) => x[0] + ': ' + x[1]).join('\n'),
     html: shell(kind, title, rowList(rows), `${site}/admin.html`, 'Open Admin'),
   };
