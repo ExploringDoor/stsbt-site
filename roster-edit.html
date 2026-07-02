@@ -77,10 +77,10 @@
       <div class="field"><label>Insurance carrier</label><input class="input" id="insCarrier" placeholder="e.g. K&amp;K Insurance, Sadler Sports…"></div>
       <div class="field"><label>Policy number</label><input class="input" id="insPolicy" placeholder="Policy #"></div>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
-        <div class="field" style="flex:1;min-width:150px"><label>Coverage start</label><input class="input" type="date" id="insStart"></div>
-        <div class="field" style="flex:1;min-width:150px"><label>Coverage end</label><input class="input" type="date" id="insEnd"></div>
+        <div class="field" style="flex:1;min-width:150px"><label for="insStart">Coverage start</label><input class="input" type="date" id="insStart"></div>
+        <div class="field" style="flex:1;min-width:150px"><label for="insEnd">Coverage end</label><input class="input" type="date" id="insEnd"></div>
       </div>
-      <div class="field"><label>Certificate of Insurance (PDF)</label><input class="input" type="file" id="insFile" accept="application/pdf"><div class="form-note" style="font-size:var(--text-xs)" id="insFileNote">Optional now, required before your first game. PDF up to 3&nbsp;MB.</div></div>
+      <div class="field"><label for="insFile">Certificate of Insurance (PDF)</label><input class="input" type="file" id="insFile" accept="application/pdf"><div class="form-note" style="font-size:var(--text-xs)" id="insFileNote">Optional now, required before your first game. PDF up to 3&nbsp;MB.</div></div>
       <button class="btn btn-navy" id="insSubmit">Submit for review</button>
       <div id="insMsg" class="notice hidden mt-4"></div>
     </div>

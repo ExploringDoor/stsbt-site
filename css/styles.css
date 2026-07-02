@@ -15,7 +15,7 @@
   --sts-gold:      #C9A227;
   --sts-white:     #FFFFFF;
   --sts-ink:       #0F172A;
-  --sts-muted:     #64748B;
+  --sts-muted:     #556575;
   --sts-paper:     #F7F8FA;
   --sts-line:      #E5E7EB;
   --sts-sub:       #F1F3F6;
@@ -89,7 +89,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-6) 0; }
 /* ── Top nav (frosted) ─────────────────────────────────────────────── */
 .nav {
   position: sticky; top: 0; z-index: 40;
-  background: rgba(0, 45, 114, 0.72);
+  background: rgba(0, 45, 114, 0.88);
   -webkit-backdrop-filter: blur(14px) saturate(1.4);
   backdrop-filter: blur(14px) saturate(1.4);
   color: var(--sts-white);
@@ -104,7 +104,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-6) 0; }
 /* the real logo is a transparent PNG — show just the ball, no white circle/ring */
 img.nav-crest { width: 62px; height: 62px; border-radius: 0; background: transparent; box-shadow: none; object-fit: contain; }
 .nav-brand .name-block { display: flex; flex-direction: column; line-height: 1.05; }
-.nav-brand .name-block .sub { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+.nav-brand .name-block .sub { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: rgba(255,255,255,.88); }
 .nav-links { list-style: none; display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: 0; }
 .nav-links a { color: rgba(255,255,255,.9); font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-size: var(--text-sm); font-weight: 500; padding: 8px 12px; border-radius: 6px; text-decoration: none; transition: background .12s ease, color .12s ease; }
 .nav-links a:hover { background: rgba(255,255,255,.14); color: #fff; text-decoration: none; }
@@ -497,7 +497,7 @@ a.who-team:hover .twn, a.who-team:hover .who-go { color: var(--sts-red); }
 .bk-when { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; }
 .bk-frow { display:flex; align-items:center; justify-content:space-between; gap:6px; }
 .bk-field { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; min-width:0; }
-.bk-cue { flex-shrink:0; font-family:var(--font-display); font-weight:700; font-size:9px; letter-spacing:.05em; text-transform:uppercase; color:var(--sts-navy); opacity:.55; transition:opacity .15s ease; }
+.bk-cue { flex-shrink:0; font-family:var(--font-display); font-weight:700; font-size:9px; letter-spacing:.05em; text-transform:uppercase; color:var(--sts-navy); opacity:.78; transition:opacity .15s ease; }
 .bk-match { cursor:pointer; }
 .bk-match:hover .bk-cue { opacity:1; }
 .bk-tlink { color:inherit; text-decoration:none; cursor:pointer; }
