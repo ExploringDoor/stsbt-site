@@ -6,11 +6,11 @@
 //   /api/email-test?type=roster     → just the "roster" one
 //   /api/email-test?to=me@x.com     → send to a specific inbox instead of ADMIN_EMAIL
 //
-// types: confirm | paid | order | insurance | roster | approval | all
+// types: confirm | paid | order | insurance | roster | approval | recover | all
 // Env: SENDGRID_API_KEY, MAIL_FROM, ADMIN_EMAIL (see api/_email.js).
 
 import { sendMail, emailConfigured, adminAddress } from './_email.js';
-import { buildMessage, buildCoachMessage, buildInsuranceMessage, buildMerchMessage, buildRosterMessage, buildApprovalMessage } from './notify-registration.js';
+import { buildMessage, buildCoachMessage, buildInsuranceMessage, buildMerchMessage, buildRosterMessage, buildApprovalMessage, buildCodeRecoveryMessage } from './notify-registration.js';
 
 const SAMPLE = {
   team_name: 'Brownwood Bandits', form_id: 'season-baseball',
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
   if (!to) return res.status(200).json({ ok: false, reason: 'No recipient — set ADMIN_EMAIL or pass ?to=you@email.com' });
 
   // confirm=coach code · paid=admin alert · order=merch · insurance=carrier req · roster=change notice
-  const types = type === 'all' ? ['confirm', 'paid', 'order', 'insurance', 'roster', 'approval'] : [type];
+  const types = type === 'all' ? ['confirm', 'paid', 'order', 'insurance', 'roster', 'approval', 'recover'] : [type];
   const results = [];
   for (const t of types) {
     const data = t === 'insurance' ? INSURANCE_SAMPLE : t === 'order' ? MERCH_SAMPLE : t === 'roster' ? ROSTER_SAMPLE : t === 'approval' ? Object.assign({}, APPROVAL_SAMPLE, { guardian_email: to }) : SAMPLE;
@@ -57,6 +57,7 @@ export default async function handler(req, res) {
       : t === 'order' ? buildMerchMessage(data)
       : t === 'roster' ? buildRosterMessage(data)
       : t === 'approval' ? buildApprovalMessage(data)
+      : t === 'recover' ? buildCodeRecoveryMessage([SAMPLE, Object.assign({}, SAMPLE, { team_name: 'Brownwood Bandits 10U', age_class: '10U', team_code: 'BAND0' })])
       : buildMessage(t, data);
     try {
       await sendMail({ to, subject: '[TEST] ' + msg.subject, html: msg.html, text: msg.text });

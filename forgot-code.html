@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#002D72" />
+<title>Lost Your Team Code · Small Town Select Tournaments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="config.js"></script>
+<link rel="stylesheet" href="css/styles.css?v=9" />
+</head>
+<body>
+
+<div id="sts-nav"></div>
+
+<header class="reg-hero" style="background:linear-gradient(180deg,#00224f,#001a3d);color:#fff;padding:var(--space-7) 0">
+  <div class="container narrow">
+    <div class="eyebrow" style="color:var(--gold)">Coach Tools</div>
+    <h1 style="color:#fff;margin:0">Lost Your Team Code?</h1>
+    <p style="color:rgba(255,255,255,.85);margin:8px 0 0">Enter the email you registered with and we'll send your team code to that address.</p>
+  </div>
+</header>
+
+<main class="container narrow section">
+  <div id="fcForm" class="form-wrap">
+    <div class="card">
+      <div class="field"><label>Email on your registration <span class="req">*</span></label><input class="input" id="fcEmail" type="email" placeholder="name@email.com" autocomplete="email" /></div>
+      <div class="field"><label>Team name <span class="muted" style="font-weight:400">(optional)</span></label><input class="input" id="fcTeam" placeholder="e.g. Clyde Bulldogs" /></div>
+      <button class="btn btn-navy" id="fcSend" style="width:100%">Email My Team Code</button>
+      <div id="fcErr" class="notice notice-warn hidden mt-5"></div>
+      <p class="form-note mt-5">For your security, the code is only ever sent to the email already on file for the team — never shown here.</p>
+    </div>
+  </div>
+
+  <div id="fcDone" class="form-wrap hidden">
+    <div class="card" style="text-align:center">
+      <div style="width:64px;height:64px;border-radius:50%;background:#DCFCE7;color:#166534;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto var(--space-4)">✓</div>
+      <h2 style="margin:0 0 6px">Check your email</h2>
+      <p class="muted">If that email matches a team on file, your team code is on its way. It can take a couple of minutes — remember to check spam.</p>
+      <div class="stack-3 mt-5">
+        <a class="btn btn-outline" href="index.html" style="width:100%">Back to Home</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="sts-footer"></div>
+
+<script src="js/sts-chrome.js"></script>
+<script>
+  (function(){
+    var emailEl = document.getElementById('fcEmail');
+    var teamEl = document.getElementById('fcTeam');
+    var btn = document.getElementById('fcSend');
+    var err = document.getElementById('fcErr');
+    function showDone(){ document.getElementById('fcForm').classList.add('hidden'); document.getElementById('fcDone').classList.remove('hidden'); }
+
+    async function submit(){
+      var email = (emailEl.value || '').trim();
+      var team = (teamEl.value || '').trim();
+      err.classList.add('hidden');
+      if (!/.+@.+\..+/.test(email)){ err.textContent = 'Enter the email you registered with.'; err.classList.remove('hidden'); emailEl.focus(); return; }
+      btn.disabled = true; btn.textContent = 'Sending…';
+      try {
+        await fetch('/api/recover-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: email, team: team }) });
+      } catch(_){ /* the response is generic either way — always land on the same screen */ }
+      // Always show the same confirmation, whether or not a match exists (no enumeration).
+      showDone();
+    }
+
+    btn.addEventListener('click', submit);
+    emailEl.addEventListener('keydown', function(e){ if(e.key==='Enter') submit(); });
+    teamEl.addEventListener('keydown', function(e){ if(e.key==='Enter') submit(); });
+  })();
+</script>
+</body>
+</html>

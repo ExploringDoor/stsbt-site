@@ -236,6 +236,39 @@ export function buildCoachMessage(r) {
   };
 }
 
+// ── COACH team-code RECOVERY — re-send code(s) to the email already on file ──
+// `teams` = [{ team_name, team_code, age_class, team_id, form_title }]
+export function buildCodeRecoveryMessage(teams) {
+  const site = process.env.SITE_URL || 'https://ststournaments.com';
+  const list = (teams || []);
+  const many = list.length > 1;
+  const rows = list.map((t) => {
+    const code = t.team_code || '';
+    const slug = t.team_id || teamSlug(t.team_name, t.age_class);
+    const manage = `${site}/roster-edit.html?id=${encodeURIComponent(slug)}${code ? `&code=${encodeURIComponent(code)}` : ''}`;
+    return `<div style="border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin:10px 0">
+        <div style="font-weight:700;color:#0f172a">${esc(t.team_name || 'Your team')}${t.age_class ? ` <span style="color:#64748b;font-weight:400">· ${esc(t.age_class)}</span>` : ''}</div>
+        <div style="text-align:center;background:#00224f;border-radius:8px;padding:12px;margin:10px 0 4px">
+          <div style="color:rgba(255,255,255,.7);font-size:11px;letter-spacing:.12em;text-transform:uppercase">Team Code</div>
+          <div style="color:#f6c453;font-size:26px;font-weight:800;letter-spacing:.18em;font-family:Oswald,system-ui,sans-serif">${esc(code)}</div>
+        </div>
+        <a href="${esc(manage)}" style="color:#002D72;font-size:13px">Manage this team →</a>
+      </div>`;
+  }).join('');
+  const first = list[0] || {};
+  const oneSlug = first.team_id || teamSlug(first.team_name, first.age_class);
+  const oneManage = `${site}/roster-edit.html?id=${encodeURIComponent(oneSlug)}${first.team_code ? `&code=${encodeURIComponent(first.team_code)}` : ''}`;
+  const body =
+    `<div>Here ${many ? 'are the team codes' : 'is the team code'} for the ${many ? 'teams' : 'team'} registered under this email.</div>` +
+    rows +
+    `<div style="margin-top:6px;color:#64748b;font-size:13px">Use your team code to sign in and manage your roster. If you didn't request this, you can safely ignore this email.</div>`;
+  return {
+    subject: `Your team code${many ? 's' : ''} — Small Town Select`,
+    text: `Team code${many ? 's' : ''}:\n` + list.map((t) => `${t.team_name}${t.age_class ? ' (' + t.age_class + ')' : ''}: ${t.team_code}`).join('\n'),
+    html: shell('submitted', many ? 'Your Team Codes' : 'Your Team Code', body, many ? '' : oneManage, 'Manage Your Team'),
+  };
+}
+
 // ── PARENT/GUARDIAN one-click approval request ───────────────────────
 export function buildApprovalMessage(r) {
   const site = process.env.SITE_URL || 'https://ststournaments.com';
