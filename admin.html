@@ -1162,13 +1162,15 @@
   function openEntryModal(r){
     document.getElementById('emTitle').textContent = 'Entry #' + (r.entry_no||'') + ' — ' + (r.team_name||'');
     var refRef = r.cc_retref || r.clover_order_id || '';
-    var refund = (r.payment_status==='paid') ? (
-      '<div class="refund-help"><b>Refund helper</b><div class="muted" style="font-size:var(--text-xs);margin:4px 0 8px">Match these in CardPointe to issue a refund.</div>'+
-      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
-        '<span class="copy-chip" data-cp="'+esc(r.card_last4||'')+'">•••• '+esc(r.card_last4||'—')+'</span>'+
-        '<span class="copy-chip" data-cp="'+esc(refRef)+'">Ref '+esc(refRef||'—')+'</span>'+
-        '<a class="btn btn-outline btn-sm" href="https://cardpointe.cardconnect.com/account" target="_blank" rel="noopener">Open CardPointe ↗</a>'+
-      '</div></div>') : '';
+    var isCardPay = !!(r.card_last4 || refRef);   // an online card payment leaves a card last-4 + gateway ref
+    var refund = (r.payment_status!=='paid') ? '' : ( isCardPay
+      ? '<div class="refund-help"><b>Refund helper</b><div class="muted" style="font-size:var(--text-xs);margin:4px 0 8px">Paid online by card — match these in CardPointe to issue the refund.</div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+          '<span class="copy-chip" data-cp="'+esc(r.card_last4||'')+'">•••• '+esc(r.card_last4||'—')+'</span>'+
+          '<span class="copy-chip" data-cp="'+esc(refRef)+'">Ref '+esc(refRef||'—')+'</span>'+
+          '<a class="btn btn-outline btn-sm" href="https://cardpointe.cardconnect.com/account" target="_blank" rel="noopener">Open CardPointe ↗</a>'+
+        '</div></div>'
+      : '<div class="refund-help"><b>Refund helper</b><div class="muted" style="font-size:var(--text-xs);margin:4px 0">Paid the director'+(r.paid_method?' via '+esc(r.paid_method):' directly')+' — this was <b>not</b> an online card payment, so there\'s nothing to refund in CardPointe. Refund it the same way you were paid.</div></div>' );
     document.getElementById('emBody').innerHTML =
       '<div class="field-row"><div class="field"><label>Team Name</label><input class="input" id="e_team" value="'+esc(r.team_name||'')+'"></div>'+
       '<div class="field"><label>Division</label><input class="input" id="e_div" value="'+esc(r.division||'')+'"></div></div>'+
